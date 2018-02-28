@@ -2,11 +2,15 @@ cmake_minimum_required(VERSION 3.4)
 
 project("SimpleEngine" C CXX)
 
+set(CMAKE_CXX_STANDARD 17)
+
 include("functions.cmake")
 
 option(SIMPLEENGINE_TESTING "SimpleEngine tests" ON)
 
 add_subdirectory("include")
+
+add_subdirectory("thirdparty")
 
 if(SIMPLEENGINE_TESTING)
 	set_property(GLOBAL PROPERTY USE_FOLDERS ON)
