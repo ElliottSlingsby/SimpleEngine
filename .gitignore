@@ -1,2 +1,6 @@
 bin/*
 build/*
+thirdparty/*
+
+!thirdparty/CMakeLists.txt
+!thirdparty/glcore_46

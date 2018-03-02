@@ -2,8 +2,6 @@
 #include <EventHandler.hpp>
 
 #include <iostream>
-#include <chrono>
-#include <thread>
 
 /*
 
@@ -19,32 +17,26 @@
 
 */
 
-
-
 using EventHandler = SimpleEngine::EventHandler<16, 16>;
+using EntityManger = SimpleEngine::EntityManager<16>;
 
 struct Vec3 {
-	float x;
-	float y;
-	float z;
+	float x = 0.f;
+	float y = 0.f;
+	float z = 0.f;
 };
 
 struct Quat {
-	float w;
-	float x;
-	float y;
-	float z;
+	float w = 1.f;
+	float x = 0.f;
+	float y = 0.f;
+	float z = 0.f;
 };
 
 struct Transform {
-	Vec3 position = { 0.f, 0.f, 0.f };
+	Vec3 position;
 	Vec3 scale = { 1.f, 1.f, 1.f };
-	Quat rotation = { 1.f, 0.f, 0.f, 0.f };
-};
-
-struct Velocity {
-	Vec3 position = { 0.f, 0.f, 0.f };
-	Quat rotation = { 1.f, 0.f, 0.f, 0.f };
+	Quat rotation;
 };
 
 struct TestObject {
@@ -52,131 +44,106 @@ struct TestObject {
 	bool b = false;
 	char c[8] = "Hello";
 
-	TestObject() {
+	TestObject() {}
 
-	}
-
-	~TestObject() {
-
-	}
+	~TestObject() {}
 };
-
-using Clock = std::chrono::high_resolution_clock;
-
-template <typename T = double>
-inline T seconds(const Clock::duration& duration) {
-	return std::chrono::duration_cast<std::chrono::duration<T>>(duration).count();
-}
-
-inline void start(Clock::time_point* point) {
-	*point = Clock::now();
-}
-
-inline void end(Clock::time_point* point, std::string prefix = "") {
-	std::cout << prefix << seconds(Clock::now() - *point) * 1000.0 << " ms" << std::endl;
-}
 
 enum Events {
-	Load,
-	Update,
+	Load = 0,
+	Update = 1,
 };
 
-class System0 {
+//typedef Load;
+
+class System {
 	EventHandler& _eventHandler;
 
 public:
-	System0(EventHandler* eventHandler) : _eventHandler(*eventHandler) {
-		_eventHandler.subscribe(this, Events::Update, &System0::update);
+	System(EventHandler* eventHandler) : _eventHandler(*eventHandler) {
+		_eventHandler.subscribe(this, Events::Load, &System::load);
+		_eventHandler.subscribe(this, Events::Update, &System::update);
 	}
 
-	void update(double dt) {	}
-};
-
-class System1 {
-	EventHandler& _eventHandler;
-
-public:
-	System1(EventHandler* eventHandler) : _eventHandler(*eventHandler) {
-		_eventHandler.subscribe(this, Events::Update, &System1::update);
+	void load(int argc, char** argv) {
+		//std::cout << "hello";
 	}
 
-	void update(double dt) {	}
+	void update(double dt) {
+		//std::cout << "hello";
+	}
 };
 
-class System2 {
-	EventHandler& _eventHandler;
-
-public:
-	System2(EventHandler* eventHandler) : _eventHandler(*eventHandler) {
-		_eventHandler.subscribe(this, Events::Update, &System2::update);
+void test(std::vector<uint64_t>* ids, EventHandler* eventHandler, EntityManger* entityManager) {
+	// Event dispatching
+	for (uint64_t& id : *ids) {
+		eventHandler->dispatch(Events::Update, 0.0);
 	}
 
-	void update(double dt) {	}
-};
+	// Creating
+	for (uint64_t& id : *ids) {
+		id = entityManager->create();
+		entityManager->add<TestObject>(id);
+		entityManager->add<Transform>(id);
+	}
+
+	// Iterating
+	entityManager->iterate<TestObject, Transform>([&](uint32_t index, auto& testObject, auto& transform) {
+
+	});
+
+	// Erasing
+	for (uint64_t& id : *ids) {
+		entityManager->erase(id);
+	}
+}
 
 int main(int argc, char** argv) {
-	// Event Handler
 	EventHandler* eventHandler = new EventHandler();
+	EntityManger* entityManager = new EntityManger(1024 * 1024 * 128); // 128 MB
 
-	// Entity manager
-	EntityManager<16>* entityManager = new EntityManager<16>(1024 * 1024 * 128); // 128 MB
+	entityManager->reserve<TestObject, Transform>(100000); // 1M
 
-	entityManager->reserve<TestObject, Transform>(1000000); // 1M
-
-	System0 system0(eventHandler);
-	System1 system1(eventHandler);
-	System2 system2(eventHandler);
+	System system0(eventHandler);
+	System system1(eventHandler);
+	System system2(eventHandler);
 
 	std::vector<uint64_t> ids;
-	ids.resize(1000000);
+	ids.resize(100000);
 
-	Clock::time_point point;
+	std::vector<double> averageArray;
+	averageArray.resize(10);
+	uint32_t currentAverage = 0;
 
-	while (1) {
-		// Event dispatching
-		start(&point);
-		
-		for (uint64_t& id : ids) {
-			eventHandler->dispatch(Events::Update, 0.0);
-		}
-		
-		end(&point, "Events\t\t");
-		
-		// Creating
-		start(&point);
+	TimePoint frameTime;
 
-		for (uint64_t& id : ids) {
-			id = entityManager->create();
-			entityManager->add<TestObject>(id);
-			entityManager->add<Transform>(id);
-		}
-
-		end(&point, "Creating\t");
-
-		// Iterating
-		start(&point);
-
-		entityManager->iterate<TestObject, Transform>([&](uint32_t index, auto& testObject, auto& transform) {
-
-		});
-
-		end(&point, "Iterating\t");
-
-		// Erasing
-		start(&point);
-
-		for (uint64_t& id : ids) {
-			entityManager->erase(id);
-		}
-
-		end(&point, "Erasing\t\t");
-
-		std::cout << std::endl;
-
-		std::this_thread::sleep_for(std::chrono::milliseconds(50));
-		system("cls");		
+	for (uint32_t i = 0; i < averageArray.size(); i++) {
+		averageArray[i] = 144.0;
 	}
 
-	entityManager->clear();
+	while (1) {
+		startTime(&frameTime);
+
+		test(&ids, eventHandler, entityManager);
+
+		averageArray[currentAverage] = 1.0 / deltaTime(frameTime);
+		currentAverage++;
+
+		if (currentAverage >= averageArray.size())
+			currentAverage = 0;
+
+		double average = 0.0;
+		for (double i : averageArray) {
+			average += i;
+		}
+
+		average /= averageArray.size();
+
+		std::cout << "Total - " << average << " fps" << std::endl;
+	}
+
+	delete entityManager;
+	delete eventHandler;
+
 	return 0;
 }

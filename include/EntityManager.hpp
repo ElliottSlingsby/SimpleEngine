@@ -10,13 +10,15 @@
 #include <vector>
 #include <tuple>
 
+namespace SimpleEngine {
+
 template <uint32_t typeWidth>
 class EntityManager {
 	using TypeMask = TypeMask<typeWidth>;
 
 	struct Identity {
 		enum Flags : uint8_t {
-			None = 0x00,
+			Empty = 0x00,
 			Active = 0x01,
 			Enabled = 0x02,
 			Erased = 0x04,
@@ -37,7 +39,7 @@ class EntityManager {
 	std::vector<Identity> _identities;
 	std::vector<uint32_t> _freeIndexes;
 
-	void _split(uint64_t id, uint32_t* index, uint32_t* version) const;
+	void _safeSplit(uint64_t id, uint32_t* index, uint32_t* version) const;
 
 	void _erase(uint32_t index);
 
@@ -92,7 +94,7 @@ public:
 };
 
 template <uint32_t typeWidth>
-void EntityManager<typeWidth>::_split(uint64_t id, uint32_t* index, uint32_t* version) const {
+void EntityManager<typeWidth>::_safeSplit(uint64_t id, uint32_t* index, uint32_t* version) const {
 	assert(index && version);
 
 	*index = front64(id);
@@ -196,7 +198,7 @@ void EntityManager<typeWidth>::erase(uint64_t id) {
 	uint32_t index;
 	uint32_t version;
 
-	_split(id, &index, &version);
+	_safeSplit(id, &index, &version);
 
 	_erase(index);
 }
@@ -207,7 +209,7 @@ T& EntityManager<typeWidth>::get(uint64_t id) {
 	uint32_t index;
 	uint32_t version;
 
-	_split(id, &index, &version);
+	_safeSplit(id, &index, &version);
 
 	assert(_pools[TypeMask::index<T>()] != nullptr); // sanity
 	assert(hasFlags(_identities[index].flags, Identity::Active)); // sanity
@@ -222,7 +224,7 @@ void EntityManager<typeWidth>::add(uint64_t id, Ts... args) {
 	uint32_t index;
 	uint32_t version;
 
-	_split(id, &index, &version);
+	_safeSplit(id, &index, &version);
 
 	assert(hasFlags(_identities[index].flags, Identity::Active)); // sanity
 	assert(!_identities[index].mask.has<T>() && "entity component already exists");
@@ -241,7 +243,7 @@ void EntityManager<typeWidth>::remove(uint64_t id) {
 	uint32_t index;
 	uint32_t version;
 
-	_split(id, &index, &version);
+	_safeSplit(id, &index, &version);
 
 	assert(_pools[TypeMask::index<T>()] != nullptr); // sanity
 	assert(hasFlags(_identities[index].flags, Identity::Active)); // sanity
@@ -258,7 +260,7 @@ bool EntityManager<typeWidth>::has(uint64_t id) const {
 	uint32_t index;
 	uint32_t version;
 
-	_split(id, &index, &version);
+	_safeSplit(id, &index, &version);
 
 	if (!hasFlags(_identities[index].flags, Identity::Active))
 		return false;
@@ -314,7 +316,7 @@ void EntityManager<typeWidth>::reference(uint64_t id) {
 	uint32_t index;
 	uint32_t version;
 
-	_split(id, &index, &version);
+	_safeSplit(id, &index, &version);
 
 	assert(hasFlags(_identities[index].flags, Identity::Active)); // sanity
 	
@@ -326,7 +328,7 @@ void EntityManager<typeWidth>::dereference(uint64_t id) {
 	uint32_t index;
 	uint32_t version;
 
-	_split(id, &index, &version);
+	_safeSplit(id, &index, &version);
 
 	assert(hasFlags(_identities[index].flags, Identity::Active)); // sanity;
 	assert(_identities[index].references && "entity id has no references");
@@ -342,7 +344,7 @@ void EntityManager<typeWidth>::setEnabled(uint64_t id, bool enabled) {
 	uint32_t index;
 	uint32_t version;
 
-	_split(id, &index, &version);
+	_safeSplit(id, &index, &version);
 
 	assert(hasFlags(_identities[index].flags, Identity::Active)); // sanity;
 
@@ -350,4 +352,6 @@ void EntityManager<typeWidth>::setEnabled(uint64_t id, bool enabled) {
 		_identities[index].flags &= ~Identity::Enabled;
 	else
 		_identities[index].flags |= Identity::Enabled;
+}
+
 }

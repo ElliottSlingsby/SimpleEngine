@@ -5,37 +5,12 @@
 #include <unordered_map>
 #include <set>
 #include <optional>
-
-//const uint32_t events = 16;
-//const uint32_t listeners = 16;
+#include <cassert>
 
 namespace SimpleEngine{
 
 template <uint32_t events, uint32_t listeners>
 class EventHandler {
-	/*
-	struct BaseFunction {
-		void* const ptr;
-
-		inline BaseFunction(void* func) : ptr(func) {}
-
-		inline virtual ~BaseFunction() {}
-	};
-
-	template <typename ...Ts>
-	struct Function : public BaseFunction {
-		static std::function<void(Ts...)> functions[16 * 16]; // dynamic memory maybe?
-		// free index maybe?
-		static uint32_t counter;
-
-		const uint32_t count;
-
-		inline Function(const std::function<void(Ts...)>& func);
-
-		inline ~Function();
-	};
-	*/
-
 	struct BaseFunction {
 		void* const ptr;
 
@@ -58,8 +33,13 @@ class EventHandler {
 		}
 	};
 
+	struct EventLink {
+		uint32_t index;
+		uint32_t listener;
+	};
+
 	std::optional<BaseFunction> _functions[events * listeners] = { }; // Array of BaseFunctions (16 events * 16 listeners per event)
-	void* _objects[events * listeners] = { nullptr };
+	void* _objects[events * listeners] = { nullptr }; // ptrs for getting data from _eventLinks map
 
 	uint32_t _functionIndexes = 0;
 	std::vector<uint32_t> _freeIndexes;
@@ -67,12 +47,7 @@ class EventHandler {
 	uint32_t _listenerCount[events] = { 0 };
 	uint32_t _eventListeners[events][listeners] = { { 0 } }; // 2D array linking events to listeners functions in _listenersX (16 events, 16 listeners per event)
 
-	std::unordered_map<void*, std::unordered_map<uint32_t, std::pair<uint32_t, uint32_t>>> _eventLinks;
-
-	//std::unordered_map<void*, std::tuple<uint32_t, uint32_t, uint32_t>> _ptrMap; // object pointer map to Function, Event, and Listener numbers
-
-	//std::unordered_map<int, std::set<BaseFunction*>> _listeners;
-	//std::unordered_map<void*, std::unordered_map<int, BaseFunction*>> _eventLinks;
+	std::unordered_map<void*, std::unordered_map<uint32_t, EventLink>> _eventLinks; // map for unsubscribing
 
 	template <class ...Ts, typename T, int... indices>
 	inline std::function<void(Ts...)> _bind(void (T::*func)(Ts...), T* obj, std::integer_sequence<int, indices...>);
@@ -90,28 +65,11 @@ public:
 	template <typename T>
 	inline void unsubscribe(T* obj);
 
-	//inline void unsubscribe(int event);
+	inline void unsubscribe(int event);
 
 	template <typename ...Ts>
 	inline void dispatch(int event, Ts... args);
 };
-
-/*
-template <typename ...Ts>
-std::function<void(Ts...)> EventHandler::Function<Ts...>::functions[16 * 16] = { };
-
-template <typename ...Ts>
-uint32_t EventHandler::Function<Ts...>::counter = 0;
-
-template <typename ...Ts>
-EventHandler::Function<Ts...>::Function(const std::function<void(Ts...)>& func) : BaseFunction((void*)&functions[counter]), count(counter) {
-	functions[count] = func;
-	counter++;
-}
-
-template<typename ...Ts>
-inline EventHandler::Function<Ts...>::~Function(){ }
-*/
 
 template <uint32_t events, uint32_t listeners>
 template <class ...Ts, typename T, int... indices>
@@ -128,13 +86,8 @@ std::function<void(Ts...)> EventHandler<events, listeners>::_bind(void (T::*func
 template <uint32_t events, uint32_t listeners>
 template <typename T, typename ...Ts>
 void EventHandler<events, listeners>::subscribe(T* obj, int event, void (T::*func)(Ts...)) {
-	/*
-	//BaseFunction* instance = new Function<Ts...>(_bind(func, obj));
-	BaseFunction* instance = new Function<std::function<void(Ts...)>>(_bind(func, obj));
-
-	_listeners[event].insert(instance);
-	//_eventLinks[obj][event] = instance;
-	*/
+	if (_eventLinks[obj].find(event) != _eventLinks[obj].end()) // check
+		unsubscribe(obj, event);
 
 	uint32_t index;
 
@@ -154,8 +107,8 @@ void EventHandler<events, listeners>::subscribe(T* obj, int event, void (T::*fun
 
 	_eventLinks[obj][event] = { index, _listenerCount[event] };
 
-	new (&_functions[index]) Function<std::function<void(Ts...)>>(_bind(func, obj));
-	_objects[index] = (void*)obj;
+	new (&_functions[index]) std::optional<Function<std::function<void(Ts...)>>>(_bind(func, obj));
+	_objects[index] = obj;
 
 	_eventListeners[event][_listenerCount[event]] = index;
 	_listenerCount[event]++;
@@ -166,50 +119,75 @@ template <typename T>
 void EventHandler<events, listeners>::unsubscribe(T* obj, int event) {
 	assert(event < events && "invalid event slot");
 
-	uint32_t index = _eventLinks[obj][event].first;
-	uint32_t listener = _eventLinks[obj][event].second;
+	if (_eventLinks[obj].find(event) == _eventLinks[obj].end()) // check
+		return;
 
-	/*BaseFunction* instance = _eventLinks[obj][event];
+	assert(_listenerCount[event]); // sanity
+	assert(_functions[_eventLinks[obj][event].index].has_value()); // sanity
 
-	_listeners[event].erase(instance);
+	uint32_t listener = _eventLinks[obj][event].listener;
+	uint32_t index = _eventLinks[obj][event].index;
 
-	if (!_listeners[event].size())
-		_listeners.erase(event);
+	_functions[index]->~BaseFunction();
+	_functions[index] = std::nullopt;
+	_freeIndexes.push_back(index);
 
 	_eventLinks[obj].erase(event);
 
-	delete instance;*/
+	uint32_t lastListener = _listenerCount[event] - 1;
+	uint32_t lastIndex = _eventListeners[event][lastListener];
+
+	_eventListeners[event][listener] = lastIndex;
+	_listenerCount[event]--;
 }
 
 template <uint32_t events, uint32_t listeners>
 template <typename T>
 void EventHandler<events, listeners>::unsubscribe(T* obj) {
-	/*for (auto i : _eventLinks[obj]) {
-		_listeners[i.first].erase(i.second);
+	if (_eventLinks[obj].size() == 0) // check
+		return;
 
-		if (!_listeners[i.first].size())
-			_listeners.erase(i.first);
+	std::vector<uint32_t> events;
+	events.reserve(_eventLinks[obj].size());
 
-		delete i.second;
-	}
+	for (const auto& i : _eventLinks[obj])
+		events.push_back(i.first);
 
-	_eventLinks.erase(obj);*/
+	for (uint32_t i : events) 
+		unsubscribe(obj, i);
+}
+
+template<uint32_t events, uint32_t listeners>
+void EventHandler<events, listeners>::unsubscribe(int event){
+	if (_listenerCount[event] == 0) // check
+		return;
+
+	std::vector<uint32_t> indexes;
+	indexes.reserve(_listenerCount[event]);
+
+	for (uint32_t i = 0; i < _listenerCount[event]; i++)
+		indexes.push_back(_eventListeners[event][i]);
+
+	for (uint32_t i : indexes)
+		unsubscribe(_objects[i], event);
 }
 
 template <uint32_t events, uint32_t listeners>
 template <typename ...Ts>
 void EventHandler<events, listeners>::dispatch(int event, Ts... args) {
-	/*
-	for (BaseFunction* instance : _listeners[event]) {
-		(*static_cast<std::function<void(Ts...)>*>(instance->ptr))(args...);
-	}
-	*/
-
 	assert(event < events && "invalid event slot");
 
-	for (uint32_t i = 0; i < _listenerCount[event]; i++) {
-		_functions[_eventListeners[event][i]]->call(args...);
-	}
+	if (_listenerCount[event] == 0) // check
+		return;
+
+	std::vector<uint32_t> indexes;
+	indexes.reserve(_listenerCount[event]);
+
+	for (uint32_t i = 0; i < _listenerCount[event]; i++)
+		indexes.push_back(_eventListeners[event][i]);
+
+	for (uint32_t i : indexes)
+		_functions[i]->call(args...);
 }
 
 }
