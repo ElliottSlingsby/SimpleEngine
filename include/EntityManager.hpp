@@ -10,7 +10,7 @@
 #include <vector>
 #include <tuple>
 
-namespace SimpleEngine {
+//namespace SimpleEngine {
 
 template <uint32_t typeWidth>
 class EntityManager {
@@ -307,7 +307,7 @@ void EntityManager<typeWidth>::iterate(T lambda) {
 
 		_get<0>(i.index, components);
 
-		lambda(i.index, *std::get<Ts*>(components)...);
+		lambda(combine32(i.index, i.version), *std::get<Ts*>(components)...);
 	}
 }
 
@@ -354,4 +354,4 @@ void EntityManager<typeWidth>::setEnabled(uint64_t id, bool enabled) {
 		_identities[index].flags |= Identity::Enabled;
 }
 
-}
+//}
