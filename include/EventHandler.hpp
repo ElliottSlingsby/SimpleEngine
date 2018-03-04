@@ -87,7 +87,7 @@ public:
 
 	// dispatch an event with arguments
 	template <typename ...Ts>
-	inline void dispatch(int event, Ts... args);
+	inline void dispatch(int event, Ts&&... args);
 };
 
 template <uint32_t events, uint32_t listeners>
@@ -256,7 +256,7 @@ void EventHandler<events, listeners>::unsubscribe(int event){
 
 template <uint32_t events, uint32_t listeners>
 template <typename ...Ts>
-void EventHandler<events, listeners>::dispatch(int event, Ts... args) {
+void EventHandler<events, listeners>::dispatch(int event, Ts&&... args) {
 	assert(event < events && "invalid event slot");
 
 	// if no events, return
@@ -272,5 +272,5 @@ void EventHandler<events, listeners>::dispatch(int event, Ts... args) {
 
 	// dispatch loop
 	for (uint32_t i : indexes)
-		_listenerData[i].function->call(args...);
+		_listenerData[i].function->call(std::forward<Ts>(args)...);
 }

@@ -10,8 +10,6 @@
 #include <vector>
 #include <tuple>
 
-//namespace SimpleEngine {
-
 template <uint32_t typeWidth>
 class EntityManager {
 	using TypeMask = TypeMask<typeWidth>;
@@ -22,6 +20,7 @@ class EntityManager {
 			Active = 0x01,
 			Enabled = 0x02,
 			Erased = 0x04,
+			Buffered = 0x08,
 		};
 
 		uint32_t index;
@@ -39,9 +38,16 @@ class EntityManager {
 	std::vector<Identity> _identities;
 	std::vector<uint32_t> _freeIndexes;
 
+	std::vector<uint32_t> _buffered;
+
+	bool _iterating = false;
+
 	void _safeSplit(uint64_t id, uint32_t* index, uint32_t* version) const;
 
 	void _erase(uint32_t index);
+
+	template <typename ...Ts, typename T>
+	void _iterate(const Identity& identity, const T&& lambda);
 
 	template <uint32_t i, typename ...Ts>
 	inline typename std::enable_if<i == sizeof...(Ts), void>::type _get(uint32_t index, std::tuple<Ts*...>& tuple);
@@ -68,15 +74,15 @@ public:
 	inline T& get(uint64_t id);
 
 	template <typename T, typename ...Ts>
-	inline void add(uint64_t id, Ts... args);
+	inline void add(uint64_t id, Ts&&... args);
 
 	template <typename T>
 	inline void remove(uint64_t id);
 
-	template <typename ...T>
+	template <typename ...Ts>
 	inline bool has(uint64_t id) const;
 
-	template <typename ...T>
+	template <typename ...Ts>
 	inline void reserve(uint32_t count);
 
 	inline void clear();
@@ -84,7 +90,7 @@ public:
 	inline uint32_t count() const;
 
 	template <typename ...Ts, typename T>
-	inline void iterate(T lambda);
+	inline void iterate(const T&& lambda);
 
 	inline void reference(uint64_t id);
 
@@ -108,6 +114,7 @@ template <uint32_t typeWidth>
 void EntityManager<typeWidth>::_erase(uint32_t index) {
 	assert(hasFlags(_identities[index].flags, Identity::Active)); // sanity
 	
+	// if references still exist, mark as erased for later, and return
 	if (_identities[index].references) {
 		assert(!hasFlags(_identities[index].flags, Identity::Erased) && "entity index already erased");
 
@@ -115,6 +122,7 @@ void EntityManager<typeWidth>::_erase(uint32_t index) {
 		return;
 	}
 
+	// remove components from each pool
 	for (uint32_t i = 0; i < typeWidth; i++) {
 		if (_identities[index].mask.has(i)) {
 			assert(_pools[i]); // sanity
@@ -122,11 +130,32 @@ void EntityManager<typeWidth>::_erase(uint32_t index) {
 		}
 	}
 
+	// clear up identity, increment version
 	_identities[index].mask.clear();
 	_identities[index].version++;
-	_identities[index].flags = 0;
+	_identities[index].flags = Identity::Empty;
 
 	_freeIndexes.push_back(index);
+}
+
+template<uint32_t typeWidth>
+template<typename ...Ts, typename T>
+inline void EntityManager<typeWidth>::_iterate(const Identity& identity, const T&& lambda){
+	// skip if not active and enabled
+	if (!hasFlags(identity.flags, Identity::Active | Identity::Enabled))
+		continue;
+
+	// skip if erased or buffered
+	if (hasFlags(identity.flags, Identity::Erased) || hasFlags(identity.flags, Identity::Buffered))
+		continue;
+
+	// skip if entity doesn't have components
+	if (!identity.mask.has<Ts...>())
+		continue;
+
+	// get components and call lambda
+	_get<0>(identity.index, components);
+	std::forward<T>(lambda)(combine32(identity.index, identity.version), *std::get<Ts*>(components)...);
 }
 
 template<uint32_t typeWidth>
@@ -175,6 +204,7 @@ EntityManager<typeWidth>::~EntityManager() {
 
 template <uint32_t typeWidth>
 uint64_t EntityManager<typeWidth>::create() {
+	// find free index
 	uint32_t index;
 
 	if (_freeIndexes.empty()) {
@@ -186,10 +216,18 @@ uint64_t EntityManager<typeWidth>::create() {
 		_freeIndexes.pop_back();
 	}
 
+	// set identity flags to active, and enabled by default
 	assert(!_identities[index].references); // sanity
 	assert(!hasFlags(_identities[index].flags, Identity::Active)); // sanity
 	_identities[index].flags = Identity::Active | Identity::Enabled;
 
+	// if made during iteration, buffer for later
+	if (_iterating) {
+		_identities[index].flags |= Identity::Buffered;
+		_buffered.push_back(index);
+	}
+
+	// return index and version combined
 	return combine32(index, _identities[index].version);
 }
 
@@ -220,7 +258,7 @@ T& EntityManager<typeWidth>::get(uint64_t id) {
 
 template <uint32_t typeWidth>
 template <typename T, typename ...Ts>
-void EntityManager<typeWidth>::add(uint64_t id, Ts... args) {
+void EntityManager<typeWidth>::add(uint64_t id, Ts&&... args) {
 	uint32_t index;
 	uint32_t version;
 
@@ -229,11 +267,14 @@ void EntityManager<typeWidth>::add(uint64_t id, Ts... args) {
 	assert(hasFlags(_identities[index].flags, Identity::Active)); // sanity
 	assert(!_identities[index].mask.has<T>() && "entity component already exists");
 
+	// create pool if it doesn't exist
 	if (_pools[TypeMask::index<T>()] == nullptr)
 		_pools[TypeMask::index<T>()] = new ObjectPool<T>(_chunkSize);
 
-	_pools[TypeMask::index<T>()]->insert<T>(index, args...);
+	// remove from pool
+	_pools[TypeMask::index<T>()]->insert<T>(index, args);
 
+	// update identity
 	_identities[index].mask.add<T>();
 }
 
@@ -249,13 +290,15 @@ void EntityManager<typeWidth>::remove(uint64_t id) {
 	assert(hasFlags(_identities[index].flags, Identity::Active)); // sanity
 	assert(_identities[index].mask.has<T>() && "entity component non-existent");	
 
+	// remove from pool
 	_pools[TypeMask::index<T>()]->erase(index);
 
+	// update identity
 	_identities[index].mask.sub<T>();
 }
 
 template <uint32_t typeWidth>
-template <typename ...T>
+template <typename ...Ts>
 bool EntityManager<typeWidth>::has(uint64_t id) const {
 	uint32_t index;
 	uint32_t version;
@@ -265,13 +308,13 @@ bool EntityManager<typeWidth>::has(uint64_t id) const {
 	if (!hasFlags(_identities[index].flags, Identity::Active))
 		return false;
 
-	return _identities[index].mask.has<T...>();
+	return _identities[index].mask.has<Ts...>();
 }
 
 template<uint32_t typeWidth>
-template <typename ...T>
+template <typename ...Ts>
 void EntityManager<typeWidth>::reserve(uint32_t count) {
-	_reserve<0, T...>(count - 1);
+	_reserve<0, Ts...>(count - 1);
 }
 
 template<uint32_t typeWidth>
@@ -287,28 +330,36 @@ void EntityManager<typeWidth>::clear() {
 
 template <uint32_t typeWidth>
 uint32_t EntityManager<typeWidth>::count() const {
-	return _identities.size();
+	return (_identities.size() + _buffered.size()) - _freeIndexes.size();
 }
 
 template <uint32_t typeWidth>
 template <typename ...Ts, typename T>
-void EntityManager<typeWidth>::iterate(T lambda) {
+void EntityManager<typeWidth>::iterate(const T&& lambda) {
 	std::tuple<Ts*...> components;
 
-	for (const Identity& i : _identities) {
-		if (!hasFlags(i.flags, Identity::Active | Identity::Enabled))
-			continue;
+	// if already iterating (in case of nested iterate)
+	bool iterating = _iterating;
 
-		if (hasFlags(i.flags, Identity::Erased))
-			continue;
+	if (!iterating)
+		_iterating = true;
 
-		if (!i.mask.has<Ts...>())
-			continue;
+	// main iteration
+	for (const Identity& i : _identities)
+		_iterate<Ts...>(lambda);
 
-		_get<0>(i.index, components);
+	// iterate over buffered
+	while (_buffered.size()) {
+		Identity& identity = _identities[_buffered.front()];		
 
-		lambda(combine32(i.index, i.version), *std::get<Ts*>(components)...);
+		_iterate<Ts...>(identity);
+
+		identity.flags &= ~Identity::Buffered;
+		_buffered.erase(_buffered.begin());
 	}
+
+	if (!iterating)
+		_iterating = false;
 }
 
 template <uint32_t typeWidth>
@@ -353,5 +404,3 @@ void EntityManager<typeWidth>::setEnabled(uint64_t id, bool enabled) {
 	else
 		_identities[index].flags |= Identity::Enabled;
 }
-
-//}

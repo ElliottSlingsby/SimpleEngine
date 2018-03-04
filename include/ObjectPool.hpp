@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <cstdlib>
 #include <cassert>
+#include <utility>
 
 class BasePool {
 protected:
@@ -25,7 +26,7 @@ public:
 	inline T* get(uint32_t index);
 
 	template <typename T, typename ...Ts>
-	inline void insert(uint32_t index, Ts... args);
+	inline void insert(uint32_t index, Ts&&... args);
 
 	inline size_t size() const;
 
@@ -77,13 +78,13 @@ T* BasePool::get(uint32_t index) {
 }
 
 template <typename T, typename ...Ts>
-void BasePool::insert(uint32_t index, Ts... args) {
+void BasePool::insert(uint32_t index, Ts&&... args) {
 	assert(sizeof(T) <= _objectSize);
 
 	if (index >= count())
 		reserve(index);
 
-	new(static_cast<void*>(_buffer + (index * _objectSize))) T(args...);
+	new(static_cast<void*>(_buffer + (index * _objectSize))) T(std::forward<Ts>(args)...);
 }
 
 size_t BasePool::size() const {

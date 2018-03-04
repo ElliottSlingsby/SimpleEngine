@@ -10,11 +10,11 @@ class TypeMask {
 	std::bitset<width> _mask;
 	static uint32_t _typeCount;
 
-	template <uint32_t i, typename ...T>
-	inline typename std::enable_if<i == sizeof...(T), void>::type _fill(bool value);
+	template <uint32_t i, typename ...Ts>
+	inline typename std::enable_if<i == sizeof...(Ts), void>::type _fill(bool value);
 
-	template <uint32_t i, typename ...T>
-	inline typename std::enable_if < i < sizeof...(T), void>::type _fill(bool value);
+	template <uint32_t i, typename ...Ts>
+	inline typename std::enable_if < i < sizeof...(Ts), void>::type _fill(bool value);
 
 public:
 	template <typename T>
@@ -22,16 +22,16 @@ public:
 
 	inline TypeMask<width>& operator=(const TypeMask<width>& other);
 
-	template <typename ...T>
+	template <typename ...Ts>
 	inline void fill();
 
-	template <typename ...T>
+	template <typename ...Ts>
 	inline void add();
 
-	template <typename ...T>
+	template <typename ...Ts>
 	inline void sub();
 
-	template <typename ...T>
+	template <typename ...Ts>
 	inline bool has() const;
 
 	inline bool has(uint32_t i) const;
@@ -40,7 +40,7 @@ public:
 
 	inline void clear();
 
-	template <typename ...T>
+	template <typename ...Ts>
 	inline static TypeMask<width> create();
 };
 
@@ -48,15 +48,15 @@ template<size_t width>
 uint32_t TypeMask<width>::_typeCount = 0;
 
 template <size_t width>
-template <uint32_t i, typename ...T>
-typename std::enable_if<i == sizeof...(T), void>::type TypeMask<width>::_fill(bool value) { }
+template <uint32_t i, typename ...Ts>
+typename std::enable_if<i == sizeof...(Ts), void>::type TypeMask<width>::_fill(bool value) { }
 
 template <size_t width>
-template <uint32_t i, typename ...T>
-typename std::enable_if<i < sizeof...(T), void>::type TypeMask<width>::_fill(bool value) {
-	_fill<i + 1, T...>(value);
+template <uint32_t i, typename ...Ts>
+typename std::enable_if<i < sizeof...(Ts), void>::type TypeMask<width>::_fill(bool value) {
+	_fill<i + 1, Ts...>(value);
 
-	using Type = std::tuple_element<i, std::tuple<T...>>::type;
+	using Type = std::tuple_element<i, std::tuple<Ts...>>::type;
 	_mask.set(index<Type>(), value);
 }
 
@@ -77,28 +77,28 @@ TypeMask<width>& TypeMask<width>::operator=(const TypeMask<width>& other) {
 }
 
 template <size_t width>
-template <typename ...T>
+template <typename ...Ts>
 void TypeMask<width>::fill() {
 	_mask.reset();
-	_fill<0, T...>(true);
+	_fill<0, Ts...>(true);
 }
 
 template <size_t width>
-template <typename ...T>
+template <typename ...Ts>
 void TypeMask<width>::add() {
-	_fill<0, T...>(true);
+	_fill<0, Ts...>(true);
 }
 
 template <size_t width>
-template <typename ...T>
+template <typename ...Ts>
 void TypeMask<width>::sub() {
-	_fill<0, T...>(false);
+	_fill<0, Ts...>(false);
 }
 
 template <size_t width>
-template <typename ...T>
+template <typename ...Ts>
 bool TypeMask<width>::has() const {
-	TypeMask<width> other = create<T...>();
+	TypeMask<width> other = create<Ts...>();
 
 	unsigned long check = other._mask.to_ulong();
 	return (_mask.to_ulong() & check) == check;
@@ -120,10 +120,10 @@ void TypeMask<width>::clear() {
 }
 
 template <size_t width>
-template <typename ...T>
+template <typename ...Ts>
 TypeMask<width> TypeMask<width>::create() {
 	TypeMask<width> mask;
-	mask.fill<T...>();
+	mask.fill<Ts...>();
 
 	return mask;
 }

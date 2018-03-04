@@ -42,9 +42,9 @@ inline void sleepFor(T seconds) {
 
 inline void clearTerminal() {
 #ifdef _WIN32
-	system("cls");
+	std::system("cls");
 #endif
 #ifdef __linux__
-	system("clear");
+	std::system("clear");
 #endif
 }

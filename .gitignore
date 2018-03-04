@@ -3,4 +3,4 @@ build/*
 thirdparty/*
 
 !thirdparty/CMakeLists.txt
-!thirdparty/glcore_46
+!thirdparty/glad-gl-4.6
