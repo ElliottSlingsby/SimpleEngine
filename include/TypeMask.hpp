@@ -1,5 +1,7 @@
 #pragma once
 
+#include "Utility.hpp"
+
 #include <cstdint>
 #include <bitset>
 #include <type_traits>
@@ -8,7 +10,6 @@
 template <size_t width>
 class TypeMask {
 	std::bitset<width> _mask;
-	static uint32_t _typeCount;
 
 	template <uint32_t i, typename ...Ts>
 	inline typename std::enable_if<i == sizeof...(Ts), void>::type _fill(bool value);
@@ -17,9 +18,6 @@ class TypeMask {
 	inline typename std::enable_if < i < sizeof...(Ts), void>::type _fill(bool value);
 
 public:
-	template <typename T>
-	inline static uint32_t index();
-
 	inline TypeMask<width>& operator=(const TypeMask<width>& other);
 
 	template <typename ...Ts>
@@ -44,9 +42,6 @@ public:
 	inline static TypeMask<width> create();
 };
 
-template<size_t width>
-uint32_t TypeMask<width>::_typeCount = 0;
-
 template <size_t width>
 template <uint32_t i, typename ...Ts>
 typename std::enable_if<i == sizeof...(Ts), void>::type TypeMask<width>::_fill(bool value) { }
@@ -58,16 +53,6 @@ typename std::enable_if<i < sizeof...(Ts), void>::type TypeMask<width>::_fill(bo
 
 	using Type = std::tuple_element<i, std::tuple<Ts...>>::type;
 	_mask.set(index<Type>(), value);
-}
-
-template <size_t width>
-template <typename T>
-uint32_t TypeMask<width>::index() {
-	static const uint32_t index = _typeCount++;
-
-	assert(index < width && "too many types, increase width");
-	
-	return index;
 }
 
 template <size_t width>

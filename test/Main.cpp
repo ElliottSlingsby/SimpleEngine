@@ -1,38 +1,23 @@
-#include <EventHandler.hpp>
-#include <EntityManager.hpp>
-
-#define EventHandler EventHandler<32, 8> // 32 events, 8 listeners
-#define EntityManager EntityManager<16> // 16 components
-
-struct System {
-	static uint32_t counter;
-	const uint32_t i;
-
-	System() : i(counter++) { }
-
-	void function(int a) {
-		printf("Hello %d - %d\n", i, a);
-		a += 1;
-	}
-};
-
-uint32_t System::counter = 0;
+#include "Config.hpp"
+#include "Renderer.hpp"
 
 int main(int argc, char** argv) {
-	EventHandler eventHandler;
-	EntityManager entityManager(1024 * 1024 * 128); // 128 mb chunk size
+	Engine engine(chunkSize);
 
-	System system0;
-	System system1;
-	System system2;
+	engine.newSystem<Renderer>();
 
-	eventHandler.subscribe(&system0, 0, &System::function, 0);
-	eventHandler.subscribe(&system1, 0, &System::function, -2);
-	eventHandler.subscribe(&system2, 0, &System::function, -1);
+	engine.events.dispatch(Events::Load, argc, argv);
 
-	eventHandler.unsubscribe(&system1);
+	TimePoint timer;
+	double dt = 0.0;
 
-	eventHandler.dispatch(0, 9001);
+	while (engine.running) {
+		startTime(&timer);
+
+		engine.events.dispatch(Events::Update, dt);
+
+		dt = deltaTime(timer);
+	}
 
 	return 0;
 }

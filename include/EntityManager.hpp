@@ -103,8 +103,8 @@ template <uint32_t typeWidth>
 void EntityManager<typeWidth>::_safeSplit(uint64_t id, uint32_t* index, uint32_t* version) const {
 	assert(index && version);
 
-	*index = front64(id);
-	*version = back64(id);
+	uint32_t index = front64(id);
+	uint32_t version = back64(id);
 
 	assert(*index < _identities.size() && "entity id out of range");
 	assert(*version == _identities[*index].version && "entity id was erased");
@@ -167,7 +167,7 @@ template <uint32_t i, typename ...Ts>
 typename std::enable_if<i < sizeof...(Ts), void>::type EntityManager<typeWidth>::_get(uint32_t index, std::tuple<Ts*...>& tuple) {
 	using T = std::tuple_element<i, std::tuple<Ts...>>::type;
 
-	std::get<i>(tuple) = _pools[TypeMask::index<T>()]->get<T>(index);
+	std::get<i>(tuple) = _pools[typeIndex<EntityManager, T>()]->get<T>(index);
 
 	_get<i + 1>(index, tuple);
 }
@@ -181,10 +181,10 @@ template <uint32_t i, typename ...Ts>
 typename std::enable_if < i < sizeof...(Ts), void>::type EntityManager<typeWidth>::_reserve(uint32_t index) {
 	using T = std::tuple_element<i, std::tuple<Ts...>>::type;
 
-	if (_pools[TypeMask::index<T>()] == nullptr)
-		_pools[TypeMask::index<T>()] = new ObjectPool<T>(_chunkSize);
+	if (_pools[typeIndex<EntityManager, T>()] == nullptr)
+		_pools[typeIndex<EntityManager, T>()] = new ObjectPool<T>(_chunkSize);
 
-	_pools[TypeMask::index<T>()]->reserve(index);
+	_pools[typeIndex<EntityManager, T>()]->reserve(index);
 
 	_reserve<i + 1, T>(index);
 }
@@ -233,10 +233,11 @@ uint64_t EntityManager<typeWidth>::create() {
 
 template <uint32_t typeWidth>
 void EntityManager<typeWidth>::erase(uint64_t id) {
-	uint32_t index;
-	uint32_t version;
+	uint32_t index = front64(id);
+	uint32_t version = back64(id);
 
-	_safeSplit(id, &index, &version);
+	assert(*index < _identities.size() && "entity id out of range");
+	assert(*version == _identities[*index].version && "entity id was erased");
 
 	_erase(index);
 }
@@ -244,35 +245,39 @@ void EntityManager<typeWidth>::erase(uint64_t id) {
 template <uint32_t typeWidth>
 template <typename T>
 T& EntityManager<typeWidth>::get(uint64_t id) {
-	uint32_t index;
-	uint32_t version;
+	uint32_t index = front64(id);
+	uint32_t version = back64(id);
 
-	_safeSplit(id, &index, &version);
+	assert(*index < _identities.size() && "entity id out of range");
+	assert(*version == _identities[*index].version && "entity id was erased");
 
-	assert(_pools[TypeMask::index<T>()] != nullptr); // sanity
+	uint32_t typeIndex = typeIndex<EntityManager, T>();
+
+	assert(_pools[typeIndex] != nullptr); // sanity
 	assert(hasFlags(_identities[index].flags, Identity::Active)); // sanity
 	assert(_identities[index].mask.has<T>() && "entity component non-existent");
 
-	return *_pools[TypeMask::index<T>()]->get<T>(index);
+	return *_pools[typeIndex]->get<T>(index);
 }
 
 template <uint32_t typeWidth>
 template <typename T, typename ...Ts>
 void EntityManager<typeWidth>::add(uint64_t id, Ts&&... args) {
-	uint32_t index;
-	uint32_t version;
+	uint32_t index = front64(id);
+	uint32_t version = back64(id);
 
-	_safeSplit(id, &index, &version);
+	assert(*index < _identities.size() && "entity id out of range");
+	assert(*version == _identities[*index].version && "entity id was erased");
 
 	assert(hasFlags(_identities[index].flags, Identity::Active)); // sanity
 	assert(!_identities[index].mask.has<T>() && "entity component already exists");
 
 	// create pool if it doesn't exist
-	if (_pools[TypeMask::index<T>()] == nullptr)
-		_pools[TypeMask::index<T>()] = new ObjectPool<T>(_chunkSize);
+	if (_pools[typeIndex<EntityManager, T>()] == nullptr)
+		_pools[typeIndex<EntityManager, T>()] = new ObjectPool<T>(_chunkSize);
 
 	// remove from pool
-	_pools[TypeMask::index<T>()]->insert<T>(index, args);
+	_pools[typeIndex<EntityManager, T>()]->insert<T>(index, args);
 
 	// update identity
 	_identities[index].mask.add<T>();
@@ -281,17 +286,20 @@ void EntityManager<typeWidth>::add(uint64_t id, Ts&&... args) {
 template <uint32_t typeWidth>
 template <typename T>
 void EntityManager<typeWidth>::remove(uint64_t id) {
-	uint32_t index;
-	uint32_t version;
+	uint32_t index = front64(id);
+	uint32_t version = back64(id);
 
-	_safeSplit(id, &index, &version);
+	assert(*index < _identities.size() && "entity id out of range");
+	assert(*version == _identities[*index].version && "entity id was erased");
 
-	assert(_pools[TypeMask::index<T>()] != nullptr); // sanity
+	uint32_t typeIndex = typeIndex<EntityManager, T>();
+
+	assert(_pools[typeIndex] != nullptr); // sanity
 	assert(hasFlags(_identities[index].flags, Identity::Active)); // sanity
 	assert(_identities[index].mask.has<T>() && "entity component non-existent");	
 
 	// remove from pool
-	_pools[TypeMask::index<T>()]->erase(index);
+	_pools[typeIndex]->erase(index);
 
 	// update identity
 	_identities[index].mask.sub<T>();
@@ -300,10 +308,11 @@ void EntityManager<typeWidth>::remove(uint64_t id) {
 template <uint32_t typeWidth>
 template <typename ...Ts>
 bool EntityManager<typeWidth>::has(uint64_t id) const {
-	uint32_t index;
-	uint32_t version;
+	uint32_t index = front64(id);
+	uint32_t version = back64(id);
 
-	_safeSplit(id, &index, &version);
+	assert(*index < _identities.size() && "entity id out of range");
+	assert(*version == _identities[*index].version && "entity id was erased");
 
 	if (!hasFlags(_identities[index].flags, Identity::Active))
 		return false;
@@ -364,10 +373,11 @@ void EntityManager<typeWidth>::iterate(const T&& lambda) {
 
 template <uint32_t typeWidth>
 void EntityManager<typeWidth>::reference(uint64_t id) {
-	uint32_t index;
-	uint32_t version;
+	uint32_t index = front64(id);
+	uint32_t version = back64(id);
 
-	_safeSplit(id, &index, &version);
+	assert(*index < _identities.size() && "entity id out of range");
+	assert(*version == _identities[*index].version && "entity id was erased");
 
 	assert(hasFlags(_identities[index].flags, Identity::Active)); // sanity
 	
@@ -376,10 +386,11 @@ void EntityManager<typeWidth>::reference(uint64_t id) {
 
 template <uint32_t typeWidth>
 void EntityManager<typeWidth>::dereference(uint64_t id) {
-	uint32_t index;
-	uint32_t version;
+	uint32_t index = front64(id);
+	uint32_t version = back64(id);
 
-	_safeSplit(id, &index, &version);
+	assert(*index < _identities.size() && "entity id out of range");
+	assert(*version == _identities[*index].version && "entity id was erased");
 
 	assert(hasFlags(_identities[index].flags, Identity::Active)); // sanity;
 	assert(_identities[index].references && "entity id has no references");
@@ -392,10 +403,11 @@ void EntityManager<typeWidth>::dereference(uint64_t id) {
 
 template <uint32_t typeWidth>
 void EntityManager<typeWidth>::setEnabled(uint64_t id, bool enabled) {
-	uint32_t index;
-	uint32_t version;
+	uint32_t index = front64(id);
+	uint32_t version = back64(id);
 
-	_safeSplit(id, &index, &version);
+	assert(*index < _identities.size() && "entity id out of range");
+	assert(*version == _identities[*index].version && "entity id was erased");
 
 	assert(hasFlags(_identities[index].flags, Identity::Active)); // sanity;
 

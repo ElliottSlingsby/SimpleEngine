@@ -1,5 +1,7 @@
 #pragma once
 
+#include "Utility.hpp"
+
 #include <functional>
 #include <string>
 #include <unordered_map>
@@ -9,33 +11,9 @@
 
 template <uint32_t events, uint32_t listeners>
 class EventHandler {
-	// virtually destructed object for storing binded object and member function with generic arguments
-	struct BaseFunction {
-		void* const ptr;
-
-		inline BaseFunction(void* func) : ptr(func) {}
-
-		inline virtual ~BaseFunction() {}
-
-		template <typename ...Ts>
-		inline void call(Ts... args) {
-			(*static_cast<std::function<void(Ts...)>*>(ptr))(args...);
-		}
-	};
-	
-	// object for creating and deleting dynamic memory containing specialized function pointer
-	template <typename T>
-	struct Function : public BaseFunction {
-		inline Function(const T& func) : BaseFunction(new T(func)) {}
-
-		inline ~Function() {
-			delete static_cast<T*>(ptr);
-		}
-	};
-
 	// stores information about a subscription
 	struct Listener {
-		std::optional<BaseFunction> function;
+		std::optional<BasePtr> function;
 		void* object = nullptr;
 		int32_t order = 0;
 	};
@@ -109,7 +87,7 @@ inline EventHandler<events, listeners>::~EventHandler(){
 			continue;
 
 		// clean up dynamic memory in BaseFunctions
-		_listenerData[i].function->~BaseFunction();
+		_listenerData[i].function->~BasePtr();
 	}
 }
 
@@ -138,7 +116,7 @@ void EventHandler<events, listeners>::subscribe(T* obj, int event, void (T::*fun
 	assert(_eventListenerCount[event] < listeners && "no more listener slots");
 
 	// store listener information for later re-organizing or unsubscribing
-	new (&_listenerData[index].function) std::optional<Function<std::function<void(Ts...)>>>(_bind(func, obj));
+	new (&_listenerData[index].function) std::optional<VirtualPtr<std::function<void(Ts...)>>>(_bind(func, obj));
 	_listenerData[index].object = obj;
 	_listenerData[index].order = order;
 
@@ -191,8 +169,8 @@ void EventHandler<events, listeners>::unsubscribe(T* obj, int event) {
 	uint32_t listener = _eventLinks[obj][event].listener;
 	uint32_t index = _eventLinks[obj][event].index;
 
-	// destroy optional BaseFunction object and free the index
-	_listenerData[index].function->~BaseFunction();
+	// destroy optional BasePtr object and free the index
+	_listenerData[index].function->~BasePtr();
 	_listenerData[index].function = std::nullopt;
 
 	_freeIndexes.push_back(index);
@@ -270,7 +248,7 @@ void EventHandler<events, listeners>::dispatch(int event, Ts&&... args) {
 	for (int32_t i = _eventListenerCount[event] - 1; i >= 0; i--)
 		indexes.push_back(_eventListeners[event][i]);
 
-	// dispatch loop
+	// call functions
 	for (uint32_t i : indexes)
-		_listenerData[i].function->call(std::forward<Ts>(args)...);
+		(*static_cast<std::function<void(Ts...)>*>(_listenerData[i].function->ptr))(std::forward<Ts>(args)...);
 }

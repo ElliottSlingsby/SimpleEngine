@@ -3,9 +3,28 @@
 #include <cstdint>
 #include <chrono>
 #include <thread>
+#include <utility>
 
 using Clock = std::chrono::high_resolution_clock;
 using TimePoint = Clock::time_point;
+
+struct BasePtr {
+	void* const ptr;
+
+	inline BasePtr(void* pointer) : ptr(pointer) {}
+
+	virtual inline ~BasePtr() {}
+};
+
+template <typename T>
+struct VirtualPtr : public BasePtr {
+	template <typename ...Ts>
+	inline VirtualPtr(Ts&&... args) : BasePtr(new T(std::forward<Ts>(args)...)){}
+
+	inline ~VirtualPtr() {
+		delete static_cast<T*>(ptr);
+	}
+};
 
 inline uint32_t back64(uint64_t i) {
 	return static_cast<uint32_t>(i);
@@ -47,4 +66,20 @@ inline void clearTerminal() {
 #ifdef __linux__
 	std::system("clear");
 #endif
+}
+
+template <typename Namespace>
+inline uint32_t typeIndexCount(bool add = false) {
+	static uint32_t count = 0;
+
+	if (add)
+		return count++;
+
+	return count;
+}
+
+template <typename Namespace, typename T>
+inline uint32_t typeIndex() {
+	static uint32_t index = typeIndexCount<Namespace>(true);
+	return index;
 }

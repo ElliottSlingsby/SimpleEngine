@@ -16,6 +16,6 @@ set_target_properties("glad" PROPERTIES FOLDER "Thirdparty")
 # GLM
 option(GLM_STATIC_LIBRARY_ENABLE "" ON)
 
-add_external_tar("glm-0.9.8.3" "https://github.com/g-truc/glm/archive/0.9.8.3.tar.gz" "")
+add_external_tar("glm-0.9.8.5" "https://github.com/g-truc/glm/archive/0.9.8.5.tar.gz" "")
 
 set_target_properties("glm_static" PROPERTIES FOLDER "Thirdparty")
