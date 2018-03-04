@@ -47,7 +47,7 @@ class EntityManager {
 	void _erase(uint32_t index);
 
 	template <typename ...Ts, typename T>
-	void _iterate(const Identity& identity, const T&& lambda);
+	void _iterate(const Identity& identity, const T& lambda);
 
 	template <uint32_t i, typename ...Ts>
 	inline typename std::enable_if<i == sizeof...(Ts), void>::type _get(uint32_t index, std::tuple<Ts*...>& tuple);
@@ -90,7 +90,7 @@ public:
 	inline uint32_t count() const;
 
 	template <typename ...Ts, typename T>
-	inline void iterate(const T&& lambda);
+	inline void iterate(const T& lambda);
 
 	inline void reference(uint64_t id);
 
@@ -140,22 +140,24 @@ void EntityManager<typeWidth>::_erase(uint32_t index) {
 
 template<uint32_t typeWidth>
 template<typename ...Ts, typename T>
-inline void EntityManager<typeWidth>::_iterate(const Identity& identity, const T&& lambda){
+inline void EntityManager<typeWidth>::_iterate(const Identity& identity, const T& lambda){
 	// skip if not active and enabled
 	if (!hasFlags(identity.flags, Identity::Active | Identity::Enabled))
-		continue;
+		return;
 
 	// skip if erased or buffered
 	if (hasFlags(identity.flags, Identity::Erased) || hasFlags(identity.flags, Identity::Buffered))
-		continue;
+		return;
 
 	// skip if entity doesn't have components
 	if (!identity.mask.has<Ts...>())
-		continue;
+		return;
 
 	// get components and call lambda
+	std::tuple<Ts*...> components;
 	_get<0>(identity.index, components);
-	std::forward<T>(lambda)(combine32(identity.index, identity.version), *std::get<Ts*>(components)...);
+
+	lambda(combine32(identity.index, identity.version), *std::get<Ts*>(components)...);
 }
 
 template<uint32_t typeWidth>
@@ -344,7 +346,7 @@ uint32_t EntityManager<typeWidth>::count() const {
 
 template <uint32_t typeWidth>
 template <typename ...Ts, typename T>
-void EntityManager<typeWidth>::iterate(const T&& lambda) {
+void EntityManager<typeWidth>::iterate(const T& lambda) {
 	std::tuple<Ts*...> components;
 
 	// if already iterating (in case of nested iterate)
@@ -355,13 +357,13 @@ void EntityManager<typeWidth>::iterate(const T&& lambda) {
 
 	// main iteration
 	for (const Identity& i : _identities)
-		_iterate<Ts...>(lambda);
+		_iterate<Ts...>(i, lambda);
 
 	// iterate over buffered
 	while (_buffered.size()) {
 		Identity& identity = _identities[_buffered.front()];		
 
-		_iterate<Ts...>(identity);
+		_iterate<Ts...>(identity, lambda);
 
 		identity.flags &= ~Identity::Buffered;
 		_buffered.erase(_buffered.begin());

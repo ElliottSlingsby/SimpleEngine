@@ -12,12 +12,12 @@
 const std::string vertexShaderSrc =
 	"#version 460 core\n"
 
-	"layout (location = 0) in vec3 inVertex;"
-	"layout (location = 1) in vec2 inTexcoord;"
+	"in vec3 inVertex;"
+	"in vec2 inTexcoord;"
 
 	"varying out vec2 texcoord;"
 
-	"uniform mat4 matrix;"
+	"uniform mat4 matrix;" 
 
 	"void main(){"
 		"gl_Position =  matrix * vec4(inVertex, 1);"
@@ -44,7 +44,7 @@ int verboseCheckError() {
 	if (error == GL_NO_ERROR)
 		return 0;
 
-	std::cout << error << std::endl;
+	std::cerr << error << std::endl;
 
 	return 1;
 }
@@ -52,7 +52,7 @@ int verboseCheckError() {
 #define glCheckError() assert(verboseCheckError() == 0)
 
 void errorCallback(int error, const char* description) {
-	std::cout << "GLFW Error - " << error << " - " << description << std::endl;
+	std::cerr << "GLFW Error - " << error << " - " << description << std::endl;
 }
 
 void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods) {
@@ -80,7 +80,7 @@ bool compileShader(GLuint type, GLuint* shader, const std::string& src) {
 	std::vector<GLchar> message(length);
 	glGetShaderInfoLog(*shader, length, &length, &message[0]);
 
-	std::cout << "GLSL error - " << static_cast<char*>(&message[0]) << std::endl;
+	std::cerr << "GLSL error - " << static_cast<char*>(&message[0]) << std::endl;
 	return false;
 }
 
@@ -94,8 +94,14 @@ Renderer::~Renderer() {
 }
 
 void Renderer::load(int argc, char** argv) {
-	_path = upperPath(replace('\\', '/', argv[0]));
+	// setup data stuff
+	_path = upperPath(replace('\\', '/', argv[0])) + dataFolder + '/';
 
+	stbi_set_flip_vertically_on_load(true);
+
+	_windowSize = { 512, 512 };
+
+	// setup GLFW
 	glfwSetErrorCallback(errorCallback);
 
 	if (!glfwInit()) {
@@ -106,10 +112,10 @@ void Renderer::load(int argc, char** argv) {
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 6);
 
-	_window = glfwCreateWindow(512, 512, "SimpleEngine Renderer", nullptr, nullptr);
+	_window = glfwCreateWindow(_windowSize.x, _windowSize.y, "", nullptr, nullptr);
 
 	if (!_window) {
-		std::cout << "GLFW error - " << "cannot create window" << std::endl;
+		std::cerr << "GLFW error - " << "cannot create window" << std::endl;
 		_engine.events.unsubscribe(this, Events::Update);
 		return;
 	}
@@ -120,6 +126,7 @@ void Renderer::load(int argc, char** argv) {
 	gladLoadGLLoader((GLADloadproc)glfwGetProcAddress);
 	glfwSwapInterval(1);
 
+	// create shader program
 	bool failed = false;
 
 	if (!compileShader(GL_VERTEX_SHADER, &_vertexShader, vertexShaderSrc))
@@ -155,7 +162,7 @@ void Renderer::load(int argc, char** argv) {
 		std::vector<GLchar> message(length);
 		glGetProgramInfoLog(_program, length, &length, &message[0]);
 
-		std::cout << "GLSL error - " << static_cast<char*>(&message[0]) << std::endl;
+		std::cerr << "GLSL error - " << static_cast<char*>(&message[0]) << std::endl;
 
 		glDeleteShader(_vertexShader);
 		glDeleteShader(_fragmentShader);
@@ -175,6 +182,42 @@ void Renderer::load(int argc, char** argv) {
 
 	glCheckError();
 
+	// load model data
+	tinyobj::attrib_t attrib;
+	std::vector<tinyobj::shape_t> shapes;
+	std::vector<tinyobj::material_t> materials;
+
+	std::string error;
+	tinyobj::LoadObj(&attrib, &shapes, &materials, &error, (_path + "cube.obj").c_str());
+
+	if (!error.empty()) {
+		std::cerr << error << std::endl;
+		return;
+	}
+
+	Model model;
+
+	for (const tinyobj::shape_t& shape : shapes) {
+		shape.mesh.indices;
+		attrib.vertices;
+		attrib.texcoords;
+		attrib.normals;
+	}	
+	
+	// load texture data
+	int x, y, n;
+	uint8_t* data = stbi_load((_path + "image.png").c_str(), &x, &y, &n, 4);
+
+	if (!data) {
+		std::cerr << "cannot load texture" << std::endl;
+		return;
+	}
+
+	stbi_image_free(data);
+
+	// set matrix
+	_matrix = glm::ortho(0.f, (float)_windowSize.x, 0.f, (float)_windowSize.y);
+
 	//glGenBuffers(1, &state->vertexBuffer); // glGenBuffers
 	//glGenBuffers(1, &state->indexBuffer); // glGenBuffers
 	//glCheckError();
@@ -192,7 +235,6 @@ void Renderer::load(int argc, char** argv) {
 	//
 	//glBindBuffer(GL_ARRAY_BUFFER, 0);
 	//glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
-
 }
 
 void Renderer::update(double dt) {

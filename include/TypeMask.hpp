@@ -51,8 +51,8 @@ template <uint32_t i, typename ...Ts>
 typename std::enable_if<i < sizeof...(Ts), void>::type TypeMask<width>::_fill(bool value) {
 	_fill<i + 1, Ts...>(value);
 
-	using Type = std::tuple_element<i, std::tuple<Ts...>>::type;
-	_mask.set(index<Type>(), value);
+	using T = std::tuple_element<i, std::tuple<Ts...>>::type;
+	_mask.set(typeIndex<TypeMask, T>(), value);
 }
 
 template <size_t width>

@@ -26,7 +26,7 @@ public:
 	inline void newSystem(Ts&&... args);
 
 	template <typename T>
-	inline T& getSystem();
+	inline T& system();
 
 	template <typename T>
 	inline bool hasSystem();
@@ -59,7 +59,7 @@ void SimpleEngine<components, events, listeners>::newSystem(Ts && ...args) {
 
 template<uint32_t components, uint32_t events, uint32_t listeners>
 template<typename T>
-T& SimpleEngine<components, events, listeners>::getSystem() {
+T& SimpleEngine<components, events, listeners>::system() {
 	assert(hasSystem<T>() && "system does not exist");
 
 	return *_systems[typeIndex<SimpleEngine, T>()].value();

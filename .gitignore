@@ -7,4 +7,7 @@ thirdparty/*
 !thirdparty/CMakeLists.txt
 
 !thirdparty/glad-gl-4.6
+
+!thirdparty/stb-image
+thirdparty/stb-image/*
 !thirdparty/stb-image/CMakeLists.txt

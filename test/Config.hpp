@@ -10,7 +10,10 @@ using Engine = SimpleEngine<MAX_COMPONENTS, MAX_EVENTS, MAX_LISTENERS>;
 
 enum Events {
 	Load,
-	Update
+	Update,
+
 };
 
 const size_t chunkSize = 1024 * 1024 * 128; // 128 mb
+
+const std::string dataFolder = "data";

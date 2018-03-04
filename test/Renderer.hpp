@@ -1,8 +1,8 @@
 #pragma once
 
 #include "Config.hpp"
-#include "Transform.hpp"
-#include "Model.hpp"
+
+#include <string>
 
 #include <glad\glad.h>
 #include <GLFW\glfw3.h>
@@ -11,22 +11,29 @@
 class Renderer {
 	Engine& _engine;
 
+	GLFWwindow* _window;
+
+	GLuint _fragmentShader;
+	GLuint _vertexShader;
+	GLuint _program;
+
+	GLuint _attributeVertex;
+	GLuint _attributeNormal;
+	GLuint _attributeTexcoord;
+
+	GLuint _uniformMatrix;
+	GLuint _uniformTexture;
+
+	glm::mat4 _matrix;
+
+	std::string _path;
+
+	glm::uvec2 _windowSize;
+
 public:
 	Renderer(Engine& engine);
+	~Renderer();
 
 	void load(int argc, char** argv);
 	void update(double dt);
 };
-
-Renderer::Renderer(Engine& engine) : _engine(engine) {
-	_engine.events.subscribe(this, Events::Load, &Renderer::load);
-	_engine.events.subscribe(this, Events::Update, &Renderer::update);
-}
-
-void Renderer::load(int argc, char** argv) {
-
-}
-
-void Renderer::update(double dt) {
-
-}
