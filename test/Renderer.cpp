@@ -9,34 +9,47 @@
 #include <tiny_obj_loader.h>
 #include <stb_image.h>
 
+GLint vertexAttribute = 0;
+GLint normalAttribute = 1;
+GLint texcoordAttribute = 2;
+
 const std::string vertexShaderSrc =
 	"#version 460 core\n"
 
-	"in vec3 inVertex;"
-	"in vec2 inTexcoord;"
+	"layout (location = 0) in vec3 inVertex;"
+	"layout (location = 1) in vec3 inNormal;"
+	"layout (location = 2) in vec2 inTexcoord;"
 
-	"varying out vec2 texcoord;"
+	"out vec3 normal;"
+	"out vec2 texcoord;"
 
 	"uniform mat4 matrix;" 
 
 	"void main(){"
 		"gl_Position =  matrix * vec4(inVertex, 1);"
+		"normal = inNormal;"
 		"texcoord = inTexcoord;"
 	"}";
 
 const std::string fragmentShaderSrc = 
 	"#version 460 core\n"
 
-	"varying in vec2 texcoord;"
+	"in vec3 normal;"
+	"in vec2 texcoord;"
 
-	"layout (location = 0) varying out vec4 fragColour;"
+	"layout (location = 0) out vec4 fragColour;"
 
 	"uniform sampler2D texture;"
 
 	"void main(){"
-		"fragColour = texture2D(texture, texcoord).rgba;"
+		"fragColour = vec4(1, 0, 0, 1);"
 	"}";
 
+struct Attributes {
+	glm::tvec3<GLfloat> vertex;
+	glm::tvec3<GLfloat> normal;
+	glm::tvec2<GLfloat> texcoord;
+};
 
 int verboseCheckError() {
 	GLenum error = glGetError();
@@ -96,16 +109,17 @@ Renderer::~Renderer() {
 void Renderer::load(int argc, char** argv) {
 	// setup data stuff
 	_path = upperPath(replace('\\', '/', argv[0])) + dataFolder + '/';
+	
+	_windowSize = { 512, 512 };
+	_matrix = glm::ortho(-10.f, 10.f, -10.f, 10.f, 0.f, 1000.f);
 
 	stbi_set_flip_vertically_on_load(true);
-
-	_windowSize = { 512, 512 };
-
+	
 	// setup GLFW
 	glfwSetErrorCallback(errorCallback);
 
 	if (!glfwInit()) {
-		_engine.events.unsubscribe(this, Events::Update);
+		_engine.events.unsubscribe(this);
 		return;
 	}
 
@@ -116,7 +130,7 @@ void Renderer::load(int argc, char** argv) {
 
 	if (!_window) {
 		std::cerr << "GLFW error - " << "cannot create window" << std::endl;
-		_engine.events.unsubscribe(this, Events::Update);
+		_engine.events.unsubscribe(this);
 		return;
 	}
 
@@ -125,8 +139,8 @@ void Renderer::load(int argc, char** argv) {
 	glfwMakeContextCurrent(_window);
 	gladLoadGLLoader((GLADloadproc)glfwGetProcAddress);
 	glfwSwapInterval(1);
-
-	// create shader program
+	
+	// create shaders
 	bool failed = false;
 
 	if (!compileShader(GL_VERTEX_SHADER, &_vertexShader, vertexShaderSrc))
@@ -139,7 +153,7 @@ void Renderer::load(int argc, char** argv) {
 		glDeleteShader(_fragmentShader);
 		glDeleteShader(_vertexShader);
 		glfwDestroyWindow(_window);
-		_engine.events.unsubscribe(this, Events::Update);
+		_engine.events.unsubscribe(this);
 
 		return;
 	}
@@ -151,7 +165,8 @@ void Renderer::load(int argc, char** argv) {
 	glAttachShader(_program, _fragmentShader);
 
 	glLinkProgram(_program);
-
+	
+	// link the program
 	GLint success;
 	glGetProgramiv(_program, GL_LINK_STATUS, &success);
 
@@ -168,82 +183,142 @@ void Renderer::load(int argc, char** argv) {
 		glDeleteShader(_fragmentShader);
 		glDeleteProgram(_program);
 		glfwDestroyWindow(_window);
-		_engine.events.unsubscribe(this, Events::Update);
+		_engine.events.unsubscribe(this);
 
 		return;
 	}
 
-	glCheckError();
-
-	GLuint _attributeVertex = glGetAttribLocation(_program, "inVertex");
-	GLuint _attributeTexcoord = glGetAttribLocation(_program, "inNormal");
-	GLuint _uniformMatrix = glGetUniformLocation(_program, "matrix");
-	GLuint _uniformTexture = glGetUniformLocation(_program, "texture");
+	// get attribute / uniform locations
+	_uniformMatrix = glGetUniformLocation(_program, "matrix");
+	_uniformTexture = glGetUniformLocation(_program, "texture");
 
 	glCheckError();
+
+	// create test entity
+	uint64_t id = _engine.entities.create();
+	_engine.entities.add<Transform>(id);
+	_engine.entities.add<Model>(id);
+
+	Model& model = *_engine.entities.get<Model>(id);
+
+	// load texture data
+	int x, y, n;
+	uint8_t* imageData = stbi_load((_path + "image.png").c_str(), &x, &y, &n, 4);
+
+	if (!imageData) {
+		std::cerr << "cannot load texture" << std::endl;
+		return;
+	}
+
+	stbi_image_free(imageData);
 
 	// load model data
-	tinyobj::attrib_t attrib;
+	tinyobj::attrib_t attributes;
 	std::vector<tinyobj::shape_t> shapes;
 	std::vector<tinyobj::material_t> materials;
 
 	std::string error;
-	tinyobj::LoadObj(&attrib, &shapes, &materials, &error, (_path + "cube.obj").c_str());
+	tinyobj::LoadObj(&attributes, &shapes, &materials, &error, (_path + "triangle.obj").c_str());
 
 	if (!error.empty()) {
 		std::cerr << error << std::endl;
 		return;
 	}
 
-	Model model;
+	for (const tinyobj::shape_t& shape : shapes)
+		model.indexCount += shape.mesh.indices.size();
+	
+	// create buffers
+	glGenVertexArrays(1, &model.arrayObject);
+	glBindVertexArray(model.arrayObject);
+
+	glGenBuffers(1, &model.indexBuffer);
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, model.indexBuffer);
+	glBufferData(GL_ELEMENT_ARRAY_BUFFER, model.indexCount * sizeof(GLuint), nullptr, GL_STATIC_DRAW);
+
+	glGenBuffers(1, &model.attribBuffer);
+	glBindBuffer(GL_ARRAY_BUFFER, model.attribBuffer);
+	glBufferData(GL_ARRAY_BUFFER, (attributes.vertices.size() / 3) * sizeof(Attributes), nullptr, GL_STATIC_DRAW);
+	
+	// buffer data
+	GLuint* indexMap = static_cast<GLuint*>(glMapBuffer(GL_ELEMENT_ARRAY_BUFFER, GL_READ_WRITE));
+	Attributes* attributeMap = static_cast<Attributes*>(glMapBuffer(GL_ARRAY_BUFFER, GL_READ_WRITE));
+
+	glCheckError();
 
 	for (const tinyobj::shape_t& shape : shapes) {
-		shape.mesh.indices;
-		attrib.vertices;
-		attrib.texcoords;
-		attrib.normals;
-	}	
-	
-	// load texture data
-	int x, y, n;
-	uint8_t* data = stbi_load((_path + "image.png").c_str(), &x, &y, &n, 4);
+		for (uint32_t i = 0; i < shape.mesh.indices.size(); i++) {
+			const tinyobj::index_t& index = shape.mesh.indices[i];
 
-	if (!data) {
-		std::cerr << "cannot load texture" << std::endl;
-		return;
+			indexMap[i] = index.vertex_index;
+
+			if (attributes.vertices.size())
+				memcpy(&attributeMap[index.vertex_index].vertex, &attributes.vertices[(index.vertex_index * 3)], sizeof(Attributes::vertex));
+
+			if (attributes.normals.size())
+				memcpy(&attributeMap[index.vertex_index].normal, &attributes.normals[(index.normal_index * 3)], sizeof(Attributes::normal));
+			
+			if (attributes.texcoords.size())
+				memcpy(&attributeMap[index.vertex_index].texcoord, &attributes.texcoords[(index.texcoord_index * 2)], sizeof(Attributes::texcoord));
+		}
 	}
 
-	stbi_image_free(data);
+	glUnmapBuffer(GL_ARRAY_BUFFER);
+	glUnmapBuffer(GL_ELEMENT_ARRAY_BUFFER);
 
-	// set matrix
-	_matrix = glm::ortho(0.f, (float)_windowSize.x, 0.f, (float)_windowSize.y);
+	glCheckError();
 
-	//glGenBuffers(1, &state->vertexBuffer); // glGenBuffers
-	//glGenBuffers(1, &state->indexBuffer); // glGenBuffers
-	//glCheckError();
-	//
-	//glBindBuffer(GL_ARRAY_BUFFER, state->vertexBuffer);
-	//glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, state->indexBuffer);
-	//
-	//glVertexAttribPointer(state->attributePosition, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), 0);
-	//glEnableVertexAttribArray(state->attributePosition);
-	//glCheckError();
-	//
-	//glVertexAttribPointer(state->attributeUv, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)(sizeof(glm::vec3)));
-	//glEnableVertexAttribArray(state->attributeUv);
-	//glCheckError();
-	//
-	//glBindBuffer(GL_ARRAY_BUFFER, 0);
-	//glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+	// assign attribute pointers
+	glEnableVertexAttribArray(vertexAttribute);
+	glVertexAttribPointer(vertexAttribute, 3, GL_FLOAT, GL_FALSE, sizeof(Attributes), (void*)(0));
+
+	glEnableVertexAttribArray(normalAttribute);
+	glVertexAttribPointer(normalAttribute, 3, GL_FLOAT, GL_FALSE, sizeof(Attributes), (void*)(sizeof(Attributes::vertex)));
+
+	glEnableVertexAttribArray(texcoordAttribute);
+	glVertexAttribPointer(texcoordAttribute, 2, GL_FLOAT, GL_FALSE, sizeof(Attributes), (void*)(sizeof(Attributes::vertex) + sizeof(Attributes::normal)));
+
+	glCheckError();
+	
+	// clean up
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+	glBindVertexArray(0);
+
+	glCheckError();
 }
 
 void Renderer::update(double dt) {
 	if (glfwWindowShouldClose(_window))
 		_engine.running = false;
 
-	_engine.entities.iterate<Transform, Model>([&](uint64_t id, Transform& transform, Model& model) {
+	glClearColor(0.f, 0.f, 0.f, 1.f);
+	glClear(GL_COLOR_BUFFER_BIT);
 
+	glUseProgram(_program);
+
+	glUniformMatrix4fv(_uniformMatrix, 1, GL_FALSE, &_matrix[0][0]);
+
+	glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+
+	glCheckError();	
+
+	_engine.entities.iterate<Transform, Model>([&](uint64_t id, Transform& transform, Model& model) {
+		glBindVertexArray(model.arrayObject);
+		glBindBuffer(GL_ARRAY_BUFFER, model.attribBuffer);
+		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, model.indexBuffer);
+
+		glDrawElements(GL_TRIANGLES, static_cast<GLsizei>(model.indexCount * 3), GL_UNSIGNED_INT, nullptr);
+
+		glBindBuffer(GL_ARRAY_BUFFER, 0);
+		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+		glBindVertexArray(0);
+
+		glCheckError();
 	});
+
+	glUseProgram(0);
+	glCheckError();
 
 	glfwSwapBuffers(_window);
 	glfwPollEvents();

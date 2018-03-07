@@ -17,17 +17,12 @@ class Renderer {
 	GLuint _vertexShader;
 	GLuint _program;
 
-	GLuint _attributeVertex;
-	GLuint _attributeNormal;
-	GLuint _attributeTexcoord;
-
-	GLuint _uniformMatrix;
-	GLuint _uniformTexture;
+	GLint _uniformMatrix;
+	GLint _uniformTexture;
 
 	glm::mat4 _matrix;
 
 	std::string _path;
-
 	glm::uvec2 _windowSize;
 
 public:

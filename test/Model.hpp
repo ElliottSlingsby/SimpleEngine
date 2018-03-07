@@ -3,7 +3,10 @@
 #include <glad\glad.h>
 
 struct Model {
-	GLuint vertexBuffer = GL_NONE;
+	GLuint arrayObject = GL_NONE;
+
+	GLuint attribBuffer = GL_NONE;
 	GLuint indexBuffer = GL_NONE;
-	GLuint texture = GL_NONE;
+
+	size_t indexCount = 0;
 };

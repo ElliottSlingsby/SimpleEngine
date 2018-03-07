@@ -54,7 +54,7 @@ void SimpleEngine<components, events, listeners>::newSystem(Ts && ...args) {
 		_systems.resize(index + 1);
 
 	if (!hasSystem<T>())
-		new (&_systems[index]) std::optional<VirtualPtr<T>>(*this, std::forward<Ts>(args)...);
+		new (&_systems[index]) std::optional<VirtualPtr<T>>(*this, args...);
 }
 
 template<uint32_t components, uint32_t events, uint32_t listeners>
