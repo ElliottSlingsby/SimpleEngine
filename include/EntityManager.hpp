@@ -140,8 +140,8 @@ void EntityManager<typeWidth>::_erase(uint32_t index) {
 	
 	// if references still exist, mark as erased for later, and return
 	if (_identities[index].references) {
-		if (hasFlags(_identities[index].flags, Identity::Erased))
-			_warning(Warning::References);
+		//if (hasFlags(_identities[index].flags, Identity::Erased))
+		//	_warning(Warning::References, "calling erase while entity is already erased");
 
 		_identities[index].flags |= Identity::Erased;
 		return;
@@ -320,7 +320,7 @@ void EntityManager<typeWidth>::add(uint64_t id, Ts&&... args) {
 	assert(hasFlags(_identities[index].flags, Identity::Active)); // sanity
 
 	if (_identities[index].mask.has<T>()) {
-		_warning(Warning::Component, "calling add when component already exists");
+		//_warning(Warning::Component, "calling add when component already exists");
 		return;
 	}
 
@@ -350,7 +350,7 @@ void EntityManager<typeWidth>::remove(uint64_t id) {
 	assert(hasFlags(_identities[index].flags, Identity::Active)); // sanity
 
 	if (!_identities[index].mask.has<T>()) {
-		_warning(Warning::Component, "calling remove on non existant component");
+		//_warning(Warning::Component, "calling remove on non existant component");
 		return;
 	}
 

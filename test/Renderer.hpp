@@ -34,7 +34,11 @@ class Renderer {
 	std::string _path;
 	glm::uvec2 _windowSize;
 
+	void _reshape(int height, int width);
+
 public:
+	glm::mat4 matrix;
+
 	Renderer(Engine& engine);
 	~Renderer();
 
@@ -43,4 +47,7 @@ public:
 
 	void loadMesh(uint64_t* id, const std::string& meshFile);
 	void loadTexture(uint64_t* id, const std::string& textureFile);
+
+	friend void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods);
+	friend void windowSizeCallback(GLFWwindow* window, int height, int width);
 };

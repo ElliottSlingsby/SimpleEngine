@@ -36,6 +36,14 @@ void errorCallback(int error, const char* description) {
 void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods) {
 	if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS)
 		glfwSetWindowShouldClose(window, GLFW_TRUE);
+
+	Renderer& renderer = *(Renderer*)glfwGetWindowUserPointer(window);
+}
+
+void windowSizeCallback(GLFWwindow* window, int height, int width) {
+	Renderer& renderer = *(Renderer*)glfwGetWindowUserPointer(window);
+
+	renderer._reshape(height, width);
 }
 
 bool compileShader(GLuint type, GLuint* shader, const std::string& src) {
@@ -110,24 +118,30 @@ bool createProgram(GLuint* program, GLuint* vertexShader, GLuint* fragmentShader
 	return true;
 }
 
+void Renderer::_reshape(int height, int width){
+	_windowSize = { height, width };
+	_matrix = glm::perspectiveFov(100.f, static_cast<float>(height), static_cast<float>(width), 0.1f, 1000.f);
+
+	glViewport(0, 0, height, width);
+}
+
 Renderer::Renderer(Engine& engine) : _engine(engine) {
 	_engine.events.subscribe(this, Events::Load, &Renderer::load);
 	_engine.events.subscribe(this, Events::Update, &Renderer::update);
 }
 
 Renderer::~Renderer() {
+	if (_window)
+		glfwDestroyWindow(_window);
+
 	glfwTerminate();
 }
 
 void Renderer::load(int argc, char** argv) {
 	// setup data stuff
 	_path = upperPath(replace('\\', '/', argv[0])) + DATA_FOLDER + '/';
-	
 	_windowSize = { 512, 512 };
-	_matrix = glm::ortho(-1.f, 1.f, -1.f, 1.f);
 
-	stbi_set_flip_vertically_on_load(true);
-	
 	// setup GLFW
 	glfwSetErrorCallback(errorCallback);
 
@@ -147,7 +161,10 @@ void Renderer::load(int argc, char** argv) {
 		return;
 	}
 
+	glfwSetWindowUserPointer(_window, this);
+
 	glfwSetKeyCallback(_window, keyCallback);
+	glfwSetWindowSizeCallback(_window, windowSizeCallback);
 
 	glfwMakeContextCurrent(_window);
 	gladLoadGLLoader((GLADloadproc)glfwGetProcAddress);
@@ -156,27 +173,33 @@ void Renderer::load(int argc, char** argv) {
 	if (!createProgram(&_program, &_vertexShader, &_fragmentShader, readFile(_path + VERTEX_SHADER_FILE), readFile(_path + FRAGMENT_SHADER_FILE))) {
 		glfwDestroyWindow(_window);
 		_engine.events.unsubscribe(this);
-
 		return;
 	}
 
+	// get uniform locations
 	_uniformMatrix = glGetUniformLocation(_program, "matrix");
 	_uniformTexture = glGetUniformLocation(_program, "texture");
+
+	// enable gl settings
+	glEnable(GL_CULL_FACE);
+	glEnable(GL_DEPTH_TEST);
+
+	_reshape(_windowSize.x, _windowSize.y);
 
 	glCheckError();
 }
 
 void Renderer::update(double dt) {
-	if (glfwWindowShouldClose(_window))
+	if (glfwWindowShouldClose(_window)) {
 		_engine.running = false;
+		return;
+	}
 
 	glClearColor(0.f, 0.f, 0.f, 1.f);
-	glClear(GL_COLOR_BUFFER_BIT);
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
+	// setup shader program
 	glUseProgram(_program);
-
-	if (_uniformMatrix != -1)
-		glUniformMatrix4fv(_uniformMatrix, 1, GL_FALSE, &_matrix[0][0]);
 
 	if (_uniformTexture != -1)
 		glUniform1i(_uniformTexture, 0);
@@ -184,17 +207,26 @@ void Renderer::update(double dt) {
 	glCheckError();
 
 	_engine.entities.iterate<Transform, Model>([&](uint64_t id, Transform& transform, Model& model) {
+		// apply transform
+		glm::mat4 matrix = _matrix;
+		matrix = glm::translate(matrix, -transform.position);
+		matrix = glm::scale(matrix, transform.scale);
+		matrix *= glm::mat4_cast(transform.rotation);
+
+		if (_uniformMatrix != -1)
+			glUniformMatrix4fv(_uniformMatrix, 1, GL_FALSE, &(matrix)[0][0]);
+
+		// draw buffer
 		glBindVertexArray(model.arrayObject);
 		glBindBuffer(GL_ARRAY_BUFFER, model.attribBuffer);
-		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, model.indexBuffer);
 
 		glActiveTexture(GL_TEXTURE0);
 		glBindTexture(GL_TEXTURE_2D, model.texture);
 
-		glDrawElements(GL_TRIANGLES, static_cast<GLsizei>(model.indexCount * 3), GL_UNSIGNED_INT, nullptr);
+		glDrawArrays(GL_TRIANGLES, 0, model.indexCount);
 
+		// clean up
 		glBindBuffer(GL_ARRAY_BUFFER, 0);
-		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 		glBindVertexArray(0);
 
 		glCheckError();
@@ -233,44 +265,36 @@ void Renderer::loadMesh(uint64_t* id, const std::string& meshFile) {
 	}
 
 	for (const tinyobj::shape_t& shape : shapes)
-		model.indexCount += shape.mesh.indices.size();
+		model.indexCount += static_cast<GLsizei>(shape.mesh.indices.size());
 
 	// create buffers
 	glGenVertexArrays(1, &model.arrayObject);
 	glBindVertexArray(model.arrayObject);
-
-	glGenBuffers(1, &model.indexBuffer);
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, model.indexBuffer);
-	glBufferData(GL_ELEMENT_ARRAY_BUFFER, model.indexCount * sizeof(GLuint), nullptr, GL_STATIC_DRAW);
-
+	
 	glGenBuffers(1, &model.attribBuffer);
 	glBindBuffer(GL_ARRAY_BUFFER, model.attribBuffer);
-	glBufferData(GL_ARRAY_BUFFER, (attributes.vertices.size() / 3) * sizeof(Attributes), nullptr, GL_STATIC_DRAW);
+	glBufferData(GL_ARRAY_BUFFER, model.indexCount * sizeof(Attributes), nullptr, GL_STATIC_DRAW);
 
 	// buffer data
-	GLuint* indexMap = static_cast<GLuint*>(glMapBuffer(GL_ELEMENT_ARRAY_BUFFER, GL_WRITE_ONLY));
 	Attributes* attributeMap = static_cast<Attributes*>(glMapBuffer(GL_ARRAY_BUFFER, GL_WRITE_ONLY));
 
 	glCheckError();
 
-	for (const tinyobj::shape_t& shape : shapes) {
-		for (uint32_t i = 0; i < shape.mesh.indices.size(); i++) {
-			const tinyobj::index_t& index = shape.mesh.indices[i];
+	for (uint32_t x = 0; x < shapes.size(); x++) {
+		for (uint32_t y = 0; y < shapes[x].mesh.indices.size(); y++) {
+			const tinyobj::index_t& index = shapes[x].mesh.indices[y];
 
-			indexMap[i] = index.vertex_index;
-
-			memcpy(&attributeMap[index.vertex_index].vertex, &attributes.vertices[(index.vertex_index * 3)], sizeof(Attributes::vertex));
+			memcpy(&attributeMap[x + y].vertex, &attributes.vertices[(index.vertex_index * 3)], sizeof(Attributes::vertex));
 
 			if (attributes.normals.size())
-				memcpy(&attributeMap[index.vertex_index].normal, &attributes.normals[(index.normal_index * 3)], sizeof(Attributes::normal));
+				memcpy(&attributeMap[x + y].normal, &attributes.normals[(index.normal_index * 3)], sizeof(Attributes::normal));
 
 			if (attributes.texcoords.size())
-				memcpy(&attributeMap[index.vertex_index].texcoord, &attributes.texcoords[(index.texcoord_index * 2)], sizeof(Attributes::texcoord));
+				memcpy(&attributeMap[x + y].texcoord, &attributes.texcoords[(index.texcoord_index * 2)], sizeof(Attributes::texcoord));
 		}
 	}
-
+	
 	glUnmapBuffer(GL_ARRAY_BUFFER);
-	glUnmapBuffer(GL_ELEMENT_ARRAY_BUFFER);
 
 	glCheckError();
 
@@ -288,7 +312,6 @@ void Renderer::loadMesh(uint64_t* id, const std::string& meshFile) {
 
 	// clean up
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 	glBindVertexArray(0);
 
 	glCheckError();
