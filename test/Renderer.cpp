@@ -142,6 +142,8 @@ void Renderer::load(int argc, char** argv) {
 	_path = upperPath(replace('\\', '/', argv[0])) + DATA_FOLDER + '/';
 	_windowSize = { 512, 512 };
 
+	stbi_set_flip_vertically_on_load(true);
+
 	// setup GLFW
 	glfwSetErrorCallback(errorCallback);
 

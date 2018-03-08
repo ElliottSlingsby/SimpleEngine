@@ -37,8 +37,6 @@ class Renderer {
 	void _reshape(int height, int width);
 
 public:
-	glm::mat4 matrix;
-
 	Renderer(Engine& engine);
 	~Renderer();
 

@@ -11,3 +11,8 @@ target_link_libraries("Test" "tinyobjloader")
 target_link_libraries("Test" "stb-image")
 
 set_target_properties("Test" PROPERTIES FOLDER "Tests")
+
+if(MSVC)
+	set_target_properties("Test" PROPERTIES LINK_FLAGS_RELEASE "/SUBSYSTEM:WINDOWS /entry:mainCRTStartup")
+	set_target_properties("Test" PROPERTIES LINK_FLAGS_MINSIZEREL "/SUBSYSTEM:WINDOWS /entry:mainCRTStartup")
+endif(MSVC)
