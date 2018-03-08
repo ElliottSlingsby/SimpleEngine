@@ -3,10 +3,12 @@
 #include <glad\glad.h>
 
 struct Model {
-	GLuint arrayObject = GL_NONE;
+	GLuint arrayObject = 0;
 
-	GLuint attribBuffer = GL_NONE;
-	GLuint indexBuffer = GL_NONE;
+	GLuint attribBuffer = 0;
+	GLuint indexBuffer = 0;
+
+	GLuint texture = 0;
 
 	size_t indexCount = 0;
 };

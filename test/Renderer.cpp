@@ -9,9 +9,9 @@
 #include <tiny_obj_loader.h>
 #include <stb_image.h>
 
-GLint vertexAttribute = 0;
-GLint normalAttribute = 1;
-GLint texcoordAttribute = 2;
+const GLint vertexAttribute = 0;
+const GLint normalAttribute = 1;
+const GLint texcoordAttribute = 2;
 
 const std::string vertexShaderSrc =
 	"#version 460 core\n"
@@ -42,7 +42,8 @@ const std::string fragmentShaderSrc =
 	"uniform sampler2D texture;"
 
 	"void main(){"
-		"fragColour = vec4(1, 0, 0, 1);"
+		//"fragColour = vec4(1, 0, 0, 1);"
+		"fragColour = texture2D(texture, texcoord).rgba;"
 	"}";
 
 struct Attributes {
@@ -111,7 +112,7 @@ void Renderer::load(int argc, char** argv) {
 	_path = upperPath(replace('\\', '/', argv[0])) + dataFolder + '/';
 	
 	_windowSize = { 512, 512 };
-	_matrix = glm::ortho(-10.f, 10.f, -10.f, 10.f, 0.f, 1000.f);
+	_matrix = glm::ortho(-1.f, 1.f, -1.f, 1.f);
 
 	stbi_set_flip_vertically_on_load(true);
 	
@@ -188,6 +189,8 @@ void Renderer::load(int argc, char** argv) {
 		return;
 	}
 
+	glCheckError();
+
 	// get attribute / uniform locations
 	_uniformMatrix = glGetUniformLocation(_program, "matrix");
 	_uniformTexture = glGetUniformLocation(_program, "texture");
@@ -210,7 +213,21 @@ void Renderer::load(int argc, char** argv) {
 		return;
 	}
 
+	// buffer texture data
+	glGenTextures(1, &model.texture);
+	glBindTexture(GL_TEXTURE_2D, model.texture);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, x, y, 0, GL_RGBA, GL_UNSIGNED_BYTE, imageData);
+
 	stbi_image_free(imageData);
+
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+	
+	glBindTexture(GL_TEXTURE_2D, 0);
+
+	glCheckError();
 
 	// load model data
 	tinyobj::attrib_t attributes;
@@ -218,7 +235,7 @@ void Renderer::load(int argc, char** argv) {
 	std::vector<tinyobj::material_t> materials;
 
 	std::string error;
-	tinyobj::LoadObj(&attributes, &shapes, &materials, &error, (_path + "triangle.obj").c_str());
+	tinyobj::LoadObj(&attributes, &shapes, &materials, &error, (_path + "quad.obj").c_str());
 
 	if (!error.empty()) {
 		std::cerr << error << std::endl;
@@ -299,14 +316,17 @@ void Renderer::update(double dt) {
 
 	glUniformMatrix4fv(_uniformMatrix, 1, GL_FALSE, &_matrix[0][0]);
 
-	glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-
-	glCheckError();	
+	glCheckError();
 
 	_engine.entities.iterate<Transform, Model>([&](uint64_t id, Transform& transform, Model& model) {
 		glBindVertexArray(model.arrayObject);
 		glBindBuffer(GL_ARRAY_BUFFER, model.attribBuffer);
 		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, model.indexBuffer);
+
+		glActiveTexture(GL_TEXTURE0);
+		glBindTexture(GL_TEXTURE_2D, model.texture);
+
+		glUniform1i(_uniformTexture, 0);
 
 		glDrawElements(GL_TRIANGLES, static_cast<GLsizei>(model.indexCount * 3), GL_UNSIGNED_INT, nullptr);
 
