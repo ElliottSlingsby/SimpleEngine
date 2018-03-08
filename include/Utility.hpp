@@ -5,6 +5,8 @@
 #include <thread>
 #include <utility>
 #include <iostream>
+#include <string>
+#include <fstream>
 
 using Clock = std::chrono::high_resolution_clock;
 using TimePoint = Clock::time_point;
@@ -95,6 +97,24 @@ inline std::string replace(char from, char to, std::string text) {
 }
 
 inline std::string upperPath(std::string filePath) {
+	if (filePath.empty())
+		return filePath;
+
 	filePath.pop_back();
 	return filePath.substr(0, filePath.find_last_of('/') + 1);
+}
+
+inline std::string readFile(const std::string& path) {
+	std::ifstream file;
+
+	file.open(path, std::ios::in);
+
+	if (!file.is_open())
+		return "";
+
+	std::string contents = std::string(std::istreambuf_iterator<char>(file), std::istreambuf_iterator<char>());
+
+	file.close();
+
+	return contents;
 }

@@ -62,11 +62,16 @@ template<typename T>
 T& SimpleEngine<components, events, listeners>::system() {
 	assert(hasSystem<T>() && "system does not exist");
 
-	return *_systems[typeIndex<SimpleEngine, T>()].value();
+	return *static_cast<T*>(_systems[typeIndex<SimpleEngine, T>()].value().ptr);
 }
 
 template<uint32_t components, uint32_t events, uint32_t listeners>
 template<typename T>
 bool SimpleEngine<components, events, listeners>::hasSystem() {
-	return _systems[typeIndex<SimpleEngine, T>()] != std::nullopt;
+	uint32_t index = typeIndex<SimpleEngine, T>();
+
+	if (_systems.size() <= index)
+		return false;
+
+	return _systems[index] != std::nullopt;
 }

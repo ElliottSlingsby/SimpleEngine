@@ -74,6 +74,8 @@ public:
 
 	inline ~EntityManager();
 
+	inline bool valid(uint64_t id) const;
+
 	inline uint64_t create();
 
 	inline void erase(uint64_t id);
@@ -227,6 +229,17 @@ EntityManager<typeWidth>::~EntityManager() {
 	}
 }
 
+template<uint32_t typeWidth>
+inline bool EntityManager<typeWidth>::valid(uint64_t id) const {
+	if (id == 0)
+		return false;
+
+	uint32_t index = front64(id);
+	uint32_t version = back64(id);
+
+	return _validId(index, version);
+}
+
 template <uint32_t typeWidth>
 uint64_t EntityManager<typeWidth>::create() {
 	// find free index
@@ -308,7 +321,7 @@ void EntityManager<typeWidth>::add(uint64_t id, Ts&&... args) {
 
 	if (_identities[index].mask.has<T>()) {
 		_warning(Warning::Component, "calling add when component already exists");
-		remove<T>(id);
+		return;
 	}
 
 	// create pool if it doesn't exist

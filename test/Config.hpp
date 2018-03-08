@@ -15,5 +15,3 @@ enum Events {
 };
 
 const size_t chunkSize = 1024 * 1024 * 128; // 128 mb
-
-const std::string dataFolder = "data";

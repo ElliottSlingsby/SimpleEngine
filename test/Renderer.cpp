@@ -4,47 +4,11 @@
 #include "Model.hpp"
 
 #include <iostream>
+#include <fstream>
 #include <string>
 
 #include <tiny_obj_loader.h>
 #include <stb_image.h>
-
-const GLint vertexAttribute = 0;
-const GLint normalAttribute = 1;
-const GLint texcoordAttribute = 2;
-
-const std::string vertexShaderSrc =
-	"#version 460 core\n"
-
-	"layout (location = 0) in vec3 inVertex;"
-	"layout (location = 1) in vec3 inNormal;"
-	"layout (location = 2) in vec2 inTexcoord;"
-
-	"out vec3 normal;"
-	"out vec2 texcoord;"
-
-	"uniform mat4 matrix;" 
-
-	"void main(){"
-		"gl_Position =  matrix * vec4(inVertex, 1);"
-		"normal = inNormal;"
-		"texcoord = inTexcoord;"
-	"}";
-
-const std::string fragmentShaderSrc = 
-	"#version 460 core\n"
-
-	"in vec3 normal;"
-	"in vec2 texcoord;"
-
-	"layout (location = 0) out vec4 fragColour;"
-
-	"uniform sampler2D texture;"
-
-	"void main(){"
-		//"fragColour = vec4(1, 0, 0, 1);"
-		"fragColour = texture2D(texture, texcoord).rgba;"
-	"}";
 
 struct Attributes {
 	glm::tvec3<GLfloat> vertex;
@@ -98,6 +62,54 @@ bool compileShader(GLuint type, GLuint* shader, const std::string& src) {
 	return false;
 }
 
+bool createProgram(GLuint* program, GLuint* vertexShader, GLuint* fragmentShader, const std::string& vertexSrc, const std::string& fragmentSrc) {
+	// create shaders
+	bool failed = false;
+
+	if (!compileShader(GL_VERTEX_SHADER, vertexShader, vertexSrc))
+		failed = true;
+
+	if (!compileShader(GL_FRAGMENT_SHADER, fragmentShader, fragmentSrc))
+		failed = true;
+
+	if (failed) {
+		glDeleteShader(*vertexShader);
+		glDeleteShader(*fragmentShader);
+
+		return false;
+	}
+
+	glCheckError();
+
+	*program = glCreateProgram();
+	glAttachShader(*program, *vertexShader);
+	glAttachShader(*program, *fragmentShader);
+
+	glLinkProgram(*program);
+
+	// link the program
+	GLint success;
+	glGetProgramiv(*program, GL_LINK_STATUS, &success);
+
+	if (!success) {
+		GLint length = 0;
+		glGetProgramiv(*program, GL_INFO_LOG_LENGTH, &length);
+
+		std::vector<GLchar> message(length);
+		glGetProgramInfoLog(*program, length, &length, &message[0]);
+
+		std::cerr << "GLSL error - " << static_cast<char*>(&message[0]) << std::endl;
+
+		glDeleteShader(*vertexShader);
+		glDeleteShader(*fragmentShader);
+		glDeleteProgram(*program);
+
+		return false;
+	}
+
+	return true;
+}
+
 Renderer::Renderer(Engine& engine) : _engine(engine) {
 	_engine.events.subscribe(this, Events::Load, &Renderer::load);
 	_engine.events.subscribe(this, Events::Update, &Renderer::update);
@@ -109,7 +121,7 @@ Renderer::~Renderer() {
 
 void Renderer::load(int argc, char** argv) {
 	// setup data stuff
-	_path = upperPath(replace('\\', '/', argv[0])) + dataFolder + '/';
+	_path = upperPath(replace('\\', '/', argv[0])) + DATA_FOLDER + '/';
 	
 	_windowSize = { 512, 512 };
 	_matrix = glm::ortho(-1.f, 1.f, -1.f, 1.f);
@@ -140,167 +152,16 @@ void Renderer::load(int argc, char** argv) {
 	glfwMakeContextCurrent(_window);
 	gladLoadGLLoader((GLADloadproc)glfwGetProcAddress);
 	glfwSwapInterval(1);
-	
-	// create shaders
-	bool failed = false;
 
-	if (!compileShader(GL_VERTEX_SHADER, &_vertexShader, vertexShaderSrc))
-		failed = true;
-
-	if (!compileShader(GL_FRAGMENT_SHADER, &_fragmentShader, fragmentShaderSrc))
-		failed = true;
-
-	if (failed) {
-		glDeleteShader(_fragmentShader);
-		glDeleteShader(_vertexShader);
+	if (!createProgram(&_program, &_vertexShader, &_fragmentShader, readFile(_path + VERTEX_SHADER_FILE), readFile(_path + FRAGMENT_SHADER_FILE))) {
 		glfwDestroyWindow(_window);
 		_engine.events.unsubscribe(this);
 
 		return;
 	}
 
-	glCheckError();
-
-	_program = glCreateProgram();
-	glAttachShader(_program, _vertexShader);
-	glAttachShader(_program, _fragmentShader);
-
-	glLinkProgram(_program);
-	
-	// link the program
-	GLint success;
-	glGetProgramiv(_program, GL_LINK_STATUS, &success);
-
-	if (!success) {
-		GLint length = 0;
-		glGetProgramiv(_program, GL_INFO_LOG_LENGTH, &length);
-
-		std::vector<GLchar> message(length);
-		glGetProgramInfoLog(_program, length, &length, &message[0]);
-
-		std::cerr << "GLSL error - " << static_cast<char*>(&message[0]) << std::endl;
-
-		glDeleteShader(_vertexShader);
-		glDeleteShader(_fragmentShader);
-		glDeleteProgram(_program);
-		glfwDestroyWindow(_window);
-		_engine.events.unsubscribe(this);
-
-		return;
-	}
-
-	glCheckError();
-
-	// get attribute / uniform locations
 	_uniformMatrix = glGetUniformLocation(_program, "matrix");
 	_uniformTexture = glGetUniformLocation(_program, "texture");
-
-	glCheckError();
-
-	// create test entity
-	uint64_t id = _engine.entities.create();
-	_engine.entities.add<Transform>(id);
-	_engine.entities.add<Model>(id);
-
-	Model& model = *_engine.entities.get<Model>(id);
-
-	// load texture data
-	int x, y, n;
-	uint8_t* imageData = stbi_load((_path + "image.png").c_str(), &x, &y, &n, 4);
-
-	if (!imageData) {
-		std::cerr << "cannot load texture" << std::endl;
-		return;
-	}
-
-	// buffer texture data
-	glGenTextures(1, &model.texture);
-	glBindTexture(GL_TEXTURE_2D, model.texture);
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, x, y, 0, GL_RGBA, GL_UNSIGNED_BYTE, imageData);
-
-	stbi_image_free(imageData);
-
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-	
-	glBindTexture(GL_TEXTURE_2D, 0);
-
-	glCheckError();
-
-	// load model data
-	tinyobj::attrib_t attributes;
-	std::vector<tinyobj::shape_t> shapes;
-	std::vector<tinyobj::material_t> materials;
-
-	std::string error;
-	tinyobj::LoadObj(&attributes, &shapes, &materials, &error, (_path + "quad.obj").c_str());
-
-	if (!error.empty()) {
-		std::cerr << error << std::endl;
-		return;
-	}
-
-	for (const tinyobj::shape_t& shape : shapes)
-		model.indexCount += shape.mesh.indices.size();
-	
-	// create buffers
-	glGenVertexArrays(1, &model.arrayObject);
-	glBindVertexArray(model.arrayObject);
-
-	glGenBuffers(1, &model.indexBuffer);
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, model.indexBuffer);
-	glBufferData(GL_ELEMENT_ARRAY_BUFFER, model.indexCount * sizeof(GLuint), nullptr, GL_STATIC_DRAW);
-
-	glGenBuffers(1, &model.attribBuffer);
-	glBindBuffer(GL_ARRAY_BUFFER, model.attribBuffer);
-	glBufferData(GL_ARRAY_BUFFER, (attributes.vertices.size() / 3) * sizeof(Attributes), nullptr, GL_STATIC_DRAW);
-	
-	// buffer data
-	GLuint* indexMap = static_cast<GLuint*>(glMapBuffer(GL_ELEMENT_ARRAY_BUFFER, GL_READ_WRITE));
-	Attributes* attributeMap = static_cast<Attributes*>(glMapBuffer(GL_ARRAY_BUFFER, GL_READ_WRITE));
-
-	glCheckError();
-
-	for (const tinyobj::shape_t& shape : shapes) {
-		for (uint32_t i = 0; i < shape.mesh.indices.size(); i++) {
-			const tinyobj::index_t& index = shape.mesh.indices[i];
-
-			indexMap[i] = index.vertex_index;
-
-			if (attributes.vertices.size())
-				memcpy(&attributeMap[index.vertex_index].vertex, &attributes.vertices[(index.vertex_index * 3)], sizeof(Attributes::vertex));
-
-			if (attributes.normals.size())
-				memcpy(&attributeMap[index.vertex_index].normal, &attributes.normals[(index.normal_index * 3)], sizeof(Attributes::normal));
-			
-			if (attributes.texcoords.size())
-				memcpy(&attributeMap[index.vertex_index].texcoord, &attributes.texcoords[(index.texcoord_index * 2)], sizeof(Attributes::texcoord));
-		}
-	}
-
-	glUnmapBuffer(GL_ARRAY_BUFFER);
-	glUnmapBuffer(GL_ELEMENT_ARRAY_BUFFER);
-
-	glCheckError();
-
-	// assign attribute pointers
-	glEnableVertexAttribArray(vertexAttribute);
-	glVertexAttribPointer(vertexAttribute, 3, GL_FLOAT, GL_FALSE, sizeof(Attributes), (void*)(0));
-
-	glEnableVertexAttribArray(normalAttribute);
-	glVertexAttribPointer(normalAttribute, 3, GL_FLOAT, GL_FALSE, sizeof(Attributes), (void*)(sizeof(Attributes::vertex)));
-
-	glEnableVertexAttribArray(texcoordAttribute);
-	glVertexAttribPointer(texcoordAttribute, 2, GL_FLOAT, GL_FALSE, sizeof(Attributes), (void*)(sizeof(Attributes::vertex) + sizeof(Attributes::normal)));
-
-	glCheckError();
-	
-	// clean up
-	glBindBuffer(GL_ARRAY_BUFFER, 0);
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
-	glBindVertexArray(0);
 
 	glCheckError();
 }
@@ -314,7 +175,11 @@ void Renderer::update(double dt) {
 
 	glUseProgram(_program);
 
-	glUniformMatrix4fv(_uniformMatrix, 1, GL_FALSE, &_matrix[0][0]);
+	if (_uniformMatrix != -1)
+		glUniformMatrix4fv(_uniformMatrix, 1, GL_FALSE, &_matrix[0][0]);
+
+	if (_uniformTexture != -1)
+		glUniform1i(_uniformTexture, 0);
 
 	glCheckError();
 
@@ -325,8 +190,6 @@ void Renderer::update(double dt) {
 
 		glActiveTexture(GL_TEXTURE0);
 		glBindTexture(GL_TEXTURE_2D, model.texture);
-
-		glUniform1i(_uniformTexture, 0);
 
 		glDrawElements(GL_TRIANGLES, static_cast<GLsizei>(model.indexCount * 3), GL_UNSIGNED_INT, nullptr);
 
@@ -342,4 +205,124 @@ void Renderer::update(double dt) {
 
 	glfwSwapBuffers(_window);
 	glfwPollEvents();
+}
+
+void Renderer::loadMesh(uint64_t* id, const std::string& meshFile) {
+	if (!_engine.entities.valid(*id))
+		return;
+
+	_engine.entities.add<Model>(*id);
+	Model& model = *_engine.entities.get<Model>(*id);
+
+	// load model data
+	tinyobj::attrib_t attributes;
+	std::vector<tinyobj::shape_t> shapes;
+	std::vector<tinyobj::material_t> materials;
+
+	std::string error;
+	tinyobj::LoadObj(&attributes, &shapes, &materials, &error, (_path + meshFile).c_str());
+
+	if (!error.empty()) {
+		std::cerr << "cannot load mesh - " << _path + meshFile << std::endl;
+		return;
+	}
+
+	if (!attributes.vertices.size()) {
+		std::cerr << "problem reading vertex data - " << _path + meshFile << std::endl;
+		return;
+	}
+
+	for (const tinyobj::shape_t& shape : shapes)
+		model.indexCount += shape.mesh.indices.size();
+
+	// create buffers
+	glGenVertexArrays(1, &model.arrayObject);
+	glBindVertexArray(model.arrayObject);
+
+	glGenBuffers(1, &model.indexBuffer);
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, model.indexBuffer);
+	glBufferData(GL_ELEMENT_ARRAY_BUFFER, model.indexCount * sizeof(GLuint), nullptr, GL_STATIC_DRAW);
+
+	glGenBuffers(1, &model.attribBuffer);
+	glBindBuffer(GL_ARRAY_BUFFER, model.attribBuffer);
+	glBufferData(GL_ARRAY_BUFFER, (attributes.vertices.size() / 3) * sizeof(Attributes), nullptr, GL_STATIC_DRAW);
+
+	// buffer data
+	GLuint* indexMap = static_cast<GLuint*>(glMapBuffer(GL_ELEMENT_ARRAY_BUFFER, GL_WRITE_ONLY));
+	Attributes* attributeMap = static_cast<Attributes*>(glMapBuffer(GL_ARRAY_BUFFER, GL_WRITE_ONLY));
+
+	glCheckError();
+
+	for (const tinyobj::shape_t& shape : shapes) {
+		for (uint32_t i = 0; i < shape.mesh.indices.size(); i++) {
+			const tinyobj::index_t& index = shape.mesh.indices[i];
+
+			indexMap[i] = index.vertex_index;
+
+			memcpy(&attributeMap[index.vertex_index].vertex, &attributes.vertices[(index.vertex_index * 3)], sizeof(Attributes::vertex));
+
+			if (attributes.normals.size())
+				memcpy(&attributeMap[index.vertex_index].normal, &attributes.normals[(index.normal_index * 3)], sizeof(Attributes::normal));
+
+			if (attributes.texcoords.size())
+				memcpy(&attributeMap[index.vertex_index].texcoord, &attributes.texcoords[(index.texcoord_index * 2)], sizeof(Attributes::texcoord));
+		}
+	}
+
+	glUnmapBuffer(GL_ARRAY_BUFFER);
+	glUnmapBuffer(GL_ELEMENT_ARRAY_BUFFER);
+
+	glCheckError();
+
+	// assign attribute pointers
+	glEnableVertexAttribArray(VERTEX_ATTRIBUTE);
+	glVertexAttribPointer(VERTEX_ATTRIBUTE, 3, GL_FLOAT, GL_FALSE, sizeof(Attributes), (void*)(0));
+
+	glEnableVertexAttribArray(NORMAL_ATTRIBUTE);
+	glVertexAttribPointer(NORMAL_ATTRIBUTE, 3, GL_FLOAT, GL_FALSE, sizeof(Attributes), (void*)(sizeof(Attributes::vertex)));
+
+	glEnableVertexAttribArray(TEXCOORD_ATTRIBUTE);
+	glVertexAttribPointer(TEXCOORD_ATTRIBUTE, 2, GL_FLOAT, GL_FALSE, sizeof(Attributes), (void*)(sizeof(Attributes::vertex) + sizeof(Attributes::normal)));
+
+	glCheckError();
+
+	// clean up
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+	glBindVertexArray(0);
+
+	glCheckError();
+}
+
+void Renderer::loadTexture(uint64_t* id, const std::string& textureFile) {
+	if (!_engine.entities.valid(*id))
+		return;
+
+	_engine.entities.add<Model>(*id);
+	Model& model = *_engine.entities.get<Model>(*id);
+
+	// load data
+	int x, y, n;
+	uint8_t* data = stbi_load((_path + textureFile).c_str(), &x, &y, &n, 4);
+
+	if (!data) {
+		std::cerr << "cannot load image - " << _path + textureFile << std::endl;
+		return;
+	}
+
+	// buffer data
+	glGenTextures(1, &model.texture);
+	glBindTexture(GL_TEXTURE_2D, model.texture);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, x, y, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
+
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+
+	glBindTexture(GL_TEXTURE_2D, 0);
+
+	glCheckError();
+
+	stbi_image_free(data);
 }
