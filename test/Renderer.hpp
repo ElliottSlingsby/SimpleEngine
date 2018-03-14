@@ -34,6 +34,8 @@ class Renderer {
 	std::string _path;
 	glm::uvec2 _windowSize;
 
+	uint64_t _camera = 0;
+
 	void _reshape(int height, int width);
 
 public:
@@ -45,6 +47,8 @@ public:
 
 	void loadMesh(uint64_t* id, const std::string& meshFile);
 	void loadTexture(uint64_t* id, const std::string& textureFile);
+
+	void setCamera(uint64_t id);
 
 	friend void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods);
 	friend void windowSizeCallback(GLFWwindow* window, int height, int width);

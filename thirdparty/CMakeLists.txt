@@ -28,10 +28,34 @@ add_external_tar("tinyobjloader-1.0.6" "https://github.com/syoyo/tinyobjloader/a
 set_target_properties("tinyobjloader" PROPERTIES FOLDER "Thirdparty")
 
 # stb-image
-file(DOWNLOAD "https://raw.githubusercontent.com/nothings/stb/master/stb_image.h" "${CMAKE_CURRENT_SOURCE_DIR}/stb-image/stb_image.h")
+add_subdirectory("stb")
 
-add_subdirectory("stb-image")
+target_compile_definitions("stb" INTERFACE STB_IMAGE_IMPLEMENTATION=1)
 
-target_compile_definitions("stb-image" INTERFACE STB_IMAGE_IMPLEMENTATION=1)
+set_target_properties("stb_dummy" PROPERTIES FOLDER "Thirdparty")
 
-set_target_properties("stb-image_dummy" PROPERTIES FOLDER "Thirdparty")
+# bullet
+option(BUILD_BULLET2_DEMOS "" OFF)
+option(BUILD_CLSOCKET "" OFF)
+option(BUILD_CPU_DEMOS "" OFF)
+option(BUILD_ENET "" OFF)
+option(BUILD_EXTRAS "" OFF)
+option(BUILD_OPENGL3_DEMOS "" OFF)
+option(BUILD_UNIT_TESTS "" OFF)
+
+option(USE_GLUT "" OFF)
+option(USE_GRAPHICAL_BENCHMARK "" OFF)
+
+add_external_tar("bullet3-2.87" "https://github.com/bulletphysics/bullet3/archive/2.87.tar.gz" "")
+
+set_target_properties("Bullet2FileLoader" PROPERTIES FOLDER "Thirdparty")
+set_target_properties("Bullet3Collision" PROPERTIES FOLDER "Thirdparty")
+set_target_properties("Bullet3Common" PROPERTIES FOLDER "Thirdparty")
+set_target_properties("Bullet3Dynamics" PROPERTIES FOLDER "Thirdparty")
+set_target_properties("Bullet3Geometry" PROPERTIES FOLDER "Thirdparty")
+set_target_properties("Bullet3OpenCL_clew" PROPERTIES FOLDER "Thirdparty")
+set_target_properties("BulletCollision" PROPERTIES FOLDER "Thirdparty")
+set_target_properties("BulletDynamics" PROPERTIES FOLDER "Thirdparty")
+set_target_properties("BulletInverseDynamics" PROPERTIES FOLDER "Thirdparty")
+set_target_properties("BulletSoftBody" PROPERTIES FOLDER "Thirdparty")
+set_target_properties("LinearMath" PROPERTIES FOLDER "Thirdparty")

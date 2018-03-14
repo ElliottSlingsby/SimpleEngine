@@ -8,7 +8,7 @@ target_link_libraries("Test" "glfw")
 target_link_libraries("Test" "glad")
 target_link_libraries("Test" "glm")
 target_link_libraries("Test" "tinyobjloader")
-target_link_libraries("Test" "stb-image")
+target_link_libraries("Test" "stb")
 
 set_target_properties("Test" PROPERTIES FOLDER "Tests")
 

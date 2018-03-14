@@ -38,6 +38,8 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
 		glfwSetWindowShouldClose(window, GLFW_TRUE);
 
 	Renderer& renderer = *(Renderer*)glfwGetWindowUserPointer(window);
+	
+	renderer._engine.events.dispatch(Events::Keypress, key, scancode, action, mods);
 }
 
 void windowSizeCallback(GLFWwindow* window, int height, int width) {
@@ -155,6 +157,8 @@ void Renderer::load(int argc, char** argv) {
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 6);
 
+	glfwWindowHint(GLFW_REFRESH_RATE, 1);
+
 	_window = glfwCreateWindow(_windowSize.x, _windowSize.y, "", nullptr, nullptr);
 
 	if (!_window) {
@@ -170,7 +174,7 @@ void Renderer::load(int argc, char** argv) {
 
 	glfwMakeContextCurrent(_window);
 	gladLoadGLLoader((GLADloadproc)glfwGetProcAddress);
-	glfwSwapInterval(1);
+	//glfwSwapInterval(1);
 
 	if (!createProgram(&_program, &_vertexShader, &_fragmentShader, readFile(_path + VERTEX_SHADER_FILE), readFile(_path + FRAGMENT_SHADER_FILE))) {
 		glfwDestroyWindow(_window);
@@ -209,7 +213,13 @@ void Renderer::update(double dt) {
 	glCheckError();
 
 	_engine.entities.iterate<Transform, Model>([&](uint64_t id, Transform& transform, Model& model) {
-		// apply transform
+		if (_camera) {
+			Transform& cameraTransform = *_engine.entities.get<Transform>(_camera);
+	
+			// apply camera transform
+		}
+
+		// apply model transform
 		glm::mat4 matrix = _matrix;
 		matrix = glm::translate(matrix, -transform.position);
 		matrix = glm::scale(matrix, transform.scale);
@@ -350,4 +360,17 @@ void Renderer::loadTexture(uint64_t* id, const std::string& textureFile) {
 	glCheckError();
 
 	stbi_image_free(data);
+}
+
+void Renderer::setCamera(uint64_t id) {
+	if ((id && !_engine.entities.valid(id)) || (id && !_engine.entities.has<Transform>(id)))
+		return;
+
+	if (_camera)
+		_engine.entities.dereference(id);
+
+	if (id)
+		_engine.entities.reference(id);
+
+	_camera = id;
 }

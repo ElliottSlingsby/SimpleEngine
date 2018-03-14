@@ -8,9 +8,9 @@
 #include <cstdint>
 #include <vector>
 
-template <uint32_t components, uint32_t events, uint32_t listeners>
+template <uint32_t systems, uint32_t components, uint32_t events, uint32_t listeners>
 class SimpleEngine {
-	std::vector<std::optional<BasePtr>> _systems;
+	std::optional<BasePtr> _systems[systems];
 
 public:
 	EventHandler<events, listeners> events;
@@ -32,45 +32,44 @@ public:
 	inline bool hasSystem();
 };
 
-template<uint32_t components, uint32_t events, uint32_t listeners>
-SimpleEngine<components, events, listeners>::SimpleEngine(size_t chunkSize) : entities(chunkSize){}
+template <uint32_t systems, uint32_t components, uint32_t events, uint32_t listeners>
+SimpleEngine<systems, components, events, listeners>::SimpleEngine(size_t chunkSize) : entities(chunkSize){}
 
-template<uint32_t components, uint32_t events, uint32_t listeners>
-inline SimpleEngine<components, events, listeners>::~SimpleEngine(){
-	for (auto& i : _systems) {
-		if (i == std::nullopt)
+template <uint32_t systems, uint32_t components, uint32_t events, uint32_t listeners>
+inline SimpleEngine<systems, components, events, listeners>::~SimpleEngine(){
+	for (uint32_t i = 0; i < systems; i++) {
+		if (_systems[i] == std::nullopt)
 			continue;
 
-		i->~BasePtr();
+		_systems[i]->~BasePtr();
 	}
 }
 
-template<uint32_t components, uint32_t events, uint32_t listeners>
+template <uint32_t systems, uint32_t components, uint32_t events, uint32_t listeners>
 template<typename T, typename ...Ts>
-void SimpleEngine<components, events, listeners>::newSystem(Ts && ...args) {
+void SimpleEngine<systems, components, events, listeners>::newSystem(Ts && ...args) {
 	uint32_t index = typeIndex<SimpleEngine, T>();
 
-	if (_systems.size() <= index)
-		_systems.resize(index + 1);
+	assert(index < systems && "ran out of system slots");
 
 	if (!hasSystem<T>())
 		new (&_systems[index]) std::optional<VirtualPtr<T>>(*this, args...);
 }
 
-template<uint32_t components, uint32_t events, uint32_t listeners>
+template <uint32_t systems, uint32_t components, uint32_t events, uint32_t listeners>
 template<typename T>
-T& SimpleEngine<components, events, listeners>::system() {
+T& SimpleEngine<systems, components, events, listeners>::system() {
 	assert(hasSystem<T>() && "system does not exist");
 
 	return *static_cast<T*>(_systems[typeIndex<SimpleEngine, T>()].value().ptr);
 }
 
-template<uint32_t components, uint32_t events, uint32_t listeners>
+template <uint32_t systems, uint32_t components, uint32_t events, uint32_t listeners>
 template<typename T>
-bool SimpleEngine<components, events, listeners>::hasSystem() {
+bool SimpleEngine<systems, components, events, listeners>::hasSystem() {
 	uint32_t index = typeIndex<SimpleEngine, T>();
 
-	if (_systems.size() <= index)
+	if (index >= systems)
 		return false;
 
 	return _systems[index] != std::nullopt;

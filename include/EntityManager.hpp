@@ -131,7 +131,10 @@ void EntityManager<typeWidth>::_warning(Warning warning, const std::string messa
 
 template<uint32_t typeWidth>
 bool EntityManager<typeWidth>::_validId(uint32_t index, uint32_t version) const{
-	return (index < _identities.size()) && (version == _identities[index].version);
+	if (index >= _identities.size())
+		return false;
+
+	return version == _identities[index].version;
 }
 
 template <uint32_t typeWidth>
