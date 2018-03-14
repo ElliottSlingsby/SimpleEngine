@@ -10,4 +10,7 @@ struct Model {
 	GLuint texture = 0;
 
 	GLsizei indexCount = 0;
+
+	bool hasShader = false;
+	uint32_t shader;
 };

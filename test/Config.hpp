@@ -16,3 +16,5 @@ enum Events {
 };
 
 const size_t chunkSize = 1024 * 1024 * 128; // 128 mb
+
+#define DATA_FOLDER "data"

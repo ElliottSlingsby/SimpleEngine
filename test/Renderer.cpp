@@ -38,7 +38,7 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
 		glfwSetWindowShouldClose(window, GLFW_TRUE);
 
 	Renderer& renderer = *(Renderer*)glfwGetWindowUserPointer(window);
-	
+
 	renderer._engine.events.dispatch(Events::Keypress, key, scancode, action, mods);
 }
 
@@ -120,9 +120,9 @@ bool createProgram(GLuint* program, GLuint* vertexShader, GLuint* fragmentShader
 	return true;
 }
 
-void Renderer::_reshape(int height, int width){
+void Renderer::_reshape(int height, int width) {
 	_windowSize = { height, width };
-	_matrix = glm::perspectiveFov(100.f, static_cast<float>(height), static_cast<float>(width), 0.1f, 1000.f);
+	_viewMatrix = glm::perspectiveFov(100.f, static_cast<float>(height), static_cast<float>(width), 0.1f, 1000.f);
 
 	glViewport(0, 0, height, width);
 }
@@ -174,19 +174,8 @@ void Renderer::load(int argc, char** argv) {
 
 	glfwMakeContextCurrent(_window);
 	gladLoadGLLoader((GLADloadproc)glfwGetProcAddress);
-	//glfwSwapInterval(1);
+	glfwSwapInterval(1); // v-sync
 
-	if (!createProgram(&_program, &_vertexShader, &_fragmentShader, readFile(_path + VERTEX_SHADER_FILE), readFile(_path + FRAGMENT_SHADER_FILE))) {
-		glfwDestroyWindow(_window);
-		_engine.events.unsubscribe(this);
-		return;
-	}
-
-	// get uniform locations
-	_uniformMatrix = glGetUniformLocation(_program, "matrix");
-	_uniformTexture = glGetUniformLocation(_program, "texture");
-
-	// enable gl settings
 	glEnable(GL_CULL_FACE);
 	glEnable(GL_DEPTH_TEST);
 
@@ -196,6 +185,8 @@ void Renderer::load(int argc, char** argv) {
 }
 
 void Renderer::update(double dt) {
+	glfwPollEvents();
+
 	if (glfwWindowShouldClose(_window)) {
 		_engine.running = false;
 		return;
@@ -204,38 +195,57 @@ void Renderer::update(double dt) {
 	glClearColor(0.f, 0.f, 0.f, 1.f);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-	// setup shader program
-	glUseProgram(_program);
-
-	if (_uniformTexture != -1)
-		glUniform1i(_uniformTexture, 0);
-
-	glCheckError();
-
 	_engine.entities.iterate<Transform, Model>([&](uint64_t id, Transform& transform, Model& model) {
-		if (_camera) {
+		if (!model.hasShader || (!model.texture && !model.arrayObject))
+			return;
+
+		Shader& shader = _shaders[model.shader];
+
+		// setup shader program
+		glUseProgram(shader.program);
+
+		if (shader.uniformTexture != -1)
+			glUniform1i(shader.uniformTexture, 0);
+
+		// projection matrix
+		if (shader.uniformProjection != -1)
+			glUniformMatrix4fv(shader.uniformProjection, 1, GL_FALSE, &(_viewMatrix)[0][0]);
+		
+		// view matrix
+		if (shader.uniformView != -1 && _camera) {
 			Transform& cameraTransform = *_engine.entities.get<Transform>(_camera);
-	
-			// apply camera transform
+		
+			glm::mat4 matrix;
+			matrix = glm::translate(matrix, -cameraTransform.position);
+			matrix = glm::scale(matrix, cameraTransform.scale);
+			matrix *= glm::mat4_cast(cameraTransform.rotation);
+		
+			glUniformMatrix4fv(shader.uniformView, 1, GL_FALSE, &(matrix)[0][0]);
+		}
+		
+		// model matrix
+		if (shader.uniformModel != -1) {
+			glm::mat4 matrix;
+			matrix = glm::translate(matrix, -transform.position);
+			matrix = glm::scale(matrix, transform.scale);
+			matrix *= glm::mat4_cast(transform.rotation);
+		
+			glUniformMatrix4fv(shader.uniformModel, 1, GL_FALSE, &(matrix)[0][0]);
 		}
 
-		// apply model transform
-		glm::mat4 matrix = _matrix;
-		matrix = glm::translate(matrix, -transform.position);
-		matrix = glm::scale(matrix, transform.scale);
-		matrix *= glm::mat4_cast(transform.rotation);
-
-		if (_uniformMatrix != -1)
-			glUniformMatrix4fv(_uniformMatrix, 1, GL_FALSE, &(matrix)[0][0]);
+		// set texture
+		if (shader.uniformTexture != -1 && model.texture) {
+			glActiveTexture(GL_TEXTURE0);
+			glBindTexture(GL_TEXTURE_2D, model.texture);
+		}
 
 		// draw buffer
-		glBindVertexArray(model.arrayObject);
-		glBindBuffer(GL_ARRAY_BUFFER, model.attribBuffer);
+		if (model.arrayObject && model.attribBuffer && model.indexCount) {
+			glBindVertexArray(model.arrayObject);
+			glBindBuffer(GL_ARRAY_BUFFER, model.attribBuffer);
 
-		glActiveTexture(GL_TEXTURE0);
-		glBindTexture(GL_TEXTURE_2D, model.texture);
-
-		glDrawArrays(GL_TRIANGLES, 0, model.indexCount);
+			glDrawArrays(GL_TRIANGLES, 0, model.indexCount);
+		}
 
 		// clean up
 		glBindBuffer(GL_ARRAY_BUFFER, 0);
@@ -248,12 +258,11 @@ void Renderer::update(double dt) {
 	glCheckError();
 
 	glfwSwapBuffers(_window);
-	glfwPollEvents();
 }
 
-void Renderer::loadMesh(uint64_t* id, const std::string& meshFile) {
+bool Renderer::loadMesh(uint64_t* id, const std::string& meshFile) {
 	if (!_engine.entities.valid(*id))
-		return;
+		return false;
 
 	_engine.entities.add<Model>(*id);
 	Model& model = *_engine.entities.get<Model>(*id);
@@ -268,12 +277,12 @@ void Renderer::loadMesh(uint64_t* id, const std::string& meshFile) {
 
 	if (!error.empty()) {
 		std::cerr << "cannot load mesh - " << _path + meshFile << std::endl;
-		return;
+		return false;
 	}
 
 	if (!attributes.vertices.size()) {
 		std::cerr << "problem reading vertex data - " << _path + meshFile << std::endl;
-		return;
+		return false;
 	}
 
 	for (const tinyobj::shape_t& shape : shapes)
@@ -282,7 +291,7 @@ void Renderer::loadMesh(uint64_t* id, const std::string& meshFile) {
 	// create buffers
 	glGenVertexArrays(1, &model.arrayObject);
 	glBindVertexArray(model.arrayObject);
-	
+
 	glGenBuffers(1, &model.attribBuffer);
 	glBindBuffer(GL_ARRAY_BUFFER, model.attribBuffer);
 	glBufferData(GL_ARRAY_BUFFER, model.indexCount * sizeof(Attributes), nullptr, GL_STATIC_DRAW);
@@ -305,20 +314,20 @@ void Renderer::loadMesh(uint64_t* id, const std::string& meshFile) {
 				memcpy(&attributeMap[x + y].texcoord, &attributes.texcoords[(index.texcoord_index * 2)], sizeof(Attributes::texcoord));
 		}
 	}
-	
+
 	glUnmapBuffer(GL_ARRAY_BUFFER);
 
 	glCheckError();
 
 	// assign attribute pointers
-	glEnableVertexAttribArray(VERTEX_ATTRIBUTE);
-	glVertexAttribPointer(VERTEX_ATTRIBUTE, 3, GL_FLOAT, GL_FALSE, sizeof(Attributes), (void*)(0));
+	glEnableVertexAttribArray(VERTEX_ATTRIBUTE_LOCATION);
+	glVertexAttribPointer(VERTEX_ATTRIBUTE_LOCATION, 3, GL_FLOAT, GL_FALSE, sizeof(Attributes), (void*)(0));
 
-	glEnableVertexAttribArray(NORMAL_ATTRIBUTE);
-	glVertexAttribPointer(NORMAL_ATTRIBUTE, 3, GL_FLOAT, GL_FALSE, sizeof(Attributes), (void*)(sizeof(Attributes::vertex)));
+	glEnableVertexAttribArray(NORMAL_ATTRIBUTE_LOCATION);
+	glVertexAttribPointer(NORMAL_ATTRIBUTE_LOCATION, 3, GL_FLOAT, GL_FALSE, sizeof(Attributes), (void*)(sizeof(Attributes::vertex)));
 
-	glEnableVertexAttribArray(TEXCOORD_ATTRIBUTE);
-	glVertexAttribPointer(TEXCOORD_ATTRIBUTE, 2, GL_FLOAT, GL_FALSE, sizeof(Attributes), (void*)(sizeof(Attributes::vertex) + sizeof(Attributes::normal)));
+	glEnableVertexAttribArray(TEXCOORD_ATTRIBUTE_LOCATION);
+	glVertexAttribPointer(TEXCOORD_ATTRIBUTE_LOCATION, 2, GL_FLOAT, GL_FALSE, sizeof(Attributes), (void*)(sizeof(Attributes::vertex) + sizeof(Attributes::normal)));
 
 	glCheckError();
 
@@ -327,11 +336,13 @@ void Renderer::loadMesh(uint64_t* id, const std::string& meshFile) {
 	glBindVertexArray(0);
 
 	glCheckError();
+
+	return true;
 }
 
-void Renderer::loadTexture(uint64_t* id, const std::string& textureFile) {
+bool Renderer::loadTexture(uint64_t* id, const std::string& textureFile) {
 	if (!_engine.entities.valid(*id))
-		return;
+		return false;
 
 	_engine.entities.add<Model>(*id);
 	Model& model = *_engine.entities.get<Model>(*id);
@@ -342,7 +353,7 @@ void Renderer::loadTexture(uint64_t* id, const std::string& textureFile) {
 
 	if (!data) {
 		std::cerr << "cannot load image - " << _path + textureFile << std::endl;
-		return;
+		return false;
 	}
 
 	// buffer data
@@ -360,6 +371,48 @@ void Renderer::loadTexture(uint64_t* id, const std::string& textureFile) {
 	glCheckError();
 
 	stbi_image_free(data);
+
+	return true;
+}
+
+bool Renderer::loadShader(uint64_t* id, const std::string& vertexShader, const std::string& fragmentShader) {
+	if (!_engine.entities.valid(*id))
+		return false;
+
+	_engine.entities.add<Model>(*id);
+	Model& model = *_engine.entities.get<Model>(*id);
+
+	Shader shader;
+
+	std::string vertexSrc = readFile(_path + vertexShader);
+	std::string fragmentSrc = readFile(_path + fragmentShader);
+
+	if ((vertexSrc == "" || fragmentSrc == "") || !createProgram(&shader.program, &shader.vertexShader, &shader.fragmentShader, vertexSrc, fragmentSrc)) {
+		std::cerr << "cannot create shader program" << std::endl;
+
+		if (vertexSrc == "")
+			std::cerr << _path << vertexShader << std::endl;
+
+		if (fragmentSrc == "")
+			std::cerr << _path << fragmentShader << std::endl;
+
+		return false;
+	}
+
+	// get uniform locations
+	shader.uniformModel = glGetUniformLocation(shader.program, MODEL_UNIFORM);
+	shader.uniformView = glGetUniformLocation(shader.program, VIEW_UNIFORM);
+	shader.uniformProjection = glGetUniformLocation(shader.program, PROJECTION_UNIFORM);
+	shader.uniformTexture = glGetUniformLocation(shader.program, TEXTURE_UNIFORM);
+
+	glCheckError();
+
+	_shaders.push_back(shader);
+
+	model.hasShader = true;
+	model.shader = _shaders.size() - 1;
+
+	return true;
 }
 
 void Renderer::setCamera(uint64_t id) {

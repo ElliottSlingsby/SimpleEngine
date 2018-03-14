@@ -7,9 +7,10 @@
 #include "Model.hpp"
 
 /*
-- Controller and Renderer (key input through events)
-- Seperate matrices and standardize directions (model, world, view, projection)
-- Camera controls for noclip
+- Controller for possessing entities
+- Standardize matrix and UV directions
+- Store filenames to prevent reloading files
+- Fix rendering multiple shapes
 */
 
 int main(int argc, char** argv) {
@@ -22,22 +23,29 @@ int main(int argc, char** argv) {
 	engine.events.dispatch(Events::Load, argc, argv);
 
 	// create camera
-	uint64_t camera = engine.entities.create();
-	engine.entities.add<Transform>(camera);
+	uint64_t cameraId = engine.entities.create(); {
+		engine.entities.add<Transform>(cameraId);
 
-	engine.system<Renderer>().setCamera(camera);
-	engine.system<Controller>().setPossessed(camera);
+		Transform& transform = *engine.entities.get<Transform>(cameraId);
+		//transform.position = { 0.f, 0.f, 0.f };
+		//transform.rotation *= glm::quat({ glm::radians(-90.f), 0.f, 0.f });
+
+		engine.system<Renderer>().setCamera(cameraId);
+		engine.system<Controller>().setPossessed(cameraId);
+	}
 
 	// create toilet
-	uint64_t toilet = engine.entities.create();
-	engine.entities.add<Transform>(toilet);
+	uint64_t cubeId = engine.entities.create(); {
+		engine.entities.add<Transform>(cubeId);
 
-	Transform& transform = *engine.entities.get<Transform>(toilet);
-	transform.position = { 0.f, -19.f, 100.f };
-	transform.rotation *= glm::quat({ glm::radians(90.f), 0.f, 0.f });
-	
-	engine.system<Renderer>().loadMesh(&toilet, "toilet1.obj");
-	engine.system<Renderer>().loadTexture(&toilet, "toilet1.png");
+		Transform& transform = *engine.entities.get<Transform>(cubeId);
+		transform.position = { 0.f, 0.f, 100.f };
+		transform.rotation *= glm::quat({ glm::radians(90.f), 0.f, 0.f });
+
+		engine.system<Renderer>().loadShader(&cubeId, "vertexShader.glsl", "fragmentShader.glsl");
+		engine.system<Renderer>().loadMesh(&cubeId, "dcube.obj");
+		engine.system<Renderer>().loadTexture(&cubeId, "net.png");
+	}
 
 	// update
 	TimePoint timer;
@@ -47,8 +55,8 @@ int main(int argc, char** argv) {
 		startTime(&timer);
 
 		// test update
-		//transform.position += glm::vec3( 0.f, 0.f, -1.f * dt );
-		transform.rotation *= glm::quat({ 0.f, 0.f, glm::radians(360.f * dt) });
+		//transform.position += glm::vec3( 0.f, 0.f, -10.f * dt );
+		engine.entities.get<Transform>(cubeId)->rotation *= glm::quat({ 0.f, 0.f, glm::radians(360.f * dt) });
 
 		engine.events.dispatch(Events::Update, dt);
 
