@@ -8,9 +8,9 @@
 #include <GLFW\glfw3.h>
 #include <glm\gtc\matrix_transform.hpp>
 
-#define VERTEX_ATTRIBUTE_LOCATION 0
-#define NORMAL_ATTRIBUTE_LOCATION 1
-#define TEXCOORD_ATTRIBUTE_LOCATION 2
+#define VERTEX_ATTRIBUTE 0
+#define NORMAL_ATTRIBUTE 1
+#define TEXCOORD_ATTRIBUTE 2
 
 #define MODEL_UNIFORM "model"
 #define VIEW_UNIFORM "view"

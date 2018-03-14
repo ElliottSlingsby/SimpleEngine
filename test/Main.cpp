@@ -10,7 +10,6 @@
 - Controller for possessing entities
 - Standardize matrix and UV directions
 - Store filenames to prevent reloading files
-- Fix rendering multiple shapes
 */
 
 int main(int argc, char** argv) {

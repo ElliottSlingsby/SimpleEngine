@@ -301,18 +301,22 @@ bool Renderer::loadMesh(uint64_t* id, const std::string& meshFile) {
 
 	glCheckError();
 
-	for (uint32_t x = 0; x < shapes.size(); x++) {
-		for (uint32_t y = 0; y < shapes[x].mesh.indices.size(); y++) {
-			const tinyobj::index_t& index = shapes[x].mesh.indices[y];
+	size_t depth = 0;
 
-			memcpy(&attributeMap[x + y].vertex, &attributes.vertices[(index.vertex_index * 3)], sizeof(Attributes::vertex));
+	for (const tinyobj::shape_t& shape : shapes) {
+		for (size_t i = 0; i < shape.mesh.indices.size(); i++) {
+			const tinyobj::index_t& index = shape.mesh.indices[i];
+		
+			memcpy(&attributeMap[depth + i].vertex, &attributes.vertices[(index.vertex_index * 3)], sizeof(Attributes::vertex));
 
 			if (attributes.normals.size())
-				memcpy(&attributeMap[x + y].normal, &attributes.normals[(index.normal_index * 3)], sizeof(Attributes::normal));
+				memcpy(&attributeMap[depth + i].normal, &attributes.normals[(index.normal_index * 3)], sizeof(Attributes::normal));
 
 			if (attributes.texcoords.size())
-				memcpy(&attributeMap[x + y].texcoord, &attributes.texcoords[(index.texcoord_index * 2)], sizeof(Attributes::texcoord));
+				memcpy(&attributeMap[depth + i].texcoord, &attributes.texcoords[(index.texcoord_index * 2)], sizeof(Attributes::texcoord));
 		}
+
+		depth += shape.mesh.indices.size();
 	}
 
 	glUnmapBuffer(GL_ARRAY_BUFFER);
@@ -320,14 +324,14 @@ bool Renderer::loadMesh(uint64_t* id, const std::string& meshFile) {
 	glCheckError();
 
 	// assign attribute pointers
-	glEnableVertexAttribArray(VERTEX_ATTRIBUTE_LOCATION);
-	glVertexAttribPointer(VERTEX_ATTRIBUTE_LOCATION, 3, GL_FLOAT, GL_FALSE, sizeof(Attributes), (void*)(0));
+	glEnableVertexAttribArray(VERTEX_ATTRIBUTE);
+	glVertexAttribPointer(VERTEX_ATTRIBUTE, 3, GL_FLOAT, GL_FALSE, sizeof(Attributes), (void*)(0));
 
-	glEnableVertexAttribArray(NORMAL_ATTRIBUTE_LOCATION);
-	glVertexAttribPointer(NORMAL_ATTRIBUTE_LOCATION, 3, GL_FLOAT, GL_FALSE, sizeof(Attributes), (void*)(sizeof(Attributes::vertex)));
+	glEnableVertexAttribArray(NORMAL_ATTRIBUTE);
+	glVertexAttribPointer(NORMAL_ATTRIBUTE, 3, GL_FLOAT, GL_FALSE, sizeof(Attributes), (void*)(sizeof(Attributes::vertex)));
 
-	glEnableVertexAttribArray(TEXCOORD_ATTRIBUTE_LOCATION);
-	glVertexAttribPointer(TEXCOORD_ATTRIBUTE_LOCATION, 2, GL_FLOAT, GL_FALSE, sizeof(Attributes), (void*)(sizeof(Attributes::vertex) + sizeof(Attributes::normal)));
+	glEnableVertexAttribArray(TEXCOORD_ATTRIBUTE);
+	glVertexAttribPointer(TEXCOORD_ATTRIBUTE, 2, GL_FLOAT, GL_FALSE, sizeof(Attributes), (void*)(sizeof(Attributes::vertex) + sizeof(Attributes::normal)));
 
 	glCheckError();
 
@@ -410,7 +414,7 @@ bool Renderer::loadShader(uint64_t* id, const std::string& vertexShader, const s
 	_shaders.push_back(shader);
 
 	model.hasShader = true;
-	model.shader = _shaders.size() - 1;
+	model.shader = static_cast<uint32_t>(_shaders.size() - 1);
 
 	return true;
 }
