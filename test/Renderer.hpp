@@ -15,6 +15,7 @@
 #define MODEL_UNIFORM "model"
 #define VIEW_UNIFORM "view"
 #define PROJECTION_UNIFORM "projection"
+#define MODELVIEW_UNIFORM "modelView"
 #define TEXTURE_UNIFORM "texture"
 
 class Renderer {
@@ -26,6 +27,7 @@ class Renderer {
 		GLint uniformModel = -1;
 		GLint uniformView = -1;
 		GLint uniformProjection = -1;
+		GLint uniformModelView = -1;
 		GLint uniformTexture = -1;
 	};
 
@@ -35,7 +37,7 @@ class Renderer {
 
 	std::vector<Shader> _shaders;
 
-	glm::mat4 _viewMatrix;
+	glm::mat4 _projectionMatrix;
 
 	std::string _path;
 	glm::uvec2 _windowSize;

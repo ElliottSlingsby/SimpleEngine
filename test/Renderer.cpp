@@ -122,7 +122,7 @@ bool createProgram(GLuint* program, GLuint* vertexShader, GLuint* fragmentShader
 
 void Renderer::_reshape(int height, int width) {
 	_windowSize = { height, width };
-	_viewMatrix = glm::perspectiveFov(100.f, static_cast<float>(height), static_cast<float>(width), 0.1f, 1000.f);
+	_projectionMatrix = glm::perspectiveFov(100.f, static_cast<float>(height), static_cast<float>(width), 1.f, 1000.f);
 
 	glViewport(0, 0, height, width);
 }
@@ -195,6 +195,8 @@ void Renderer::update(double dt) {
 	glClearColor(0.f, 0.f, 0.f, 1.f);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
+	glm::quat modelQuat({ glm::radians(-90.f), 0.f, glm::radians(180.f) });
+
 	_engine.entities.iterate<Transform, Model>([&](uint64_t id, Transform& transform, Model& model) {
 		if (!model.hasShader || (!model.texture && !model.arrayObject))
 			return;
@@ -209,29 +211,39 @@ void Renderer::update(double dt) {
 
 		// projection matrix
 		if (shader.uniformProjection != -1)
-			glUniformMatrix4fv(shader.uniformProjection, 1, GL_FALSE, &(_viewMatrix)[0][0]);
-		
+			glUniformMatrix4fv(shader.uniformProjection, 1, GL_FALSE, &(_projectionMatrix)[0][0]);
+
 		// view matrix
-		if (shader.uniformView != -1 && _camera) {
+		glm::dmat4 viewMatrix;
+
+		if ((shader.uniformModelView != -1 || shader.uniformView != -1) && _camera) {
 			Transform& cameraTransform = *_engine.entities.get<Transform>(_camera);
 		
-			glm::mat4 matrix;
-			matrix = glm::translate(matrix, -cameraTransform.position);
-			matrix = glm::scale(matrix, cameraTransform.scale);
-			matrix *= glm::mat4_cast(cameraTransform.rotation);
-		
-			glUniformMatrix4fv(shader.uniformView, 1, GL_FALSE, &(matrix)[0][0]);
+			viewMatrix = glm::scale(viewMatrix, static_cast<glm::dvec3>(cameraTransform.scale));
+			viewMatrix *= glm::mat4_cast(static_cast<glm::dquat>(cameraTransform.rotation));
+			viewMatrix = glm::translate(viewMatrix, cameraTransform.position);	
+
+			viewMatrix *= glm::mat4_cast(glm::dquat({ glm::radians(180.0), glm::radians(180.0), glm::radians(0.0) })); // left handed, z up
+
+			if (shader.uniformView != -1)
+				glUniformMatrix4fv(shader.uniformView, 1, GL_FALSE, &(static_cast<glm::mat4>(viewMatrix))[0][0]);
 		}
-		
+
 		// model matrix
-		if (shader.uniformModel != -1) {
-			glm::mat4 matrix;
-			matrix = glm::translate(matrix, -transform.position);
-			matrix = glm::scale(matrix, transform.scale);
-			matrix *= glm::mat4_cast(transform.rotation);
+		glm::dmat4 modelMatrix;
+
+		if (shader.uniformModelView != -1 || shader.uniformView != -1) {
+			modelMatrix = glm::translate(modelMatrix, transform.position);
+			modelMatrix *= glm::mat4_cast(static_cast<glm::dquat>(transform.rotation));
+			modelMatrix = glm::scale(modelMatrix, static_cast<glm::dvec3>(transform.scale));			
 		
-			glUniformMatrix4fv(shader.uniformModel, 1, GL_FALSE, &(matrix)[0][0]);
+			if (shader.uniformView != -1)
+				glUniformMatrix4fv(shader.uniformModel, 1, GL_FALSE, &(static_cast<glm::mat4>(modelMatrix))[0][0]);
 		}
+
+		// model view matrix
+		if (shader.uniformModelView != -1) 
+			glUniformMatrix4fv(shader.uniformModelView, 1, GL_FALSE, &(static_cast<glm::mat4>(viewMatrix * modelMatrix))[0][0]);
 
 		// set texture
 		if (shader.uniformTexture != -1 && model.texture) {
@@ -407,6 +419,7 @@ bool Renderer::loadShader(uint64_t* id, const std::string& vertexShader, const s
 	shader.uniformModel = glGetUniformLocation(shader.program, MODEL_UNIFORM);
 	shader.uniformView = glGetUniformLocation(shader.program, VIEW_UNIFORM);
 	shader.uniformProjection = glGetUniformLocation(shader.program, PROJECTION_UNIFORM);
+	shader.uniformModelView = glGetUniformLocation(shader.program, MODELVIEW_UNIFORM);
 	shader.uniformTexture = glGetUniformLocation(shader.program, TEXTURE_UNIFORM);
 
 	glCheckError();
