@@ -4,6 +4,7 @@
 #include "Model.hpp"
 
 #include <iostream>
+#include <iomanip>
 #include <fstream>
 #include <string>
 
@@ -34,12 +35,15 @@ void errorCallback(int error, const char* description) {
 }
 
 void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods) {
-	if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS)
-		glfwSetWindowShouldClose(window, GLFW_TRUE);
-
 	Renderer& renderer = *(Renderer*)glfwGetWindowUserPointer(window);
 
 	renderer._engine.events.dispatch(Events::Keypress, key, scancode, action, mods);
+}
+
+void cursorCallback(GLFWwindow* window, double x, double y){
+	Renderer& renderer = *(Renderer*)glfwGetWindowUserPointer(window);
+	
+	renderer._engine.events.dispatch(Events::Cursor, x, y);
 }
 
 void windowSizeCallback(GLFWwindow* window, int height, int width) {
@@ -124,6 +128,13 @@ void Renderer::_reshape(int height, int width) {
 	_windowSize = { height, width };
 	_projectionMatrix = glm::perspectiveFov(100.f, static_cast<float>(height), static_cast<float>(width), 1.f, 1000.f);
 
+	_projectionMatrix *= glm::mat4(
+		-1.f, 0.f, 0.f, 0.f,
+		0.f, -1.f, 0.f, 0.f,
+		0.f, 0.f, 1.f, 0.f,
+		0.f, 0.f, 0.f, 1.f
+	);
+
 	glViewport(0, 0, height, width);
 }
 
@@ -167,14 +178,17 @@ void Renderer::load(int argc, char** argv) {
 		return;
 	}
 
+	glfwMakeContextCurrent(_window);
+	gladLoadGLLoader((GLADloadproc)glfwGetProcAddress);
+	//glfwSwapInterval(1); // v-sync
+
 	glfwSetWindowUserPointer(_window, this);
 
 	glfwSetKeyCallback(_window, keyCallback);
 	glfwSetWindowSizeCallback(_window, windowSizeCallback);
 
-	glfwMakeContextCurrent(_window);
-	gladLoadGLLoader((GLADloadproc)glfwGetProcAddress);
-	glfwSwapInterval(1); // v-sync
+	lockCursor(true);
+	glfwSetCursorPosCallback(_window, cursorCallback);
 
 	glEnable(GL_CULL_FACE);
 	glEnable(GL_DEPTH_TEST);
@@ -218,12 +232,10 @@ void Renderer::update(double dt) {
 
 		if ((shader.uniformModelView != -1 || shader.uniformView != -1) && _camera) {
 			Transform& cameraTransform = *_engine.entities.get<Transform>(_camera);
-		
-			viewMatrix = glm::scale(viewMatrix, static_cast<glm::dvec3>(cameraTransform.scale));
-			viewMatrix *= glm::mat4_cast(static_cast<glm::dquat>(cameraTransform.rotation));
-			viewMatrix = glm::translate(viewMatrix, cameraTransform.position);	
 
-			viewMatrix *= glm::mat4_cast(glm::dquat({ glm::radians(180.0), glm::radians(180.0), glm::radians(0.0) })); // left handed, z up
+			viewMatrix = glm::scale(viewMatrix, static_cast<glm::dvec3>(cameraTransform.scale));
+			viewMatrix *= glm::transpose(glm::mat4_cast(static_cast<glm::dquat>(cameraTransform.rotation)));
+			viewMatrix = glm::translate(viewMatrix, -cameraTransform.position);
 
 			if (shader.uniformView != -1)
 				glUniformMatrix4fv(shader.uniformView, 1, GL_FALSE, &(static_cast<glm::mat4>(viewMatrix))[0][0]);
@@ -235,8 +247,8 @@ void Renderer::update(double dt) {
 		if (shader.uniformModelView != -1 || shader.uniformView != -1) {
 			modelMatrix = glm::translate(modelMatrix, transform.position);
 			modelMatrix *= glm::mat4_cast(static_cast<glm::dquat>(transform.rotation));
-			modelMatrix = glm::scale(modelMatrix, static_cast<glm::dvec3>(transform.scale));			
-		
+			modelMatrix = glm::scale(modelMatrix, static_cast<glm::dvec3>(transform.scale));
+
 			if (shader.uniformView != -1)
 				glUniformMatrix4fv(shader.uniformModel, 1, GL_FALSE, &(static_cast<glm::mat4>(modelMatrix))[0][0]);
 		}
@@ -443,4 +455,11 @@ void Renderer::setCamera(uint64_t id) {
 		_engine.entities.reference(id);
 
 	_camera = id;
+}
+
+void Renderer::lockCursor(bool lock){
+	if (lock)
+		glfwSetInputMode(_window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+	else
+		glfwSetInputMode(_window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
 }

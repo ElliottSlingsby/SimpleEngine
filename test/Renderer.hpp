@@ -18,6 +18,24 @@
 #define MODELVIEW_UNIFORM "modelView"
 #define TEXTURE_UNIFORM "texture"
 
+static const glm::dvec3 upVecD(0.f, 0.f, 1.f);
+static const glm::dvec3 downVecD(0.f, 0.f, -1.f);
+
+static const glm::dvec3 leftVecD(-1.f, 0.f, 0.f);
+static const glm::dvec3 rightVecD(1.f, 0.f, 0.f);
+
+static const glm::dvec3 forwardVecD(0.f, 1.f, 0.f);
+static const glm::dvec3 backVecD(0.f, -1.f, 0.f);
+
+static const glm::vec3 upVec(0.f, 0.f, 1.f);
+static const glm::vec3 downVec(0.f, 0.f, -1.f);
+
+static const glm::vec3 leftVec(-1.f, 0.f, 0.f);
+static const glm::vec3 rightVec(1.f, 0.f, 0.f);
+
+static const glm::vec3 forwardVec(0.f, 1.f, 0.f);
+static const glm::vec3 backVec(0.f, -1.f, 0.f);
+
 class Renderer {
 	struct Shader {
 		GLuint fragmentShader = 0;
@@ -59,6 +77,9 @@ public:
 
 	void setCamera(uint64_t id);
 
+	void lockCursor(bool lock);
+
 	friend void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods);
+	friend void cursorCallback(GLFWwindow* window, double x, double y);
 	friend void windowSizeCallback(GLFWwindow* window, int height, int width);
 };
