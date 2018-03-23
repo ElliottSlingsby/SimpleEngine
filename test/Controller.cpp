@@ -10,30 +10,40 @@ Controller::Controller(Engine& engine) : _engine(engine) {
 }
 
 void Controller::update(double dt) {
+	if (!_locked)
+		return;
+
 	Transform& transform = *_engine.entities.get<Transform>(_possessed);
 
-	if (_locked) {
-		transform.rotation = glm::quat({ 0.f, 0.f, glm::radians((15.0 *-_dCursor.x) * dt) }) * transform.rotation;
-		transform.rotation *= glm::quat({ glm::radians((15.0 *-_dCursor.y) * dt), 0.f, 0.f });
+	transform.rotation = glm::quat({ 0.f, 0.f, glm::radians((20.0 *-_dCursor.x) * dt) }) * transform.rotation;
+	transform.rotation *= glm::quat({ glm::radians((20.0 *-_dCursor.y) * dt), 0.f, 0.f });
 
-		_dCursor = { 0.0, 0.0 };
-	}
+	glm::vec3 angles = glm::eulerAngles(transform.rotation);
+	transform.rotation = glm::quat({ glm::clamp(glm::abs(angles.x), 0.f, glm::pi<float>()), angles.y, angles.z });
+
+	_dCursor = { 0.0, 0.0 };
 
 	glm::dquat rotation = static_cast<glm::dquat>(transform.rotation);
-	double moveSpeed = 100.0 * dt;
+	
+	double moveSpeed;
+	
+	if (_boost)
+		moveSpeed = 400.0 * dt;
+	else
+		moveSpeed = 100.0 * dt;
 
 	if (_forward)
-		transform.position += rotation * (downVecD * moveSpeed);
+		transform.position += rotation * (LocalDVec3::forward * moveSpeed);
 	if (_back)
-		transform.position += rotation * (upVecD * moveSpeed);
+		transform.position += rotation * (LocalDVec3::back * moveSpeed);
 	if (_left)
-		transform.position += rotation * (leftVecD * moveSpeed);
+		transform.position += rotation * (LocalDVec3::left * moveSpeed);
 	if (_right)
-		transform.position += rotation * (rightVecD * moveSpeed);
+		transform.position += rotation * (LocalDVec3::right * moveSpeed);
 	if (_up)
-		transform.position += upVecD * moveSpeed;
+		transform.position += GlobalDVec3::up * moveSpeed;
 	if (_down)
-		transform.position += downVecD * moveSpeed;
+		transform.position += GlobalDVec3::down * moveSpeed;
 }
 
 void Controller::cursor(double x, double y){
@@ -44,8 +54,6 @@ void Controller::cursor(double x, double y){
 
 	_dCursor = newCursor - _cursor;
 	_cursor = newCursor;
-
-	//std::cout << _dCursor.x << " - " << _dCursor.y << '\n';
 }
 
 void Controller::keypress(int key, int scancode, int action, int mods) {
@@ -82,10 +90,13 @@ void Controller::keypress(int key, int scancode, int action, int mods) {
 		return;
 	case GLFW_KEY_SPACE:
 		_up = value;
-		break;
+		return;
 	case GLFW_KEY_LEFT_CONTROL:
 		_down = value;
-		break;
+		return;
+	case GLFW_KEY_LEFT_SHIFT:
+		_boost = value;
+		return;
 	};
 }
 

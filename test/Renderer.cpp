@@ -126,7 +126,7 @@ bool createProgram(GLuint* program, GLuint* vertexShader, GLuint* fragmentShader
 
 void Renderer::_reshape(int height, int width) {
 	_windowSize = { height, width };
-	_projectionMatrix = glm::perspectiveFov(100.f, static_cast<float>(height), static_cast<float>(width), 1.f, 1000.f);
+	_projectionMatrix = glm::perspectiveFov(100.f, static_cast<float>(height), static_cast<float>(width), 1.f, 10000.f);
 
 	_projectionMatrix *= glm::mat4(
 		-1.f, 0.f, 0.f, 0.f,
@@ -212,53 +212,53 @@ void Renderer::update(double dt) {
 	glm::quat modelQuat({ glm::radians(-90.f), 0.f, glm::radians(180.f) });
 
 	_engine.entities.iterate<Transform, Model>([&](uint64_t id, Transform& transform, Model& model) {
-		if (!model.hasShader || (!model.texture && !model.arrayObject))
+		if (!model.hasProgram || (!model.texture && !model.arrayObject))
 			return;
 
-		Shader& shader = _shaders[model.shader];
+		Program& program = _programs[model.program];
 
-		// setup shader program
-		glUseProgram(shader.program);
+		// setup program program
+		glUseProgram(program.program);
 
-		if (shader.uniformTexture != -1)
-			glUniform1i(shader.uniformTexture, 0);
+		if (program.uniformTexture != -1)
+			glUniform1i(program.uniformTexture, 0);
 
 		// projection matrix
-		if (shader.uniformProjection != -1)
-			glUniformMatrix4fv(shader.uniformProjection, 1, GL_FALSE, &(_projectionMatrix)[0][0]);
+		if (program.uniformProjection != -1)
+			glUniformMatrix4fv(program.uniformProjection, 1, GL_FALSE, &(_projectionMatrix)[0][0]);
 
 		// view matrix
 		glm::dmat4 viewMatrix;
 
-		if ((shader.uniformModelView != -1 || shader.uniformView != -1) && _camera) {
+		if ((program.uniformModelView != -1 || program.uniformView != -1) && _camera) {
 			Transform& cameraTransform = *_engine.entities.get<Transform>(_camera);
 
 			viewMatrix = glm::scale(viewMatrix, static_cast<glm::dvec3>(cameraTransform.scale));
 			viewMatrix *= glm::transpose(glm::mat4_cast(static_cast<glm::dquat>(cameraTransform.rotation)));
 			viewMatrix = glm::translate(viewMatrix, -cameraTransform.position);
 
-			if (shader.uniformView != -1)
-				glUniformMatrix4fv(shader.uniformView, 1, GL_FALSE, &(static_cast<glm::mat4>(viewMatrix))[0][0]);
+			if (program.uniformView != -1)
+				glUniformMatrix4fv(program.uniformView, 1, GL_FALSE, &(static_cast<glm::mat4>(viewMatrix))[0][0]);
 		}
 
 		// model matrix
 		glm::dmat4 modelMatrix;
 
-		if (shader.uniformModelView != -1 || shader.uniformView != -1) {
+		if (program.uniformModelView != -1 || program.uniformView != -1) {
 			modelMatrix = glm::translate(modelMatrix, transform.position);
 			modelMatrix *= glm::mat4_cast(static_cast<glm::dquat>(transform.rotation));
 			modelMatrix = glm::scale(modelMatrix, static_cast<glm::dvec3>(transform.scale));
 
-			if (shader.uniformView != -1)
-				glUniformMatrix4fv(shader.uniformModel, 1, GL_FALSE, &(static_cast<glm::mat4>(modelMatrix))[0][0]);
+			if (program.uniformView != -1)
+				glUniformMatrix4fv(program.uniformModel, 1, GL_FALSE, &(static_cast<glm::mat4>(modelMatrix))[0][0]);
 		}
 
 		// model view matrix
-		if (shader.uniformModelView != -1) 
-			glUniformMatrix4fv(shader.uniformModelView, 1, GL_FALSE, &(static_cast<glm::mat4>(viewMatrix * modelMatrix))[0][0]);
+		if (program.uniformModelView != -1) 
+			glUniformMatrix4fv(program.uniformModelView, 1, GL_FALSE, &(static_cast<glm::mat4>(viewMatrix * modelMatrix))[0][0]);
 
 		// set texture
-		if (shader.uniformTexture != -1 && model.texture) {
+		if (program.uniformTexture != -1 && model.texture) {
 			glActiveTexture(GL_TEXTURE0);
 			glBindTexture(GL_TEXTURE_2D, model.texture);
 		}
@@ -284,12 +284,20 @@ void Renderer::update(double dt) {
 	glfwSwapBuffers(_window);
 }
 
-bool Renderer::loadMesh(uint64_t* id, const std::string& meshFile) {
+bool Renderer::addMesh(uint64_t* id, const std::string& meshFile) {
 	if (!_engine.entities.valid(*id))
 		return false;
 
 	_engine.entities.add<Model>(*id);
 	Model& model = *_engine.entities.get<Model>(*id);
+
+	if (_meshes.find(meshFile) != _meshes.end()) {
+		model.arrayObject = _meshes[meshFile].arrayObject;
+		model.attribBuffer = _meshes[meshFile].attribBuffer;
+		model.indexCount = _meshes[meshFile].indexCount;
+
+		return true;
+	}
 
 	// load model data
 	tinyobj::attrib_t attributes;
@@ -365,15 +373,25 @@ bool Renderer::loadMesh(uint64_t* id, const std::string& meshFile) {
 
 	glCheckError();
 
+	_meshes[meshFile].arrayObject = model.arrayObject;
+	_meshes[meshFile].attribBuffer = model.attribBuffer;
+	 _meshes[meshFile].indexCount = model.indexCount;
+
 	return true;
 }
 
-bool Renderer::loadTexture(uint64_t* id, const std::string& textureFile) {
+bool Renderer::addTexture(uint64_t* id, const std::string& textureFile) {
 	if (!_engine.entities.valid(*id))
 		return false;
 
 	_engine.entities.add<Model>(*id);
 	Model& model = *_engine.entities.get<Model>(*id);
+
+	if (_textures.find(textureFile) != _textures.end()) {
+		model.texture = _textures[textureFile];
+
+		return true;
+	}
 
 	// load data
 	int x, y, n;
@@ -400,23 +418,32 @@ bool Renderer::loadTexture(uint64_t* id, const std::string& textureFile) {
 
 	stbi_image_free(data);
 
+	_textures[textureFile] = model.texture;
+
 	return true;
 }
 
-bool Renderer::loadShader(uint64_t* id, const std::string& vertexShader, const std::string& fragmentShader) {
+bool Renderer::addShader(uint64_t* id, const std::string& vertexShader, const std::string& fragmentShader) {
 	if (!_engine.entities.valid(*id))
 		return false;
 
 	_engine.entities.add<Model>(*id);
 	Model& model = *_engine.entities.get<Model>(*id);
 
-	Shader shader;
+	if (_shaders.find(vertexShader + fragmentShader) != _shaders.end()) {
+		model.hasProgram = true;
+		model.program = _shaders[vertexShader + fragmentShader];
+
+		return true;
+	}
+
+	Program program;
 
 	std::string vertexSrc = readFile(_path + vertexShader);
 	std::string fragmentSrc = readFile(_path + fragmentShader);
 
-	if ((vertexSrc == "" || fragmentSrc == "") || !createProgram(&shader.program, &shader.vertexShader, &shader.fragmentShader, vertexSrc, fragmentSrc)) {
-		std::cerr << "cannot create shader program" << std::endl;
+	if ((vertexSrc == "" || fragmentSrc == "") || !createProgram(&program.program, &program.vertexShader, &program.fragmentShader, vertexSrc, fragmentSrc)) {
+		std::cerr << "cannot create program program" << std::endl;
 
 		if (vertexSrc == "")
 			std::cerr << _path << vertexShader << std::endl;
@@ -428,18 +455,20 @@ bool Renderer::loadShader(uint64_t* id, const std::string& vertexShader, const s
 	}
 
 	// get uniform locations
-	shader.uniformModel = glGetUniformLocation(shader.program, MODEL_UNIFORM);
-	shader.uniformView = glGetUniformLocation(shader.program, VIEW_UNIFORM);
-	shader.uniformProjection = glGetUniformLocation(shader.program, PROJECTION_UNIFORM);
-	shader.uniformModelView = glGetUniformLocation(shader.program, MODELVIEW_UNIFORM);
-	shader.uniformTexture = glGetUniformLocation(shader.program, TEXTURE_UNIFORM);
+	program.uniformModel = glGetUniformLocation(program.program, MODEL_UNIFORM);
+	program.uniformView = glGetUniformLocation(program.program, VIEW_UNIFORM);
+	program.uniformProjection = glGetUniformLocation(program.program, PROJECTION_UNIFORM);
+	program.uniformModelView = glGetUniformLocation(program.program, MODELVIEW_UNIFORM);
+	program.uniformTexture = glGetUniformLocation(program.program, TEXTURE_UNIFORM);
 
 	glCheckError();
 
-	_shaders.push_back(shader);
+	_programs.push_back(program);
 
-	model.hasShader = true;
-	model.shader = static_cast<uint32_t>(_shaders.size() - 1);
+	model.hasProgram = true;
+	model.program = static_cast<uint32_t>(_programs.size() - 1);
+
+	_shaders[vertexShader + fragmentShader] = model.program;
 
 	return true;
 }

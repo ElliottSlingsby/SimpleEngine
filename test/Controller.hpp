@@ -17,6 +17,8 @@ class Controller {
 	bool _up = false;
 	bool _down = false;
 
+	bool _boost = false;
+
 	glm::dvec2 _cursor;
 	glm::dvec2 _dCursor;
 

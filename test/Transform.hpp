@@ -7,4 +7,6 @@ struct Transform {
 	glm::dvec3 position;
 	glm::quat rotation;
 	glm::vec3 scale = { 1.f, 1.f, 1.f };
+
+	uint64_t parent = 0;
 };

@@ -1,8 +1,10 @@
 #pragma once
 
 #include "Config.hpp"
+#include "RenderCoords.hpp"
 
 #include <string>
+#include <unordered_map>
 
 #include <glad\glad.h>
 #include <GLFW\glfw3.h>
@@ -18,26 +20,8 @@
 #define MODELVIEW_UNIFORM "modelView"
 #define TEXTURE_UNIFORM "texture"
 
-static const glm::dvec3 upVecD(0.f, 0.f, 1.f);
-static const glm::dvec3 downVecD(0.f, 0.f, -1.f);
-
-static const glm::dvec3 leftVecD(-1.f, 0.f, 0.f);
-static const glm::dvec3 rightVecD(1.f, 0.f, 0.f);
-
-static const glm::dvec3 forwardVecD(0.f, 1.f, 0.f);
-static const glm::dvec3 backVecD(0.f, -1.f, 0.f);
-
-static const glm::vec3 upVec(0.f, 0.f, 1.f);
-static const glm::vec3 downVec(0.f, 0.f, -1.f);
-
-static const glm::vec3 leftVec(-1.f, 0.f, 0.f);
-static const glm::vec3 rightVec(1.f, 0.f, 0.f);
-
-static const glm::vec3 forwardVec(0.f, 1.f, 0.f);
-static const glm::vec3 backVec(0.f, -1.f, 0.f);
-
 class Renderer {
-	struct Shader {
+	struct Program {
 		GLuint fragmentShader = 0;
 		GLuint vertexShader = 0;
 		GLuint program = 0;
@@ -49,11 +33,17 @@ class Renderer {
 		GLint uniformTexture = -1;
 	};
 
+	struct Mesh {
+		GLuint arrayObject = 0;
+		GLuint attribBuffer = 0;
+		GLsizei indexCount = 0;
+	};
+
 	Engine& _engine;
 
 	GLFWwindow* _window = nullptr;
 
-	std::vector<Shader> _shaders;
+	std::vector<Program> _programs;
 
 	glm::mat4 _projectionMatrix;
 
@@ -61,6 +51,10 @@ class Renderer {
 	glm::uvec2 _windowSize;
 
 	uint64_t _camera = 0;
+
+	std::unordered_map<std::string, uint32_t> _shaders;
+	std::unordered_map<std::string, GLuint> _textures;
+	std::unordered_map<std::string, Mesh> _meshes;
 
 	void _reshape(int height, int width);
 
@@ -71,9 +65,9 @@ public:
 	void load(int argc, char** argv);
 	void update(double dt);
 
-	bool loadMesh(uint64_t* id, const std::string& meshFile);
-	bool loadTexture(uint64_t* id, const std::string& textureFile);
-	bool loadShader(uint64_t* id, const std::string& vertexShader, const std::string& fragmentShader);
+	bool addMesh(uint64_t* id, const std::string& meshFile);
+	bool addTexture(uint64_t* id, const std::string& textureFile);
+	bool addShader(uint64_t* id, const std::string& vertexShader, const std::string& fragmentShader);
 
 	void setCamera(uint64_t id);
 

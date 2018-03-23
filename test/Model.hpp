@@ -4,13 +4,11 @@
 
 struct Model {
 	GLuint arrayObject = 0;
-
 	GLuint attribBuffer = 0;
+	GLsizei indexCount = 0;
 
 	GLuint texture = 0;
 
-	GLsizei indexCount = 0;
-
-	bool hasShader = false;
-	uint32_t shader;
+	bool hasProgram = false;
+	uint32_t program;
 };
