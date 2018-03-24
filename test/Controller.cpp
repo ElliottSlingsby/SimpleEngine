@@ -2,6 +2,7 @@
 
 #include "Transform.hpp"
 #include "Renderer.hpp"
+#include "Collider.hpp"
 
 Controller::Controller(Engine& engine) : _engine(engine) {
 	_engine.events.subscribe(this, Events::Update, &Controller::update);
@@ -10,40 +11,52 @@ Controller::Controller(Engine& engine) : _engine(engine) {
 }
 
 void Controller::update(double dt) {
-	if (!_locked)
+	if (!_locked || !_possessed || !_engine.entities.has<Transform, Collider>(_possessed))
 		return;
 
 	Transform& transform = *_engine.entities.get<Transform>(_possessed);
-
-	transform.rotation = glm::quat({ 0.f, 0.f, glm::radians((20.0 *-_dCursor.x) * dt) }) * transform.rotation;
-	transform.rotation *= glm::quat({ glm::radians((20.0 *-_dCursor.y) * dt), 0.f, 0.f });
+	Collider& collider = *_engine.entities.get<Collider>(_possessed);
 
 	glm::vec3 angles = glm::eulerAngles(transform.rotation);
-	transform.rotation = glm::quat({ glm::clamp(glm::abs(angles.x), 0.f, glm::pi<float>()), angles.y, angles.z });
 
+	glm::quat rotation({ angles.x, 0.f, angles.z });
+
+	rotation = glm::quat({ 0.f, 0.f, -_dCursor.x / 100.f }) * rotation;
+	rotation *= glm::quat({ -_dCursor.y / 100.f, 0.f, 0.f });
+	
 	_dCursor = { 0.0, 0.0 };
 
-	glm::dquat rotation = static_cast<glm::dquat>(transform.rotation);
-	
-	double moveSpeed;
-	
+	float moveSpeed;
+
 	if (_boost)
-		moveSpeed = 400.0 * dt;
+		moveSpeed = 2.f;
 	else
-		moveSpeed = 100.0 * dt;
+		moveSpeed = 1.f;
+
+	glm::vec3 position = transform.position;
 
 	if (_forward)
-		transform.position += rotation * (LocalDVec3::forward * moveSpeed);
+		position += rotation * (LocalVec3::forward * moveSpeed);
 	if (_back)
-		transform.position += rotation * (LocalDVec3::back * moveSpeed);
+		position += rotation * (LocalVec3::back * moveSpeed);
 	if (_left)
-		transform.position += rotation * (LocalDVec3::left * moveSpeed);
+		position += rotation * (LocalVec3::left * moveSpeed);
 	if (_right)
-		transform.position += rotation * (LocalDVec3::right * moveSpeed);
+		position += rotation * (LocalVec3::right * moveSpeed);
 	if (_up)
-		transform.position += GlobalDVec3::up * moveSpeed;
+		position += GlobalVec3::up * moveSpeed;
 	if (_down)
-		transform.position += GlobalDVec3::down * moveSpeed;
+		position += GlobalVec3::down * moveSpeed;
+
+	btTransform newTransform;
+	newTransform.setOrigin(btVector3(position.x, position.y, position.z));
+	newTransform.setRotation(btQuaternion(rotation.x, rotation.y, rotation.z, rotation.w));
+
+	collider.rigidBody->activate();
+	collider.rigidBody->setWorldTransform(newTransform);
+			
+	collider.rigidBody->setAngularVelocity(btVector3(0, 0, 0));
+	collider.rigidBody->setLinearVelocity(btVector3(0, 0, 0));
 }
 
 void Controller::cursor(double x, double y){
@@ -110,5 +123,6 @@ void Controller::setPossessed(uint64_t id) {
 	if (id)
 		_engine.entities.reference(id);
 	
+	_engine.entities.add<Transform>(id);
 	_possessed = id;
 }

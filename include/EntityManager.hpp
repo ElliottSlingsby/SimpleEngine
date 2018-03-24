@@ -298,7 +298,11 @@ T* EntityManager<typeWidth>::get(uint64_t id) {
 
 	uint32_t type = typeIndex<EntityManager, T>();
 
-	assert(_pools[type] != nullptr); // sanity
+	if (_pools[type] == nullptr) {
+		_warning(Warning::Invalid, "calling get");
+		return nullptr;
+	}
+
 	assert(hasFlags(_identities[index].flags, Identity::Active)); // sanity
 
 	if (!_identities[index].mask.has<T>()) {

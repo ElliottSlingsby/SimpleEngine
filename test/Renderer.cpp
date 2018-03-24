@@ -130,14 +130,7 @@ bool createProgram(GLuint* program, GLuint* vertexShader, GLuint* fragmentShader
 
 void Renderer::_reshape(int height, int width) {
 	_windowSize = { height, width };
-	_projectionMatrix = glm::perspectiveFov(100.f, static_cast<float>(height), static_cast<float>(width), 1.f, 10000.f);
-
-	_projectionMatrix *= glm::mat4(
-		-1.f, 0.f, 0.f, 0.f,
-		0.f, -1.f, 0.f, 0.f,
-		0.f, 0.f, 1.f, 0.f,
-		0.f, 0.f, 0.f, 1.f
-	);
+	_projectionMatrix = glm::perspectiveFov(glm::radians(_fov), static_cast<float>(height), static_cast<float>(width), 1.f, 10000.f);
 
 	glViewport(0, 0, height, width);
 }
@@ -213,7 +206,8 @@ Renderer::~Renderer() {
 void Renderer::load(int argc, char** argv) {
 	// setup data stuff
 	_path = upperPath(replace('\\', '/', argv[0])) + DATA_FOLDER + '/';
-	_windowSize = { 512, 512 };
+	_windowSize = { DEFUALT_WIDTH, DEFUALT_HEIGHT };
+	_fov = DEFUALT_FOV;
 
 	stbi_set_flip_vertically_on_load(true);
 
@@ -230,7 +224,7 @@ void Renderer::load(int argc, char** argv) {
 
 	glfwWindowHint(GLFW_REFRESH_RATE, 1);
 
-	_window = glfwCreateWindow(_windowSize.x, _windowSize.y, "", nullptr, nullptr);
+	_window = glfwCreateWindow(_windowSize.x, _windowSize.y, DEFAULT_TITLE, nullptr, nullptr);
 
 	if (!_window) {
 		std::cerr << "GLFW error - " << "cannot create window" << std::endl;

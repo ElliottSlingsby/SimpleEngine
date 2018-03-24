@@ -8,49 +8,22 @@
 #include <string>
 #include <unordered_map>
 
+#define STEPS_PER_UPDATE 10
+
 class Physics {
 	Engine& _engine;
 
-	// (copy pasted from bullet3 example code)
+	btDefaultCollisionConfiguration* _collisionConfiguration;
 
-	///collision configuration contains default setup for memory, collision setup. Advanced users can create their own configuration.
-	btDefaultCollisionConfiguration* collisionConfiguration;
+	btCollisionDispatcher* _dispatcher;
 
-	///use the default collision dispatcher. For parallel processing you can use a diffent dispatcher (see Extras/BulletMultiThreaded)
-	btCollisionDispatcher* dispatcher;
+	btBroadphaseInterface* _overlappingPairCache;
 
-	///btDbvtBroadphase is a good general purpose broadphase. You can also try out btAxis3Sweep.
-	btBroadphaseInterface* overlappingPairCache;
+	btSequentialImpulseConstraintSolver* _solver;
 
-	btSequentialImpulseConstraintSolver* solver;
-
-	btDiscreteDynamicsWorld* dynamicsWorld;
-
-	btAlignedObjectArray<btCollisionShape*> collisionShapes;
-	
-
-	// primitive (sphere, box, cylinder, capsule, cone, elipsoid)
-	
-	// convex hulls
-	
-	// static concave hulls
-
-	//enum HullType {
-	//	Primitive, // btSphereShape, btBoxShape, btCylinderShape, btCapsuleShape, btConeShape, btMultiSphereShape
-	//	Dynamic, // btConvexPointCloudShape
-	//	Static // btBvhTriangleMeshShape, btHeightfieldTerrainShape, btStaticPlaneShape
-	//};
-
-
-	std::vector<btCollisionShape*> shapes; // all shapes, primitives will be duplicated, convex hulls won't
-	std::unordered_map<std::string, uint32_t> _filesShapes; // indexes to loaded convex hull shapes
+	btDiscreteDynamicsWorld* _dynamicsWorld;
 
 public:
-	enum Shapes {
-		Sphere,
-		Box
-	};
-
 	Physics(Engine& engine);
 	~Physics();
 
@@ -59,17 +32,17 @@ public:
 
 	void createRigidBody(uint64_t id, glm::vec3 size, float mass);
 	
-	//void setGravity(glm::vec3 direction);
-	//
-	//void addSphere(float radius, float mass = 0.f, glm::vec3 origin = glm::vec3());
-	//void addBox(glm::vec3 dimensions, float mass = 0.f, glm::vec3 origin = glm::vec3());
-	//void addCylinder(float radius,  float height, float mass = 0.f, glm::vec3 origin = glm::vec3());
-	//void addCapsule(float radius, float height, float mass = 0.f, glm::vec3 origin = glm::vec3());
-	//void addEllipsoid(glm::vec3 dimensions, float mass = 0.f, glm::vec3 origin = glm::vec3());
-	//
-	//void addDynamicMesh(const std::string& file, float mass, glm::vec3 origin = glm::vec3());
-	//
-	//void addStaticMesh(const std::string& file, glm::vec3 origin = glm::vec3());
-	//void addStaticPlane(glm::vec3 origin = glm::vec3());
-	//void addStaticHeightmap(const std::string& file, glm::vec3 origin = glm::vec3());
+	void setGravity(glm::vec3 direction);
+	
+	void addSphere(float radius, float mass = 0.f, glm::vec3 origin = glm::vec3()); // btSphereShape
+	void addBox(glm::vec3 dimensions, float mass = 0.f, glm::vec3 origin = glm::vec3()); // btBoxShape
+	void addCylinder(float radius,  float height, float mass = 0.f, glm::vec3 origin = glm::vec3()); // btCylinderShape
+	void addCapsule(float radius, float height, float mass = 0.f, glm::vec3 origin = glm::vec3()); // btCapsuleShape
+	void addEllipsoid(glm::vec3 dimensions, float mass = 0.f, glm::vec3 origin = glm::vec3()); // btMultiSphereShape
+	
+	void addDynamicMesh(const std::string& file, float mass, glm::vec3 origin = glm::vec3()); // btConvexPointCloudShape
+	
+	void addStaticMesh(const std::string& file, glm::vec3 origin = glm::vec3()); // btBvhTriangleMeshShape
+	void addStaticPlane(glm::vec3 origin = glm::vec3()); // btStaticPlaneShape
+	void addStaticHeightmap(const std::string& file, glm::vec3 origin = glm::vec3()); // btHeightfieldTerrainShape
 };

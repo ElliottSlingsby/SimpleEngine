@@ -6,6 +6,7 @@
 
 #include "Transform.hpp"
 #include "Model.hpp"
+#include "Collider.hpp"
 
 uint64_t createCube(Engine& engine, glm::dvec3 position) {
 	uint64_t id = engine.entities.create();
@@ -48,6 +49,8 @@ int main(int argc, char** argv) {
 	engine.newSystem<Renderer>();
 
 	engine.events.dispatch(Events::Load, argc, argv);
+	
+	engine.system<Physics>().setGravity({ 0.f, 0.f, -100.f });
 
 	// Create camera
 	{
@@ -59,8 +62,11 @@ int main(int argc, char** argv) {
 		transform.rotation *= glm::quat({ glm::radians(90.f), 0.f, 0.f });
 
 		engine.system<Renderer>().setCamera(cameraId);
-
 		engine.system<Controller>().setPossessed(cameraId);
+		engine.system<Physics>().createRigidBody(cameraId, { 4.f, 4.f, 4.f }, 1000.f);
+
+		Collider& collider = *engine.entities.get<Collider>(cameraId);
+		collider.rigidBody->setGravity(btVector3(0, 0, 0));
 	}
 
 	// Assimp test
@@ -70,13 +76,12 @@ int main(int argc, char** argv) {
 
 		Transform& transform = *engine.entities.get<Transform>(fbxId);
 
-		//engine.system<Renderer>().addScene(&fbxId, "hand.FBX");
+		engine.system<Renderer>().addScene(&fbxId, "hand.FBX");
 	}
 
-	///*
 	// Create floors
 	{
-		createFloor(engine, { 0.0, 0.0, -32.0 }, { 0.f, 0.f, 0.f });
+		createFloor(engine, { 0.0, 0.0, -10.0 }, { 0.f, 0.f, 0.f });
 		createFloor(engine, { 100.0, 0.0, -32.0 }, { 0.f, -45.f, 0.f });
 		createFloor(engine, { -100.0, 0.0, -32.0 }, { 0.f, 45.f, 0.f });
 
@@ -86,19 +91,28 @@ int main(int argc, char** argv) {
 
 	// Create cubes
 	{
-		for (uint32_t i = 0; i < 512; i++) 
+		for (uint32_t i = 0; i < 100; i++) 
 			createCube(engine, { 0.0, 0.0, i * 16.0 });
 	}
-	//*/
 	
 	// Update
 	TimePoint timer;
 	double dt = 0.0;
 
+	double interval = 5.0;
+	double i = interval;
+
 	while (engine.running) {
 		startTime(&timer);
 
 		engine.events.dispatch(Events::Update, dt);
+
+		i += dt;
+
+		if (i >= interval) {
+			i = 0.0;
+			std::cout << 1.0 / dt << std::endl;
+		}
 
 		dt = deltaTime(timer);
 	}

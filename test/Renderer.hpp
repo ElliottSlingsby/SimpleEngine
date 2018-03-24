@@ -24,6 +24,11 @@
 #define MODELVIEW_UNIFORM "modelView"
 #define TEXTURE_UNIFORM "texture"
 
+#define DEFAULT_TITLE ""
+#define DEFUALT_WIDTH 512
+#define DEFUALT_HEIGHT 512
+#define DEFUALT_FOV 90.f
+
 class Renderer {
 	struct Program {
 		GLuint fragmentShader = 0;
@@ -53,6 +58,7 @@ class Renderer {
 
 	std::string _path;
 	glm::uvec2 _windowSize;
+	float _fov;
 
 	uint64_t _camera = 0;
 

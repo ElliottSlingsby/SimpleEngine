@@ -9,103 +9,63 @@ Physics::Physics(Engine & engine) : _engine(engine){
 }
 
 Physics::~Physics(){
-	for (int i = dynamicsWorld->getNumCollisionObjects() - 1; i >= 0; i--)
-	{
-		btCollisionObject* obj = dynamicsWorld->getCollisionObjectArray()[i];
-		btRigidBody* body = btRigidBody::upcast(obj);
-		if (body && body->getMotionState())
-		{
-			delete body->getMotionState();
-		}
-		dynamicsWorld->removeCollisionObject(obj);
-		delete obj;
-	}
+	_engine.entities.iterate<Collider>([](uint64_t id, Collider& collider) {
+		delete collider.collisionShape;
+		delete collider.rigidBody;
+	});
 
-	//delete collision shapes
-	for (int j = 0; j < collisionShapes.size(); j++)
-	{
-		btCollisionShape* shape = collisionShapes[j];
-		collisionShapes[j] = 0;
-		delete shape;
-	}
-
-	delete dynamicsWorld;
-	delete solver;
-	delete overlappingPairCache;
-	delete dispatcher;
-	delete collisionConfiguration;
+	delete _dynamicsWorld;
+	delete _solver;
+	delete _overlappingPairCache;
+	delete _dispatcher;
+	delete _collisionConfiguration;
 }
 
 void Physics::load(int argc, char ** argv){
-	collisionConfiguration = new btDefaultCollisionConfiguration();
+	_collisionConfiguration = new btDefaultCollisionConfiguration();
 
-	dispatcher = new btCollisionDispatcher(collisionConfiguration);
+	_dispatcher = new btCollisionDispatcher(_collisionConfiguration);
 
-	overlappingPairCache = new btDbvtBroadphase();
+	_overlappingPairCache = new btDbvtBroadphase();
 
-	solver = new btSequentialImpulseConstraintSolver;
+	_solver = new btSequentialImpulseConstraintSolver;
 
-	dynamicsWorld = new btDiscreteDynamicsWorld(dispatcher, overlappingPairCache, solver, collisionConfiguration);
+	_dynamicsWorld = new btDiscreteDynamicsWorld(_dispatcher, _overlappingPairCache, _solver, _collisionConfiguration);
 
-	dynamicsWorld->setGravity(btVector3(0, 0, -100));
+	setGravity({ 0.f, 0.f, 0.f });
 }
 
 void Physics::update(double dt){
-	dynamicsWorld->stepSimulation(static_cast<float>(dt), 10);
-
-	for (int j = dynamicsWorld->getNumCollisionObjects() - 1; j >= 0; j--)
-	{
-		btCollisionObject* obj = dynamicsWorld->getCollisionObjectArray()[j];
-		btRigidBody* body = btRigidBody::upcast(obj);
-		btTransform trans;
-
-		if (body && body->getMotionState())
-			body->getMotionState()->getWorldTransform(trans);
-		else
-			trans = obj->getWorldTransform();
-
-		Transform* transform = (Transform*)body->getUserPointer();
-
-		transform->position.x = static_cast<double>(trans.getOrigin().getX());
-		transform->position.y = static_cast<double>(trans.getOrigin().getY());
-		transform->position.z = static_cast<double>(trans.getOrigin().getZ());
-
-		transform->rotation.w = static_cast<float>(trans.getRotation().getW());
-		transform->rotation.x = static_cast<float>(trans.getRotation().getX());
-		transform->rotation.y = static_cast<float>(trans.getRotation().getY());
-		transform->rotation.z = static_cast<float>(trans.getRotation().getZ());
-	}
+	for (uint32_t i = 0; i < STEPS_PER_UPDATE; i++)
+		_dynamicsWorld->stepSimulation(static_cast<float>(dt) / STEPS_PER_UPDATE, 0);
 }
 
 void Physics::createRigidBody(uint64_t id, glm::vec3 size, float mass){
 	_engine.entities.add<Transform>(id);
+	_engine.entities.add<Collider>(id);
 	Transform* transform = _engine.entities.get<Transform>(id);
+	Collider* collider = _engine.entities.get<Collider>(id);
 	
-	btCollisionShape* groundShape = new btBoxShape(btVector3(btScalar(size.x), btScalar(size.y), btScalar(size.z)));
-
-	collisionShapes.push_back(groundShape);
-
-	btTransform groundTransform;
-	groundTransform.setIdentity();
-	groundTransform.setOrigin(btVector3(transform->position.x, transform->position.y, transform->position.z));
-	groundTransform.setRotation(btQuaternion(transform->rotation.x, transform->rotation.y, transform->rotation.z, transform->rotation.w));
-
-	btScalar bMass(mass);
-
-	//rigidbody is dynamic if and only if mass is non zero, otherwise static
-	bool isDynamic = (bMass != 0.f);
+	collider->collisionShape = new btBoxShape(btVector3(btScalar(size.x), btScalar(size.y), btScalar(size.z)));
 
 	btVector3 localInertia(0, 0, 0);
-	if (isDynamic)
-		groundShape->calculateLocalInertia(bMass, localInertia);
 
-	//using motionstate is optional, it provides interpolation capabilities, and only synchronizes 'active' objects
-	btDefaultMotionState* myMotionState = new btDefaultMotionState(groundTransform);
-	btRigidBody::btRigidBodyConstructionInfo rbInfo(bMass, myMotionState, groundShape, localInertia);
-	btRigidBody* body = new btRigidBody(rbInfo);
+	if (mass != 0.f)
+		collider->collisionShape->calculateLocalInertia(static_cast<btScalar>(mass), localInertia);
 
-	body->setUserPointer(transform);
+	btRigidBody::btRigidBodyConstructionInfo rbInfo(static_cast<btScalar>(mass), transform, collider->collisionShape, localInertia);
+	collider->rigidBody = new btRigidBody(rbInfo);
 
-	//add the body to the dynamics world
-	dynamicsWorld->addRigidBody(body);
+	_dynamicsWorld->addRigidBody(collider->rigidBody);
+}
+
+void Physics::setGravity(glm::vec3 direction){
+	if (!_dynamicsWorld)
+		return;
+
+	_dynamicsWorld->setGravity(btVector3(
+		static_cast<btScalar>(direction.x), 
+		static_cast<btScalar>(direction.y), 
+		static_cast<btScalar>(direction.z)
+	));
 }
