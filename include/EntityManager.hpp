@@ -195,7 +195,7 @@ typename std::enable_if<i == sizeof...(Ts), void>::type EntityManager<typeWidth>
 template<uint32_t typeWidth>
 template <uint32_t i, typename ...Ts>
 typename std::enable_if<i < sizeof...(Ts), void>::type EntityManager<typeWidth>::_get(uint32_t index, std::tuple<Ts*...>& tuple) {
-	using T = std::tuple_element<i, std::tuple<Ts...>>::type;
+	using T = typename std::tuple_element<i, std::tuple<Ts...>>::type;
 
 	std::get<i>(tuple) = _pools[typeIndex<EntityManager, T>()]->get<T>(index);
 

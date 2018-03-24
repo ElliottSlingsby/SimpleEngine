@@ -3,6 +3,8 @@
 layout (location = 0) in vec3 inVertex;
 layout (location = 1) in vec3 inNormal;
 layout (location = 2) in vec2 inTexcoord;
+//layout (location = 4) in vec3 inTangent;
+//layout (location = 5) in vec3 inBitangent;
 
 out vec3 normal;
 out vec2 texcoord;

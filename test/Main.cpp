@@ -63,6 +63,17 @@ int main(int argc, char** argv) {
 		engine.system<Controller>().setPossessed(cameraId);
 	}
 
+	// Assimp test
+	{
+		uint64_t fbxId = engine.entities.create();
+		engine.entities.add<Transform>(fbxId);
+
+		Transform& transform = *engine.entities.get<Transform>(fbxId);
+
+		//engine.system<Renderer>().addScene(&fbxId, "hand.FBX");
+	}
+
+	///*
 	// Create floors
 	{
 		createFloor(engine, { 0.0, 0.0, -32.0 }, { 0.f, 0.f, 0.f });
@@ -78,6 +89,7 @@ int main(int argc, char** argv) {
 		for (uint32_t i = 0; i < 512; i++) 
 			createCube(engine, { 0.0, 0.0, i * 16.0 });
 	}
+	//*/
 	
 	// Update
 	TimePoint timer;

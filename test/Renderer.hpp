@@ -10,9 +10,13 @@
 #include <GLFW\glfw3.h>
 #include <glm\gtc\matrix_transform.hpp>
 
+#include <assimp\scene.h>
+
 #define VERTEX_ATTRIBUTE 0
 #define NORMAL_ATTRIBUTE 1
 #define TEXCOORD_ATTRIBUTE 2
+//#define TANGENT_ATTRIBUTE 3
+//#define BITANGENT_ATTRIBUTE 4
 
 #define MODEL_UNIFORM "model"
 #define VIEW_UNIFORM "view"
@@ -58,12 +62,16 @@ class Renderer {
 
 	void _reshape(int height, int width);
 
+	void _extract(uint64_t parent, const aiScene* scene, const aiNode* node);
+
 public:
 	Renderer(Engine& engine);
 	~Renderer();
 
 	void load(int argc, char** argv);
 	void update(double dt);
+
+	bool addScene(uint64_t* id, const std::string& sceneFile);
 
 	bool addMesh(uint64_t* id, const std::string& meshFile);
 	bool addTexture(uint64_t* id, const std::string& textureFile);

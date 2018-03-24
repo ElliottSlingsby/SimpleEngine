@@ -1,3 +1,7 @@
+# define uninstall so others don't
+add_custom_target("uninstall")
+set_target_properties("uninstall" PROPERTIES FOLDER "CMakePredefinedTargets")
+
 # GLFW native window handler
 option(GLFW_BUILD_DOCS OFF)
 option(GLFW_BUILD_EXAMPLES OFF)
@@ -44,6 +48,18 @@ option(USE_GRAPHICAL_BENCHMARK OFF)
 
 add_external_tar("bullet3-2.87" "https://github.com/bulletphysics/bullet3/archive/2.87.tar.gz" "")
 
+target_include_directories("BulletDynamics" PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/bullet3-2.87/src")
+target_include_directories("BulletCollision" PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/bullet3-2.87/src")
+target_include_directories("LinearMath" PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/bullet3-2.87/src")
+
+target_compile_options("BulletDynamics" PUBLIC "/wd5033")
+target_compile_options("BulletCollision" PUBLIC "/wd5033")
+target_compile_options("LinearMath" PUBLIC "/wd5033")
+
+target_compile_options("BulletDynamics" PUBLIC "/wd4305")
+target_compile_options("BulletCollision" PUBLIC "/wd4305")
+target_compile_options("LinearMath" PUBLIC "/wd4305")
+
 set_target_properties("Bullet2FileLoader" PROPERTIES FOLDER "Thirdparty")
 set_target_properties("Bullet3Collision" PROPERTIES FOLDER "Thirdparty")
 set_target_properties("Bullet3Common" PROPERTIES FOLDER "Thirdparty")
@@ -56,14 +72,23 @@ set_target_properties("BulletInverseDynamics" PROPERTIES FOLDER "Thirdparty")
 set_target_properties("BulletSoftBody" PROPERTIES FOLDER "Thirdparty")
 set_target_properties("LinearMath" PROPERTIES FOLDER "Thirdparty")
 
-target_include_directories("BulletDynamics" PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/bullet3-2.87/src")
-target_include_directories("BulletCollision" PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/bullet3-2.87/src")
-target_include_directories("LinearMath" PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/bullet3-2.87/src")
+# Assimp
+option(ASSIMP_BUILD_TESTS OFF)
+option(ASSIMP_BUILD_SAMPLES OFF)
 
-target_compile_options("BulletDynamics" PUBLIC "/wd5033")
-target_compile_options("BulletCollision" PUBLIC "/wd5033")
-target_compile_options("LinearMath" PUBLIC "/wd5033")
+add_external_tar("assimp-4.1.0" "https://github.com/assimp/assimp/archive/v4.1.0.tar.gz" "")
 
-target_compile_options("BulletDynamics" PUBLIC "/wd4305")
-target_compile_options("BulletCollision" PUBLIC "/wd4305")
-target_compile_options("LinearMath" PUBLIC "/wd4305")
+target_include_directories("assimp" PUBLIC 
+	"${CMAKE_CURRENT_SOURCE_DIR}/assimp-4.1.0/include"
+	"${CMAKE_BINARY_DIR}/thirdparty/assimp-4.1.0/include"
+)
+
+set_target_properties("assimp" PROPERTIES FOLDER "Thirdparty")
+set_target_properties("assimp_cmd" PROPERTIES FOLDER "Thirdparty")
+set_target_properties("IrrXML" PROPERTIES FOLDER "Thirdparty")
+set_target_properties("UpdateAssimpLibsDebugSymbolsAndDLLs" PROPERTIES FOLDER "Thirdparty")
+set_target_properties("zlib" PROPERTIES FOLDER "Thirdparty")
+set_target_properties("zlibstatic" PROPERTIES FOLDER "Thirdparty")
+
+target_compile_options("assimp" PUBLIC "/wd4996")
+target_compile_options("assimp" PUBLIC "/wd4700")

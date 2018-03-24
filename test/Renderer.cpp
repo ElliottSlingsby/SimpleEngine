@@ -11,6 +11,10 @@
 #include <tiny_obj_loader.h>
 #include <stb_image.h>
 
+#include <assimp/Importer.hpp>
+#include <assimp/scene.h>
+#include <assimp/postprocess.h>
+
 struct Attributes {
 	glm::tvec3<GLfloat> vertex;
 	glm::tvec3<GLfloat> normal;
@@ -136,6 +140,62 @@ void Renderer::_reshape(int height, int width) {
 	);
 
 	glViewport(0, 0, height, width);
+}
+
+void Renderer::_extract(uint64_t parent, const aiScene* scene, const aiNode * node){
+	_engine.entities.add<Transform>(parent);
+	Transform& parentTransform = *_engine.entities.get<Transform>(parent);
+
+	// apply root transformation
+
+	if (!strcmp(node->mName.C_Str(), "RootNode"))
+		node->mTransformation;
+	else if (strcmpSuffix(node->mName.C_Str(), "$AssimpFbx$_Translation"))
+		node->mTransformation;
+	else if (strcmpSuffix(node->mName.C_Str(), "$AssimpFbx$_RotationPivot"))
+		node->mTransformation;
+	else if (strcmpSuffix(node->mName.C_Str(), "$AssimpFbx$_RotationOffset"))
+		node->mTransformation;
+	else if (strcmpSuffix(node->mName.C_Str(), "$AssimpFbx$_PreRotation"))
+		node->mTransformation;
+	else if (strcmpSuffix(node->mName.C_Str(), "$AssimpFbx$_PostRotation"))
+		node->mTransformation;
+	else if (strcmpSuffix(node->mName.C_Str(), "$AssimpFbx$_ScalingPivot"))
+		node->mTransformation;
+	else if (strcmpSuffix(node->mName.C_Str(), "$AssimpFbx$_ScalingOffset"))
+		node->mTransformation;
+	else if (strcmpSuffix(node->mName.C_Str(), "$AssimpFbx$_Translation"))
+		node->mTransformation;
+	else if (strcmpSuffix(node->mName.C_Str(), "$AssimpFbx$_Scaling"))
+		node->mTransformation;
+	else if (strcmpSuffix(node->mName.C_Str(), "$AssimpFbx$_Rotation"))
+		node->mTransformation;
+	else
+		std::cout << node->mName.C_Str() << std::endl;
+
+	uint64_t entity = parent;
+
+	if (node->mNumMeshes) {
+		entity = _engine.entities.create();
+		_engine.entities.add<Transform>(entity);
+
+		Transform& transform = *_engine.entities.get<Transform>(entity);
+		transform.parent = parent;
+
+		// apply transformation
+
+		_engine.entities.add<Model>(entity);
+		Model& model = *_engine.entities.get<Model>(entity);
+
+		for (uint32_t i = 0; i < node->mNumMeshes; i++) {
+			const aiMesh* mesh = scene->mMeshes[node->mMeshes[i]];
+
+			// buffer mesh data
+		}
+	}
+
+	for (uint32_t i = 0; i < node->mNumChildren; i++)
+		_extract(entity, scene, node->mChildren[i]);
 }
 
 Renderer::Renderer(Engine& engine) : _engine(engine) {
@@ -282,6 +342,37 @@ void Renderer::update(double dt) {
 	glCheckError();
 
 	glfwSwapBuffers(_window);
+}
+
+bool Renderer::addScene(uint64_t * id, const std::string & sceneFile) {
+	if (!_engine.entities.valid(*id))
+		return false;
+
+	_engine.entities.add<Model>(*id);
+	Model& model = *_engine.entities.get<Model>(*id);
+
+	// assimp goes here
+	Assimp::Importer importer;
+
+	const aiScene* scene = importer.ReadFile(_path + sceneFile,
+		aiProcess_CalcTangentSpace |
+		aiProcess_Triangulate |
+		aiProcess_JoinIdenticalVertices |
+		//aiProcess_SortByPType |		// do i want this?
+		aiProcess_RemoveComponent
+	);
+
+	if (!scene) {
+		std::cerr << importer.GetErrorString() << std::endl;
+		return false;
+	}
+
+	if (!scene->mNumMeshes)
+		return false;
+
+	_extract(*id, scene, scene->mRootNode);
+
+	return true;
 }
 
 bool Renderer::addMesh(uint64_t* id, const std::string& meshFile) {

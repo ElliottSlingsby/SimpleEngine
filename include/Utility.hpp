@@ -118,3 +118,18 @@ inline std::string readFile(const std::string& path) {
 
 	return contents;
 }
+
+inline bool strcmpSuffix(const char* check, const char* suffix) {
+	size_t checkLen = strlen(check);
+	size_t suffixLen = strlen(suffix);
+
+	if (checkLen < suffixLen)
+		return false;
+
+	for (uint32_t i = 0; i < suffixLen; i++) {
+		if (check[checkLen - i - 1] != suffix[suffixLen - i - 1])
+			return false;
+	}
+
+	return true;
+}
