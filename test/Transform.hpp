@@ -11,7 +11,79 @@ struct Transform : public btMotionState {
 	glm::quat rotation;
 	glm::vec3 scale = { 1.f, 1.f, 1.f };
 
-	uint64_t parent = 0;
+	Transform* parent = nullptr;
+	std::vector<Transform*> children;
+
+	glm::dvec3 worldPosition() const {
+		glm::dvec3 rPosition = position;
+		Transform* rParent = parent;
+
+		while (rParent != nullptr) {
+			rPosition = rParent->position + static_cast<glm::dquat>(rParent->rotation) * rPosition;
+			rParent = rParent->parent;
+		}
+
+		return rPosition;
+	}
+
+	glm::quat worldRotation() const {
+		glm::quat rRotation = rotation;
+		Transform* rParent = parent;
+
+		while (rParent != nullptr) {
+			rRotation = rParent->rotation * rRotation;
+			rParent = rParent->parent;
+		}
+
+		return rRotation;
+	}
+
+	glm::vec3 worldScale() const {
+		glm::vec3 rScale = scale;
+		Transform* rParent = parent;
+
+		while (rParent != nullptr) {
+			rScale *= rParent->scale;
+			rParent = rParent->parent;
+		}
+
+		return rScale;
+	}
+
+	void setParent(Transform* other) {
+		if (parent)
+			removeParent();
+		
+		other->children.push_back(this);
+		parent = other;
+	}
+
+	void setChild(Transform* other) {
+		if (std::find(children.begin(), children.end(), other) != children.end())
+			return;
+		
+		children.push_back(other);
+		other->setParent(this);
+	}
+
+	void removeParent() {
+		if (parent)
+			parent->children.erase(std::find(parent->children.begin(), parent->children.end(), this));
+		
+		parent = nullptr;
+	}
+
+	void removeChildren() {
+		for (Transform* child : children)
+			child->parent = nullptr;
+		
+		children.clear();
+	}
+
+	~Transform() {
+		removeParent();
+		removeChildren();
+	}
 
 	void getWorldTransform(btTransform& transform) const override {
 		transform.setOrigin(btVector3(

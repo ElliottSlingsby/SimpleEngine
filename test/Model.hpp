@@ -8,6 +8,7 @@ struct Model {
 	GLsizei indexCount = 0;
 
 	GLuint texture = 0;
+	bool linearTexture = true;
 
 	bool hasProgram = false;
 	uint32_t program;

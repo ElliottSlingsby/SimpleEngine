@@ -84,7 +84,7 @@ public:
 	inline T* get(uint64_t id);
 
 	template <typename T, typename ...Ts>
-	inline void add(uint64_t id, Ts&&... args);
+	inline T* add(uint64_t id, Ts&&... args);
 
 	template <typename T>
 	inline void remove(uint64_t id);
@@ -315,31 +315,35 @@ T* EntityManager<typeWidth>::get(uint64_t id) {
 
 template <uint32_t typeWidth>
 template <typename T, typename ...Ts>
-void EntityManager<typeWidth>::add(uint64_t id, Ts&&... args) {
+T* EntityManager<typeWidth>::add(uint64_t id, Ts&&... args) {
 	uint32_t index = front64(id);
 	uint32_t version = back64(id);
 
 	if (!_validId(index, version)) {
 		_warning(Warning::Invalid, "calling add");
-		return;
+		return nullptr;
 	}
 
 	assert(hasFlags(_identities[index].flags, Identity::Active)); // sanity
 
+	uint32_t type = typeIndex<EntityManager, T>();
+
 	if (_identities[index].mask.has<T>()) {
 		//_warning(Warning::Component, "calling add when component already exists");
-		return;
+		return _pools[type]->get<T>(index);
 	}
 
 	// create pool if it doesn't exist
-	if (_pools[typeIndex<EntityManager, T>()] == nullptr)
-		_pools[typeIndex<EntityManager, T>()] = new ObjectPool<T>(_chunkSize);
+	if (_pools[type] == nullptr)
+		_pools[type] = new ObjectPool<T>(_chunkSize);
 
 	// remove from pool
 	_pools[typeIndex<EntityManager, T>()]->insert<T>(index, args...);
 
 	// update identity
 	_identities[index].mask.add<T>();
+
+	return _pools[type]->get<T>(index);
 }
 
 template <uint32_t typeWidth>

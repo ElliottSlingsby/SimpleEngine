@@ -15,8 +15,8 @@
 #define VERTEX_ATTRIBUTE 0
 #define NORMAL_ATTRIBUTE 1
 #define TEXCOORD_ATTRIBUTE 2
-//#define TANGENT_ATTRIBUTE 3
-//#define BITANGENT_ATTRIBUTE 4
+#define TANGENT_ATTRIBUTE 3
+#define BITANGENT_ATTRIBUTE 4
 
 #define MODEL_UNIFORM "model"
 #define VIEW_UNIFORM "view"
@@ -25,8 +25,8 @@
 #define TEXTURE_UNIFORM "texture"
 
 #define DEFAULT_TITLE ""
-#define DEFUALT_WIDTH 512
-#define DEFUALT_HEIGHT 512
+#define DEFUALT_WIDTH 800
+#define DEFUALT_HEIGHT 600
 #define DEFUALT_FOV 90.f
 
 class Renderer {

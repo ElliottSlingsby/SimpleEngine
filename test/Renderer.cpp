@@ -135,36 +135,47 @@ void Renderer::_reshape(int height, int width) {
 	glViewport(0, 0, height, width);
 }
 
+inline void applyTransform(Transform& transform, const aiMatrix4x4& aiMatrix) {
+	glm::mat4 matrix(
+		aiMatrix.a1, aiMatrix.a2, aiMatrix.a3, aiMatrix.a4,
+		aiMatrix.b1, aiMatrix.b2, aiMatrix.b3, aiMatrix.b4,
+		aiMatrix.c1, aiMatrix.c2, aiMatrix.c3, aiMatrix.c4,
+		aiMatrix.d1, aiMatrix.d2, aiMatrix.d3, aiMatrix.d4
+	);
+
+	transform.position.x = aiMatrix.a4;
+	transform.position.y = aiMatrix.b4;
+	transform.position.z = aiMatrix.c4;
+
+	transform.rotation = glm::quat_cast(matrix);
+}
+
 void Renderer::_extract(uint64_t parent, const aiScene* scene, const aiNode * node){
 	_engine.entities.add<Transform>(parent);
 	Transform& parentTransform = *_engine.entities.get<Transform>(parent);
 
-	// apply root transformation
-
 	if (!strcmp(node->mName.C_Str(), "RootNode"))
-		node->mTransformation;
+		applyTransform(parentTransform, node->mTransformation);
 	else if (strcmpSuffix(node->mName.C_Str(), "$AssimpFbx$_Translation"))
-		node->mTransformation;
+		applyTransform(parentTransform, node->mTransformation);
 	else if (strcmpSuffix(node->mName.C_Str(), "$AssimpFbx$_RotationPivot"))
-		node->mTransformation;
+		applyTransform(parentTransform, node->mTransformation);
 	else if (strcmpSuffix(node->mName.C_Str(), "$AssimpFbx$_RotationOffset"))
-		node->mTransformation;
+		applyTransform(parentTransform, node->mTransformation);
 	else if (strcmpSuffix(node->mName.C_Str(), "$AssimpFbx$_PreRotation"))
-		node->mTransformation;
+		applyTransform(parentTransform, node->mTransformation);
 	else if (strcmpSuffix(node->mName.C_Str(), "$AssimpFbx$_PostRotation"))
-		node->mTransformation;
+		applyTransform(parentTransform, node->mTransformation);
 	else if (strcmpSuffix(node->mName.C_Str(), "$AssimpFbx$_ScalingPivot"))
-		node->mTransformation;
+		applyTransform(parentTransform, node->mTransformation);
 	else if (strcmpSuffix(node->mName.C_Str(), "$AssimpFbx$_ScalingOffset"))
-		node->mTransformation;
+		applyTransform(parentTransform, node->mTransformation);
 	else if (strcmpSuffix(node->mName.C_Str(), "$AssimpFbx$_Translation"))
-		node->mTransformation;
+		applyTransform(parentTransform, node->mTransformation);
 	else if (strcmpSuffix(node->mName.C_Str(), "$AssimpFbx$_Scaling"))
-		node->mTransformation;
+		applyTransform(parentTransform, node->mTransformation);
 	else if (strcmpSuffix(node->mName.C_Str(), "$AssimpFbx$_Rotation"))
-		node->mTransformation;
-	else
-		std::cout << node->mName.C_Str() << std::endl;
+		applyTransform(parentTransform, node->mTransformation);
 
 	uint64_t entity = parent;
 
@@ -173,9 +184,13 @@ void Renderer::_extract(uint64_t parent, const aiScene* scene, const aiNode * no
 		_engine.entities.add<Transform>(entity);
 
 		Transform& transform = *_engine.entities.get<Transform>(entity);
-		transform.parent = parent;
+		transform.setParent(_engine.entities.get<Transform>(parent));
 
-		// apply transformation
+		applyTransform(transform, node->mTransformation);
+
+		addShader(&entity, "vertexShader.glsl", "fragmentShader.glsl"); // remove me
+		addMesh(&entity, "axis.obj"); // remove me
+		addTexture(&entity, "rgb.png"); // remove me
 
 		_engine.entities.add<Model>(entity);
 		Model& model = *_engine.entities.get<Model>(entity);
@@ -263,8 +278,6 @@ void Renderer::update(double dt) {
 	glClearColor(0.f, 0.f, 0.f, 1.f);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-	glm::quat modelQuat({ glm::radians(-90.f), 0.f, glm::radians(180.f) });
-
 	_engine.entities.iterate<Transform, Model>([&](uint64_t id, Transform& transform, Model& model) {
 		if (!model.hasProgram || (!model.texture && !model.arrayObject))
 			return;
@@ -287,7 +300,7 @@ void Renderer::update(double dt) {
 		if ((program.uniformModelView != -1 || program.uniformView != -1) && _camera) {
 			Transform& cameraTransform = *_engine.entities.get<Transform>(_camera);
 
-			viewMatrix = glm::scale(viewMatrix, static_cast<glm::dvec3>(cameraTransform.scale));
+			//viewMatrix = glm::scale(viewMatrix, static_cast<glm::dvec3>(cameraTransform.scale));
 			viewMatrix *= glm::transpose(glm::mat4_cast(static_cast<glm::dquat>(cameraTransform.rotation)));
 			viewMatrix = glm::translate(viewMatrix, -cameraTransform.position);
 
@@ -299,9 +312,9 @@ void Renderer::update(double dt) {
 		glm::dmat4 modelMatrix;
 
 		if (program.uniformModelView != -1 || program.uniformView != -1) {
-			modelMatrix = glm::translate(modelMatrix, transform.position);
-			modelMatrix *= glm::mat4_cast(static_cast<glm::dquat>(transform.rotation));
-			modelMatrix = glm::scale(modelMatrix, static_cast<glm::dvec3>(transform.scale));
+			modelMatrix = glm::translate(modelMatrix, transform.worldPosition());
+			modelMatrix *= glm::mat4_cast(static_cast<glm::dquat>(transform.worldRotation()));
+			modelMatrix = glm::scale(modelMatrix, static_cast<glm::dvec3>(transform.worldScale()));
 
 			if (program.uniformView != -1)
 				glUniformMatrix4fv(program.uniformModel, 1, GL_FALSE, &(static_cast<glm::mat4>(modelMatrix))[0][0]);
@@ -315,6 +328,15 @@ void Renderer::update(double dt) {
 		if (program.uniformTexture != -1 && model.texture) {
 			glActiveTexture(GL_TEXTURE0);
 			glBindTexture(GL_TEXTURE_2D, model.texture);
+
+			if (model.linearTexture) {
+				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+			}
+			else {
+				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST_MIPMAP_NEAREST);
+				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+			}
 		}
 
 		// draw buffer
@@ -492,8 +514,11 @@ bool Renderer::addTexture(uint64_t* id, const std::string& textureFile) {
 	glBindTexture(GL_TEXTURE_2D, model.texture);
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, x, y, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
 
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	glGenerateMipmap(GL_TEXTURE_2D);
+	glGenerateTextureMipmap(model.texture);
+
+	glCheckError();
+
 	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
 	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
 
