@@ -48,6 +48,8 @@ class EntityManager {
 
 	bool _iterating = false;
 
+	void* _enginePtr = nullptr;
+
 	void _warning(Warning warning, const std::string message = "") const;
 
 	bool _validId(uint32_t index, uint32_t version) const;
@@ -58,16 +60,22 @@ class EntityManager {
 	void _iterate(const Identity& identity, const T& lambda);
 
 	template <uint32_t i, typename ...Ts>
-	inline typename std::enable_if<i == sizeof...(Ts), void>::type _get(uint32_t index, std::tuple<Ts*...>& tuple);
+	inline typename std::enable_if<i == sizeof...(Ts)>::type _get(uint32_t index, std::tuple<Ts*...>& tuple);
 
 	template <uint32_t i, typename ...Ts>
-	inline typename std::enable_if < i < sizeof...(Ts), void>::type _get(uint32_t index, std::tuple<Ts*...>& tuple);
+	inline typename std::enable_if < i < sizeof...(Ts)>::type _get(uint32_t index, std::tuple<Ts*...>& tuple);
 
 	template <uint32_t i, typename ...Ts>
-	inline typename std::enable_if<i == sizeof...(Ts), void>::type _reserve(uint32_t index);
+	inline typename std::enable_if<i == sizeof...(Ts)>::type _reserve(uint32_t index);
 
 	template <uint32_t i, typename ...Ts>
-	inline typename std::enable_if < i < sizeof...(Ts), void>::type _reserve(uint32_t index);
+	inline typename std::enable_if < i < sizeof...(Ts)>::type _reserve(uint32_t index);
+
+	//template <typename T, typename ...Ts>
+	//inline typename std::enable_if<std::is_constructible<T, EntityManager<typeWidth>&, Ts...>::value>::type _insert(uint32_t index, Ts&&... args);
+
+	//template <typename T, typename ...Ts>
+	//inline typename std::enable_if<std::is_constructible<T, Ts...>::value>::type _insert(uint32_t index, Ts&&... args);
 
 public:
 	inline EntityManager(size_t chunkSize);
@@ -107,6 +115,10 @@ public:
 	inline void dereference(uint64_t id);
 
 	inline void setEnabled(uint64_t id, bool enabled);
+
+	inline void enginePtr(void* engine);
+
+	inline void* enginePtr();
 };
 
 template<uint32_t typeWidth>
@@ -190,11 +202,11 @@ inline void EntityManager<typeWidth>::_iterate(const Identity& identity, const T
 
 template<uint32_t typeWidth>
 template <uint32_t i, typename ...Ts>
-typename std::enable_if<i == sizeof...(Ts), void>::type EntityManager<typeWidth>::_get(uint32_t index, std::tuple<Ts*...>& tuple) { }
+typename std::enable_if<i == sizeof...(Ts)>::type EntityManager<typeWidth>::_get(uint32_t index, std::tuple<Ts*...>& tuple) { }
 
 template<uint32_t typeWidth>
 template <uint32_t i, typename ...Ts>
-typename std::enable_if<i < sizeof...(Ts), void>::type EntityManager<typeWidth>::_get(uint32_t index, std::tuple<Ts*...>& tuple) {
+typename std::enable_if<i < sizeof...(Ts)>::type EntityManager<typeWidth>::_get(uint32_t index, std::tuple<Ts*...>& tuple) {
 	using T = typename std::tuple_element<i, std::tuple<Ts...>>::type;
 
 	std::get<i>(tuple) = _pools[typeIndex<EntityManager, T>()]->get<T>(index);
@@ -204,11 +216,11 @@ typename std::enable_if<i < sizeof...(Ts), void>::type EntityManager<typeWidth>:
 
 template<uint32_t typeWidth>
 template <uint32_t i, typename ...Ts>
-typename std::enable_if<i == sizeof...(Ts), void>::type EntityManager<typeWidth>::_reserve(uint32_t index) { }
+typename std::enable_if<i == sizeof...(Ts)>::type EntityManager<typeWidth>::_reserve(uint32_t index) { }
 
 template<uint32_t typeWidth>
 template <uint32_t i, typename ...Ts>
-typename std::enable_if < i < sizeof...(Ts), void>::type EntityManager<typeWidth>::_reserve(uint32_t index) {
+typename std::enable_if < i < sizeof...(Ts)>::type EntityManager<typeWidth>::_reserve(uint32_t index) {
 	using T = std::tuple_element<i, std::tuple<Ts...>>::type;
 
 	if (_pools[typeIndex<EntityManager, T>()] == nullptr)
@@ -218,6 +230,18 @@ typename std::enable_if < i < sizeof...(Ts), void>::type EntityManager<typeWidth
 
 	_reserve<i + 1, T>(index);
 }
+
+//template<uint32_t typeWidth>
+//template <typename T, typename ...Ts>
+//typename std::enable_if<std::is_constructible<T, EntityManager<typeWidth>&, Ts...>::value>::type EntityManager<typeWidth>::_insert(uint32_t index, Ts&&... args) {
+//	_pools[typeIndex<EntityManager, T>()]->insert<T>(index, *this, std::forward<Ts>(args)...);
+//}
+
+//template<uint32_t typeWidth>
+//template <typename T, typename ...Ts>
+//typename std::enable_if<std::is_constructible<T, Ts...>::value>::type EntityManager<typeWidth>::_insert(uint32_t index, Ts&&... args) {
+//	_pools[typeIndex<EntityManager, T>()]->insert<T>(index, std::forward<Ts>(args)...);
+//}
 
 template<uint32_t typeWidth>
 EntityManager<typeWidth>::EntityManager(size_t chunkSize) : _chunkSize(chunkSize) { }
@@ -328,17 +352,15 @@ T* EntityManager<typeWidth>::add(uint64_t id, Ts&&... args) {
 
 	uint32_t type = typeIndex<EntityManager, T>();
 
-	if (_identities[index].mask.has<T>()) {
-		//_warning(Warning::Component, "calling add when component already exists");
+	if (_identities[index].mask.has<T>()) 
 		return _pools[type]->get<T>(index);
-	}
 
 	// create pool if it doesn't exist
 	if (_pools[type] == nullptr)
 		_pools[type] = new ObjectPool<T>(_chunkSize);
 
-	// remove from pool
-	_pools[typeIndex<EntityManager, T>()]->insert<T>(index, args...);
+	//_insert<T, Ts...>(index, std::forward<Ts>(args)...);
+	_pools[typeIndex<EntityManager, T>()]->insert<T>(index, std::forward<Ts>(args)...);
 
 	// update identity
 	_identities[index].mask.add<T>();
@@ -360,10 +382,8 @@ void EntityManager<typeWidth>::remove(uint64_t id) {
 	assert(_pools[type] != nullptr); // sanity
 	assert(hasFlags(_identities[index].flags, Identity::Active)); // sanity
 
-	if (!_identities[index].mask.has<T>()) {
-		//_warning(Warning::Component, "calling remove on non existant component");
+	if (!_identities[index].mask.has<T>())
 		return;
-	}
 
 	// remove from pool
 	_pools[type]->erase(index);
@@ -401,8 +421,8 @@ void EntityManager<typeWidth>::clear() {
 		if (_identities[i].mask.empty() || !hasFlags(_identities[i].flags, Identity::Active))
 			continue;
 
-		if (_identities[i].references)
-			_warning(Warning::References, std::string("calling clear with references still existing") );
+		//if (_identities[i].references)
+		//	_warning(Warning::References, std::string("calling clear with references still existing") );
 
 		_erase(i);
 	}
@@ -496,4 +516,19 @@ void EntityManager<typeWidth>::setEnabled(uint64_t id, bool enabled) {
 		_identities[index].flags &= ~Identity::Enabled;
 	else
 		_identities[index].flags |= Identity::Enabled;
+}
+
+template<uint32_t typeWidth>
+inline void EntityManager<typeWidth>::enginePtr(void * engine){
+	assert(!_enginePtr);
+
+	if (!_enginePtr)
+		_enginePtr = engine;
+}
+
+template<uint32_t typeWidth>
+inline void * EntityManager<typeWidth>::enginePtr(){
+	assert(_enginePtr);
+
+	return _enginePtr;
 }

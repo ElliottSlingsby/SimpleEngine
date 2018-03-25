@@ -18,6 +18,13 @@
 - GPU bullet
 */
 
+//class Test : Engine::Component {
+//public:
+//	Test(Engine::EntityManager& entities, int x, int y) : Component(entities) {
+
+//	}
+//};
+
 uint64_t createCube(Engine& engine, glm::dvec3 position) {
 	uint64_t id = engine.entities.create();
 	Transform& transform = *engine.entities.add<Transform>(id);
@@ -105,7 +112,7 @@ int main(int argc, char** argv) {
 	{
 		createFloor(engine, { 0.0, 0.0, -10.0 }, { 0.f, 0.f, 0.f });
 
-		for (uint32_t i = 0; i < 10; i++) 
+		for (uint32_t i = 0; i < 16; i++) 
 			createCube(engine, { 0.0, 100.0, i * 16.0 });
 	}
 
@@ -119,12 +126,9 @@ int main(int argc, char** argv) {
 
 	// Hierarchy test
 	{
-		//uint64_t a = createArrow(engine, { 0.f, 0.f, 0.f }, { 0.f, 0.f, 45.f }, 0);
+		uint64_t a = createArrow(engine, { 0.f, 0.f, 0.f }, { 0.f, 0.f, 45.f }, 0);
 
-		//uint64_t b = createArrow(engine, { 0.f, 0.f, 100.f }, { -45.f, 0.f, 0.f }, a);
-
-		//uint64_t c = createArrow(engine, { 0.f, 0.f, 100.f }, { -45.f, 0.f, 0.f }, b);
-
+		//Test* test = engine.entities.add<Test>(a, 1, 2);
 	}
 	
 	// Update

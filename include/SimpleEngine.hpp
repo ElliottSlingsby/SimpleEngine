@@ -13,8 +13,19 @@ class SimpleEngine {
 	std::optional<BasePtr> _systems[systems];
 
 public:
-	EventHandler<events, listeners> events;
-	EntityManager<components> entities;
+	using EventHandler = EventHandler<events, listeners>;
+	using EntityManager = EntityManager<components>;
+
+	//class Component {
+	//protected:
+	//	SimpleEngine& _engine;
+	
+	//public:
+	//	Component(EntityManager& entities) : _engine(*static_cast<SimpleEngine*>(entities.enginePtr())) {}
+	//};
+
+	EventHandler events;
+	EntityManager entities;
 
 	bool running = true;
 
@@ -33,7 +44,9 @@ public:
 };
 
 template <uint32_t systems, uint32_t components, uint32_t events, uint32_t listeners>
-SimpleEngine<systems, components, events, listeners>::SimpleEngine(size_t chunkSize) : entities(chunkSize){}
+SimpleEngine<systems, components, events, listeners>::SimpleEngine(size_t chunkSize) : entities(chunkSize){
+	entities.enginePtr(this);
+}
 
 template <uint32_t systems, uint32_t components, uint32_t events, uint32_t listeners>
 inline SimpleEngine<systems, components, events, listeners>::~SimpleEngine(){
@@ -53,7 +66,7 @@ void SimpleEngine<systems, components, events, listeners>::newSystem(Ts && ...ar
 	assert(index < systems && "ran out of system slots");
 
 	if (!hasSystem<T>())
-		new (&_systems[index]) std::optional<VirtualPtr<T>>(*this, args...);
+		new (&_systems[index]) std::optional<VirtualPtr<T>>(*this, std::forward<Ts>(args)...);
 }
 
 template <uint32_t systems, uint32_t components, uint32_t events, uint32_t listeners>

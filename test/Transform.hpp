@@ -6,6 +6,15 @@
 #include <LinearMath\btMotionState.h>
 #include <LinearMath\btTransform.h>
 
+#include "Collider.hpp"
+
+/*
+Add options for disabling certain trasnform options
+
+like, e.g. disable everything but parenting only x and y components 
+
+*/
+
 struct Transform : public btMotionState {
 	glm::dvec3 position;
 	glm::quat rotation;
