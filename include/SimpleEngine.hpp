@@ -16,14 +16,6 @@ public:
 	using EventHandler = EventHandler<events, listeners>;
 	using EntityManager = EntityManager<components>;
 
-	//class Component {
-	//protected:
-	//	SimpleEngine& _engine;
-	
-	//public:
-	//	Component(EntityManager& entities) : _engine(*static_cast<SimpleEngine*>(entities.enginePtr())) {}
-	//};
-
 	EventHandler events;
 	EntityManager entities;
 
@@ -44,9 +36,7 @@ public:
 };
 
 template <uint32_t systems, uint32_t components, uint32_t events, uint32_t listeners>
-SimpleEngine<systems, components, events, listeners>::SimpleEngine(size_t chunkSize) : entities(chunkSize){
-	entities.enginePtr(this);
-}
+SimpleEngine<systems, components, events, listeners>::SimpleEngine(size_t chunkSize) : entities(chunkSize){}
 
 template <uint32_t systems, uint32_t components, uint32_t events, uint32_t listeners>
 inline SimpleEngine<systems, components, events, listeners>::~SimpleEngine(){

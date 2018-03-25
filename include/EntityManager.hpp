@@ -48,10 +48,6 @@ class EntityManager {
 
 	bool _iterating = false;
 
-	void* _enginePtr = nullptr;
-
-	void _warning(Warning warning, const std::string message = "") const;
-
 	bool _validId(uint32_t index, uint32_t version) const;
 
 	void _erase(uint32_t index);
@@ -70,12 +66,6 @@ class EntityManager {
 
 	template <uint32_t i, typename ...Ts>
 	inline typename std::enable_if < i < sizeof...(Ts)>::type _reserve(uint32_t index);
-
-	//template <typename T, typename ...Ts>
-	//inline typename std::enable_if<std::is_constructible<T, EntityManager<typeWidth>&, Ts...>::value>::type _insert(uint32_t index, Ts&&... args);
-
-	//template <typename T, typename ...Ts>
-	//inline typename std::enable_if<std::is_constructible<T, Ts...>::value>::type _insert(uint32_t index, Ts&&... args);
 
 public:
 	inline EntityManager(size_t chunkSize);
@@ -115,34 +105,13 @@ public:
 	inline void dereference(uint64_t id);
 
 	inline void setEnabled(uint64_t id, bool enabled);
-
-	inline void enginePtr(void* engine);
-
-	inline void* enginePtr();
 };
 
 template<uint32_t typeWidth>
-void EntityManager<typeWidth>::_warning(Warning warning, const std::string message) const {
-	switch (warning) {
-	case(Warning::Invalid):
-		std::cerr << "Invalid ID provided to function";
-		break;
-	case(Warning::References):
-		std::cerr << "Problem with an ID's references";
-		break;
-	case(Warning::Component):
-		std::cerr << "Problem with ID's component";
-		break;
-	}
-
-	if (message != "")
-		std::cerr << '!' << std::endl << message << '!' << std::endl;
-	else
-		std::cerr << std::endl;
-}
-
-template<uint32_t typeWidth>
 bool EntityManager<typeWidth>::_validId(uint32_t index, uint32_t version) const{
+	assert(index < _identities.size() && "id index out of range");
+	assert(version == _identities[index].version && "id version mismatch");
+
 	if (index >= _identities.size())
 		return false;
 
@@ -155,9 +124,6 @@ void EntityManager<typeWidth>::_erase(uint32_t index) {
 	
 	// if references still exist, mark as erased for later, and return
 	if (_identities[index].references) {
-		//if (hasFlags(_identities[index].flags, Identity::Erased))
-		//	_warning(Warning::References, "calling erase while entity is already erased");
-
 		_identities[index].flags |= Identity::Erased;
 		return;
 	}
@@ -231,18 +197,6 @@ typename std::enable_if < i < sizeof...(Ts)>::type EntityManager<typeWidth>::_re
 	_reserve<i + 1, T>(index);
 }
 
-//template<uint32_t typeWidth>
-//template <typename T, typename ...Ts>
-//typename std::enable_if<std::is_constructible<T, EntityManager<typeWidth>&, Ts...>::value>::type EntityManager<typeWidth>::_insert(uint32_t index, Ts&&... args) {
-//	_pools[typeIndex<EntityManager, T>()]->insert<T>(index, *this, std::forward<Ts>(args)...);
-//}
-
-//template<uint32_t typeWidth>
-//template <typename T, typename ...Ts>
-//typename std::enable_if<std::is_constructible<T, Ts...>::value>::type EntityManager<typeWidth>::_insert(uint32_t index, Ts&&... args) {
-//	_pools[typeIndex<EntityManager, T>()]->insert<T>(index, std::forward<Ts>(args)...);
-//}
-
 template<uint32_t typeWidth>
 EntityManager<typeWidth>::EntityManager(size_t chunkSize) : _chunkSize(chunkSize) { }
 
@@ -301,10 +255,10 @@ void EntityManager<typeWidth>::erase(uint64_t id) {
 	uint32_t index = front64(id);
 	uint32_t version = back64(id);
 
-	if (!_validId(index, version)) {
-		_warning(Warning::Invalid, "calling erase");
+	assert(_validId(index, version) && "calling erase with invalid id");
+
+	if (!_validId(index, version)) 
 		return;
-	}
 
 	_erase(index);
 }
@@ -315,24 +269,18 @@ T* EntityManager<typeWidth>::get(uint64_t id) {
 	uint32_t index = front64(id);
 	uint32_t version = back64(id);
 
-	if (!_validId(index, version)) {
-		_warning(Warning::Invalid, "calling get");
+	if (!_validId(index, version))
 		return nullptr;
-	}
 
 	uint32_t type = typeIndex<EntityManager, T>();
 
-	if (_pools[type] == nullptr) {
-		_warning(Warning::Invalid, "calling get");
+	if (_pools[type] == nullptr)
 		return nullptr;
-	}
 
 	assert(hasFlags(_identities[index].flags, Identity::Active)); // sanity
 
-	if (!_identities[index].mask.has<T>()) {
-		_warning(Warning::Component, "calling get on non existant component");
+	if (!_identities[index].mask.has<T>())
 		return nullptr;
-	}
 
 	return _pools[type]->get<T>(index);
 }
@@ -343,10 +291,10 @@ T* EntityManager<typeWidth>::add(uint64_t id, Ts&&... args) {
 	uint32_t index = front64(id);
 	uint32_t version = back64(id);
 
-	if (!_validId(index, version)) {
-		_warning(Warning::Invalid, "calling add");
+	assert(_validId(index, version) && "calling add with invalid id");
+
+	if (!_validId(index, version))
 		return nullptr;
-	}
 
 	assert(hasFlags(_identities[index].flags, Identity::Active)); // sanity
 
@@ -359,7 +307,6 @@ T* EntityManager<typeWidth>::add(uint64_t id, Ts&&... args) {
 	if (_pools[type] == nullptr)
 		_pools[type] = new ObjectPool<T>(_chunkSize);
 
-	//_insert<T, Ts...>(index, std::forward<Ts>(args)...);
 	_pools[typeIndex<EntityManager, T>()]->insert<T>(index, std::forward<Ts>(args)...);
 
 	// update identity
@@ -398,10 +345,10 @@ bool EntityManager<typeWidth>::has(uint64_t id) const {
 	uint32_t index = front64(id);
 	uint32_t version = back64(id);
 
-	if (!_validId(index, version)) {
-		_warning(Warning::Invalid, "calling has");
+	assert(_validId(index, version) && "calling has with invalid id");
+
+	if (!_validId(index, version))
 		return false;
-	}
 
 	if (!hasFlags(_identities[index].flags, Identity::Active))
 		return false;
@@ -420,9 +367,6 @@ void EntityManager<typeWidth>::clear() {
 	for (uint32_t i = 0; i < _identities.size(); i++) {
 		if (_identities[i].mask.empty() || !hasFlags(_identities[i].flags, Identity::Active))
 			continue;
-
-		//if (_identities[i].references)
-		//	_warning(Warning::References, std::string("calling clear with references still existing") );
 
 		_erase(i);
 	}
@@ -467,10 +411,10 @@ void EntityManager<typeWidth>::reference(uint64_t id) {
 	uint32_t index = front64(id);
 	uint32_t version = back64(id);
 
-	if (!_validId(index, version)) {
-		_warning(Warning::Invalid, "calling reference");
+	assert(_validId(index, version) && "calling reference with invalid id");
+
+	if (!_validId(index, version)) 
 		return;
-	}
 
 	assert(hasFlags(_identities[index].flags, Identity::Active)); // sanity
 	
@@ -482,17 +426,17 @@ void EntityManager<typeWidth>::dereference(uint64_t id) {
 	uint32_t index = front64(id);
 	uint32_t version = back64(id);
 
-	if (!_validId(index, version)) {
-		_warning(Warning::Invalid, "calling dereference");
+	assert(_validId(index, version) && "calling dereference with invalid id");
+
+	if (!_validId(index, version))
 		return;
-	}
 
 	assert(hasFlags(_identities[index].flags, Identity::Active)); // sanity;
 
-	if (!_identities[index].references) {
-		_warning(Warning::References, "calling dereference with no more references");
+	assert(!_identities[index].references && "calling dereference with no more references");
+
+	if (!_identities[index].references) 
 		return;
-	}
 
 	_identities[index].references--;
 
@@ -505,10 +449,10 @@ void EntityManager<typeWidth>::setEnabled(uint64_t id, bool enabled) {
 	uint32_t index = front64(id);
 	uint32_t version = back64(id);
 
-	if (!_validId(index, version)) {
-		_warning(Warning::Invalid, "calling setEnabled");
+	assert(_validId(index, version) && "calling setEnabled with invalid id");
+
+	if (!_validId(index, version))
 		return;
-	}
 
 	assert(hasFlags(_identities[index].flags, Identity::Active)); // sanity;
 
@@ -516,19 +460,4 @@ void EntityManager<typeWidth>::setEnabled(uint64_t id, bool enabled) {
 		_identities[index].flags &= ~Identity::Enabled;
 	else
 		_identities[index].flags |= Identity::Enabled;
-}
-
-template<uint32_t typeWidth>
-inline void EntityManager<typeWidth>::enginePtr(void * engine){
-	assert(!_enginePtr);
-
-	if (!_enginePtr)
-		_enginePtr = engine;
-}
-
-template<uint32_t typeWidth>
-inline void * EntityManager<typeWidth>::enginePtr(){
-	assert(_enginePtr);
-
-	return _enginePtr;
 }

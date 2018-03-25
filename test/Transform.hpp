@@ -6,8 +6,6 @@
 #include <LinearMath\btMotionState.h>
 #include <LinearMath\btTransform.h>
 
-#include "Collider.hpp"
-
 /*
 Add options for disabling certain trasnform options
 
@@ -22,6 +20,11 @@ struct Transform : public btMotionState {
 
 	Transform* parent = nullptr;
 	std::vector<Transform*> children;
+
+	~Transform() {
+		removeParent();
+		removeChildren();
+	}
 
 	glm::dvec3 worldPosition() const {
 		glm::dvec3 rPosition = position;
@@ -87,11 +90,6 @@ struct Transform : public btMotionState {
 			child->parent = nullptr;
 		
 		children.clear();
-	}
-
-	~Transform() {
-		removeParent();
-		removeChildren();
 	}
 
 	void getWorldTransform(btTransform& transform) const override {
