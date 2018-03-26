@@ -17,27 +17,28 @@
 
 - Physics update and timing issues
 
-- Gamestate system for testing
-
 - GPU bullet
 */
 
-class GameState {
+class MyState {
 	Engine& _engine;
 
+	uint64_t _camera = 0;
 	std::vector<uint64_t> _cubes;
 
 	void _spawnCubes() {
-		for (uint64_t id : _cubes) 
-			_engine.entities.erase(id);
+		glm::dvec3 offset = { 0.0, 0.0, 8.0 };
 
-		_cubes.clear();
+		if (_cubes.size()) {
+			offset += _engine.entities.get<Transform>(*_cubes.rbegin())->position();
+			offset.z += 8.0;
+		}
 
 		for (uint32_t i = 0; i < 32; i++) {
 			uint64_t id = _engine.entities.create();
 
 			Transform& transform = *_engine.entities.add<Transform>(id);
-			transform.setPosition({ 0.0, 0.0, 8.0 + 16.0 * i });
+			transform.setPosition(offset + glm::dvec3(0.0, 0.0, 16.0 * i));
 
 			_engine.system<Renderer>().addShader(id, "vertexShader.glsl", "fragmentShader.glsl");
 			_engine.system<Renderer>().addMesh(id, "dcube.obj");
@@ -50,9 +51,9 @@ class GameState {
 	}
 
 public:
-	GameState(Engine& engine) : _engine(engine) {
-		_engine.events.subscribe(this, Events::Load, &GameState::load);
-		_engine.events.subscribe(this, Events::Keypress, &GameState::keypress);
+	MyState(Engine& engine) : _engine(engine) {
+		_engine.events.subscribe(this, Events::Load, &MyState::load);
+		_engine.events.subscribe(this, Events::Keypress, &MyState::keypress);
 	}
 
 	void load(int argc, char** argv) {
@@ -84,8 +85,9 @@ public:
 			collider.setGravity({ 0, 0, 0 });
 
 			_engine.system<Renderer>().setCamera(id);
-
 			_engine.system<Controller>().setPossessed(id);
+
+			_camera = id;
 		}
 
 		// Floor
@@ -112,8 +114,30 @@ public:
 	}
 
 	void keypress(int key, int scancode, int action, int mods) {
-		if (key == GLFW_KEY_R && action == GLFW_RELEASE)
+		if (action != GLFW_RELEASE)
+			return;
+
+		if (key == GLFW_KEY_1) {
 			_spawnCubes();
+		}
+		else if (key == GLFW_KEY_2) {
+			for (uint64_t id : _cubes)
+				_engine.entities.erase(id);
+
+			_cubes.clear();
+
+			_spawnCubes();
+		}
+		else if (key == GLFW_KEY_3) {
+			if (_engine.entities.has<Collider>(_camera)) {
+				_engine.entities.remove<Collider>(_camera);
+			}
+			else {
+				_engine.system<Physics>().addSphere(_camera, 4.0, 50.0);
+				Collider& collider = *_engine.entities.get<Collider>(_camera);
+				collider.setGravity({ 0, 0, 0 });
+			}
+		}
 	}
 };
 
@@ -125,7 +149,7 @@ int main(int argc, char** argv) {
 	engine.newSystem<Physics>();
 	engine.newSystem<Renderer>();
 
-	engine.newSystem<GameState>();
+	engine.newSystem<MyState>();
 
 	engine.events.dispatch(Events::Load, argc, argv);
 	
