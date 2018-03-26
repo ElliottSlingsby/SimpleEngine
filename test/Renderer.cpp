@@ -143,16 +143,12 @@ inline void applyTransform(Transform& transform, const aiMatrix4x4& aiMatrix) {
 		aiMatrix.d1, aiMatrix.d2, aiMatrix.d3, aiMatrix.d4
 	);
 
-	transform.position.x = aiMatrix.a4;
-	transform.position.y = aiMatrix.b4;
-	transform.position.z = aiMatrix.c4;
-
-	transform.rotation = glm::quat_cast(matrix);
+	transform.setPosition({ aiMatrix.a4, aiMatrix.b4, aiMatrix.c4 });
+	transform.setRotation(glm::quat_cast(matrix));
 }
 
 void Renderer::_extract(uint64_t parent, const aiScene* scene, const aiNode * node){
-	_engine.entities.add<Transform>(parent);
-	Transform& parentTransform = *_engine.entities.get<Transform>(parent);
+	Transform& parentTransform = *_engine.entities.add<Transform>(parent);
 
 	if (!strcmp(node->mName.C_Str(), "RootNode"))
 		applyTransform(parentTransform, node->mTransformation);
@@ -181,19 +177,17 @@ void Renderer::_extract(uint64_t parent, const aiScene* scene, const aiNode * no
 
 	if (node->mNumMeshes) {
 		entity = _engine.entities.create();
-		_engine.entities.add<Transform>(entity);
-
-		Transform& transform = *_engine.entities.get<Transform>(entity);
+	
+		Transform& transform = *_engine.entities.add<Transform>(entity);
 		transform.setParent(_engine.entities.get<Transform>(parent));
 
 		applyTransform(transform, node->mTransformation);
 
-		addShader(&entity, "vertexShader.glsl", "fragmentShader.glsl"); // remove me
-		addMesh(&entity, "axis.obj"); // remove me
-		addTexture(&entity, "rgb.png"); // remove me
+		addShader(entity, "vertexShader.glsl", "fragmentShader.glsl"); // remove me
+		addMesh(entity, "axis.obj"); // remove me
+		addTexture(entity, "rgb.png"); // remove me
 
-		_engine.entities.add<Model>(entity);
-		Model& model = *_engine.entities.get<Model>(entity);
+		Model& model = *_engine.entities.add<Model>(entity);
 
 		for (uint32_t i = 0; i < node->mNumMeshes; i++) {
 			const aiMesh* mesh = scene->mMeshes[node->mMeshes[i]];
@@ -300,9 +294,8 @@ void Renderer::update(double dt) {
 		if ((program.uniformModelView != -1 || program.uniformView != -1) && _camera) {
 			Transform& cameraTransform = *_engine.entities.get<Transform>(_camera);
 
-			//viewMatrix = glm::scale(viewMatrix, static_cast<glm::dvec3>(cameraTransform.scale));
-			viewMatrix *= glm::transpose(glm::mat4_cast(static_cast<glm::dquat>(cameraTransform.rotation)));
-			viewMatrix = glm::translate(viewMatrix, -cameraTransform.position);
+			viewMatrix *= glm::transpose(glm::mat4_cast(cameraTransform.worldRotation()));
+			viewMatrix = glm::translate(viewMatrix, -cameraTransform.worldPosition());
 
 			if (program.uniformView != -1)
 				glUniformMatrix4fv(program.uniformView, 1, GL_FALSE, &(static_cast<glm::mat4>(viewMatrix))[0][0]);
@@ -313,8 +306,8 @@ void Renderer::update(double dt) {
 
 		if (program.uniformModelView != -1 || program.uniformView != -1) {
 			modelMatrix = glm::translate(modelMatrix, transform.worldPosition());
-			modelMatrix *= glm::mat4_cast(static_cast<glm::dquat>(transform.worldRotation()));
-			modelMatrix = glm::scale(modelMatrix, static_cast<glm::dvec3>(transform.worldScale()));
+			modelMatrix *= glm::mat4_cast(transform.worldRotation());
+			modelMatrix = glm::scale(modelMatrix, transform.worldScale());
 
 			if (program.uniformView != -1)
 				glUniformMatrix4fv(program.uniformModel, 1, GL_FALSE, &(static_cast<glm::mat4>(modelMatrix))[0][0]);
@@ -360,12 +353,11 @@ void Renderer::update(double dt) {
 	glfwSwapBuffers(_window);
 }
 
-bool Renderer::addScene(uint64_t * id, const std::string & sceneFile) {
-	if (!_engine.entities.valid(*id))
+bool Renderer::addScene(uint64_t id, const std::string & sceneFile) {
+	if (!_engine.entities.valid(id))
 		return false;
 
-	_engine.entities.add<Model>(*id);
-	Model& model = *_engine.entities.get<Model>(*id);
+	Model& model = *_engine.entities.add<Model>(id);
 
 	// assimp goes here
 	Assimp::Importer importer;
@@ -374,7 +366,7 @@ bool Renderer::addScene(uint64_t * id, const std::string & sceneFile) {
 		aiProcess_CalcTangentSpace |
 		aiProcess_Triangulate |
 		aiProcess_JoinIdenticalVertices |
-		//aiProcess_SortByPType |		// do i want this?
+		//aiProcess_SortByPType |
 		aiProcess_RemoveComponent
 	);
 
@@ -386,17 +378,16 @@ bool Renderer::addScene(uint64_t * id, const std::string & sceneFile) {
 	if (!scene->mNumMeshes)
 		return false;
 
-	_extract(*id, scene, scene->mRootNode);
+	_extract(id, scene, scene->mRootNode);
 
 	return true;
 }
 
-bool Renderer::addMesh(uint64_t* id, const std::string& meshFile) {
-	if (!_engine.entities.valid(*id))
+bool Renderer::addMesh(uint64_t id, const std::string& meshFile) {
+	if (!_engine.entities.valid(id))
 		return false;
 
-	_engine.entities.add<Model>(*id);
-	Model& model = *_engine.entities.get<Model>(*id);
+	Model& model = *_engine.entities.add<Model>(id);
 
 	if (_meshes.find(meshFile) != _meshes.end()) {
 		model.arrayObject = _meshes[meshFile].arrayObject;
@@ -487,12 +478,11 @@ bool Renderer::addMesh(uint64_t* id, const std::string& meshFile) {
 	return true;
 }
 
-bool Renderer::addTexture(uint64_t* id, const std::string& textureFile) {
-	if (!_engine.entities.valid(*id))
+bool Renderer::addTexture(uint64_t id, const std::string& textureFile) {
+	if (!_engine.entities.valid(id))
 		return false;
 
-	_engine.entities.add<Model>(*id);
-	Model& model = *_engine.entities.get<Model>(*id);
+	Model& model = *_engine.entities.add<Model>(id);
 
 	if (_textures.find(textureFile) != _textures.end()) {
 		model.texture = _textures[textureFile];
@@ -533,12 +523,11 @@ bool Renderer::addTexture(uint64_t* id, const std::string& textureFile) {
 	return true;
 }
 
-bool Renderer::addShader(uint64_t* id, const std::string& vertexShader, const std::string& fragmentShader) {
-	if (!_engine.entities.valid(*id))
+bool Renderer::addShader(uint64_t id, const std::string& vertexShader, const std::string& fragmentShader) {
+	if (!_engine.entities.valid(id))
 		return false;
 
-	_engine.entities.add<Model>(*id);
-	Model& model = *_engine.entities.get<Model>(*id);
+	Model& model = *_engine.entities.add<Model>(id);
 
 	if (_shaders.find(vertexShader + fragmentShader) != _shaders.end()) {
 		model.hasProgram = true;

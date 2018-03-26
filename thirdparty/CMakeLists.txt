@@ -53,11 +53,10 @@ target_include_directories("BulletCollision" PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}
 target_include_directories("LinearMath" PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/bullet3-2.87/src")
 
 target_compile_options("BulletDynamics" PUBLIC "/wd5033")
-target_compile_options("BulletCollision" PUBLIC "/wd5033")
-target_compile_options("LinearMath" PUBLIC "/wd5033")
-
 target_compile_options("BulletDynamics" PUBLIC "/wd4305")
 target_compile_options("BulletCollision" PUBLIC "/wd4305")
+target_compile_options("BulletCollision" PUBLIC "/wd5033")
+target_compile_options("LinearMath" PUBLIC "/wd5033")
 target_compile_options("LinearMath" PUBLIC "/wd4305")
 
 set_target_properties("Bullet2FileLoader" PROPERTIES FOLDER "Thirdparty")

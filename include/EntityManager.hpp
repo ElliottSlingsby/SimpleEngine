@@ -46,6 +46,8 @@ class EntityManager {
 
 	std::vector<uint32_t> _buffered;
 
+	void* _enginePtr = nullptr;
+
 	bool _iterating = false;
 
 	bool _validId(uint32_t index, uint32_t version) const;
@@ -66,6 +68,12 @@ class EntityManager {
 
 	template <uint32_t i, typename ...Ts>
 	inline typename std::enable_if < i < sizeof...(Ts)>::type _reserve(uint32_t index);
+
+	template <typename T, typename ...Ts>
+	inline typename std::enable_if<std::is_constructible<T, EntityManager<typeWidth>&, uint64_t, Ts...>::value>::type _insert(uint32_t index, Ts&&... args);
+
+	template <typename T, typename ...Ts>
+	inline typename std::enable_if<std::is_constructible<T, Ts...>::value>::type _insert(uint32_t index, Ts&&... args);
 
 public:
 	inline EntityManager(size_t chunkSize);
@@ -105,6 +113,10 @@ public:
 	inline void dereference(uint64_t id);
 
 	inline void setEnabled(uint64_t id, bool enabled);
+
+	inline void enginePtr(void* engine);
+
+	inline void* enginePtr();
 };
 
 template<uint32_t typeWidth>
@@ -195,6 +207,18 @@ typename std::enable_if < i < sizeof...(Ts)>::type EntityManager<typeWidth>::_re
 	_pools[typeIndex<EntityManager, T>()]->reserve(index);
 
 	_reserve<i + 1, T>(index);
+}
+
+template<uint32_t typeWidth>
+template <typename T, typename ...Ts>
+typename std::enable_if<std::is_constructible<T, EntityManager<typeWidth>&, uint64_t, Ts...>::value>::type EntityManager<typeWidth>::_insert(uint32_t index, Ts&&... args) {
+	_pools[typeIndex<EntityManager, T>()]->insert<T>(index, *this, combine32(index, _identities[index].version), std::forward<Ts>(args)...);
+}
+
+template<uint32_t typeWidth>
+template <typename T, typename ...Ts>
+typename std::enable_if<std::is_constructible<T, Ts...>::value>::type EntityManager<typeWidth>::_insert(uint32_t index, Ts&&... args) {
+	_pools[typeIndex<EntityManager, T>()]->insert<T>(index, std::forward<Ts>(args)...);
 }
 
 template<uint32_t typeWidth>
@@ -306,8 +330,8 @@ T* EntityManager<typeWidth>::add(uint64_t id, Ts&&... args) {
 	// create pool if it doesn't exist
 	if (_pools[type] == nullptr)
 		_pools[type] = new ObjectPool<T>(_chunkSize);
-
-	_pools[typeIndex<EntityManager, T>()]->insert<T>(index, std::forward<Ts>(args)...);
+	
+	_insert<T, Ts...>(index, std::forward<Ts>(args)...);
 
 	// update identity
 	_identities[index].mask.add<T>();
@@ -460,4 +484,19 @@ void EntityManager<typeWidth>::setEnabled(uint64_t id, bool enabled) {
 		_identities[index].flags &= ~Identity::Enabled;
 	else
 		_identities[index].flags |= Identity::Enabled;
+}
+
+template<uint32_t typeWidth>
+inline void EntityManager<typeWidth>::enginePtr(void * engine) {
+	assert(!_enginePtr);
+
+	if (!_enginePtr)
+		_enginePtr = engine;
+}
+
+template<uint32_t typeWidth>
+inline void * EntityManager<typeWidth>::enginePtr() {
+	assert(_enginePtr);
+
+	return _enginePtr;
 }

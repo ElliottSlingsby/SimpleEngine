@@ -21,10 +21,10 @@ void Controller::update(double dt) {
 
 	Transform& transform = *_engine.entities.get<Transform>(_possessed);
 
-	glm::vec3 angles = glm::eulerAngles(transform.rotation);
+	glm::vec3 angles = glm::eulerAngles(transform.rotation());
 	glm::quat rotation({ angles.x, 0.f, angles.z });
 
-	glm::vec3 position = transform.position;
+	glm::vec3 position = transform.position();
 
 	if (_locked) {
 		rotation = glm::quat({ 0.f, 0.f, -_dCursor.x / 256.f }) * rotation;

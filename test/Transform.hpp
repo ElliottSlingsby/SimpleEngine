@@ -6,115 +6,51 @@
 #include <LinearMath\btMotionState.h>
 #include <LinearMath\btTransform.h>
 
-/*
-Add options for disabling certain trasnform options
+#include <vector>
 
-like, e.g. disable everything but parenting only x and y components 
+#include "Config.hpp"
+#include "Collider.hpp"
 
-*/
+class Transform : public btMotionState, public Engine::Component {
+	Transform* _parent = nullptr;
+	std::vector<Transform*> _children;
 
-struct Transform : public btMotionState {
-	glm::dvec3 position;
-	glm::quat rotation;
-	glm::vec3 scale = { 1.f, 1.f, 1.f };
+	Collider* _collider = nullptr;
 
-	Transform* parent = nullptr;
-	std::vector<Transform*> children;
+	glm::dvec3 _position;
+	glm::dquat _rotation;
+	glm::dvec3 _scale = { 1.f, 1.f, 1.f };
 
-	~Transform() {
-		removeParent();
-		removeChildren();
-	}
+public:
+	Transform(Engine::EntityManager& entities, uint64_t id);
+	~Transform();
 
-	glm::dvec3 worldPosition() const {
-		glm::dvec3 rPosition = position;
-		Transform* rParent = parent;
+	void setParent(Transform* other);
+	void setChild(Transform* other);
 
-		while (rParent != nullptr) {
-			rPosition = rParent->position + static_cast<glm::dquat>(rParent->rotation) * rPosition;
-			rParent = rParent->parent;
-		}
+	void removeParent();
+	void removeChildren();
 
-		return rPosition;
-	}
+	void setPosition(const glm::dvec3& position);
+	void setRotation(const glm::dquat& rotation);
+	void setScale(const glm::dvec3& scale);
 
-	glm::quat worldRotation() const {
-		glm::quat rRotation = rotation;
-		Transform* rParent = parent;
+	glm::dvec3 position() const;
+	glm::dquat rotation() const;
+	glm::dvec3 scale() const;
 
-		while (rParent != nullptr) {
-			rRotation = rParent->rotation * rRotation;
-			rParent = rParent->parent;
-		}
+	glm::dvec3 worldPosition() const;
+	glm::dquat worldRotation() const;
+	glm::dvec3 worldScale() const;
 
-		return rRotation;
-	}
+	void rotate(const glm::dquat& rotation);
+	void translate(const glm::dvec3& translation);
 
-	glm::vec3 worldScale() const {
-		glm::vec3 rScale = scale;
-		Transform* rParent = parent;
+	void globalRotate(const glm::dquat& rotation);
+	void globalTranslate(const glm::dvec3& translation);
 
-		while (rParent != nullptr) {
-			rScale *= rParent->scale;
-			rParent = rParent->parent;
-		}
+	void getWorldTransform(btTransform& transform) const override;
+	void setWorldTransform(const btTransform& transform) override;
 
-		return rScale;
-	}
-
-	void setParent(Transform* other) {
-		if (parent)
-			removeParent();
-		
-		other->children.push_back(this);
-		parent = other;
-	}
-
-	void setChild(Transform* other) {
-		if (std::find(children.begin(), children.end(), other) != children.end())
-			return;
-		
-		children.push_back(other);
-		other->setParent(this);
-	}
-
-	void removeParent() {
-		if (parent)
-			parent->children.erase(std::find(parent->children.begin(), parent->children.end(), this));
-		
-		parent = nullptr;
-	}
-
-	void removeChildren() {
-		for (Transform* child : children)
-			child->parent = nullptr;
-		
-		children.clear();
-	}
-
-	void getWorldTransform(btTransform& transform) const override {
-		transform.setOrigin(btVector3(
-			static_cast<btScalar>(position.x), 
-			static_cast<btScalar>(position.y), 
-			static_cast<btScalar>(position.z)
-		));
-
-		transform.setRotation(btQuaternion(
-			static_cast<btScalar>(rotation.x), 
-			static_cast<btScalar>(rotation.y), 
-			static_cast<btScalar>(rotation.z), 
-			static_cast<btScalar>(rotation.w)
-		));
-	}
-
-	void setWorldTransform(const btTransform& transform) override {
-		position.x = static_cast<double>(transform.getOrigin().x());
-		position.y = static_cast<double>(transform.getOrigin().y());
-		position.z = static_cast<double>(transform.getOrigin().z());
-
-		rotation.x = static_cast<float> (transform.getRotation().x());
-		rotation.y = static_cast<float>(transform.getRotation().y());
-		rotation.z = static_cast<float>(transform.getRotation().z());
-		rotation.w = static_cast<float>(transform.getRotation().w());
-	}
+	friend class Collider;
 };

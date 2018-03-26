@@ -77,11 +77,11 @@ public:
 	void load(int argc, char** argv);
 	void update(double dt);
 
-	bool addScene(uint64_t* id, const std::string& sceneFile);
+	bool addScene(uint64_t id, const std::string& sceneFile);
 
-	bool addMesh(uint64_t* id, const std::string& meshFile);
-	bool addTexture(uint64_t* id, const std::string& textureFile);
-	bool addShader(uint64_t* id, const std::string& vertexShader, const std::string& fragmentShader);
+	bool addMesh(uint64_t id, const std::string& meshFile);
+	bool addTexture(uint64_t id, const std::string& textureFile);
+	bool addShader(uint64_t id, const std::string& vertexShader, const std::string& fragmentShader);
 
 	void setCamera(uint64_t id);
 
