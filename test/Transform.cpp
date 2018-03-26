@@ -1,25 +1,23 @@
 #include "Transform.hpp"
 
 void Transform::_setPosition(const glm::dvec3& position) {
-	if (!_collider) {
-		_position = position;
-		return;
-	}
+	_position = position;
 
-	btTransform transform = _collider->_rigidBody->getWorldTransform();
-	transform.setOrigin(btVector3(static_cast<btScalar>(position.x), static_cast<btScalar>(position.y), static_cast<btScalar>(position.z)));
-	_collider->_rigidBody->setWorldTransform(transform);
+	if (_collider) {
+		btTransform transform = _collider->_rigidBody->getWorldTransform();
+		transform.setOrigin(btVector3(static_cast<btScalar>(position.x), static_cast<btScalar>(position.y), static_cast<btScalar>(position.z)));
+		_collider->_rigidBody->setWorldTransform(transform);
+	}
 }
 
 void Transform::_setRotation(const glm::dquat& rotation) {
-	if (!_collider) {
-		_rotation = rotation;
-		return;
-	}
+	_rotation = rotation;
 
-	btTransform transform = _collider->_rigidBody->getWorldTransform();
-	transform.setRotation(btQuaternion(static_cast<btScalar>(rotation.x), static_cast<btScalar>(rotation.y), static_cast<btScalar>(rotation.z), static_cast<btScalar>(rotation.w)));
-	_collider->_rigidBody->setWorldTransform(transform);
+	if (_collider) {
+		btTransform transform = _collider->_rigidBody->getWorldTransform();
+		transform.setRotation(btQuaternion(static_cast<btScalar>(rotation.x), static_cast<btScalar>(rotation.y), static_cast<btScalar>(rotation.z), static_cast<btScalar>(rotation.w)));
+		_collider->_rigidBody->setWorldTransform(transform);
+	}
 }
 
 Transform::Transform(Engine::EntityManager& entities, uint64_t id) : _engine(*static_cast<Engine*>(entities.enginePtr())), _id(id) {
@@ -127,15 +125,15 @@ void Transform::rotate(const glm::dquat& rotation) {
 }
 
 void Transform::translate(const glm::dvec3& translation) {
-	setPosition(_position + _rotation * translation);
+	_setPosition(_position + _rotation * translation);
 }
 
 void Transform::globalRotate(const glm::dquat& rotation) {
-	_setRotation(_rotation * rotation);
+	_setRotation(rotation * _rotation);
 }
 
 void Transform::globalTranslate(const glm::dvec3& translation) {
-	setPosition(_position + translation);
+	_setPosition(_position + translation);
 }
 
 void Transform::getWorldTransform(btTransform& transform) const {

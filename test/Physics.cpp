@@ -4,6 +4,9 @@
 #include "Transform.hpp"
 
 void Physics::addRigidBody(uint64_t id, float mass, btCollisionShape* shape){
+	if (!_dynamicsWorld)
+		return;
+
 	Transform& transform = *_engine.entities.add<Transform>(id);
 	Collider& collider = *_engine.entities.add<Collider>(id);
 
@@ -34,13 +37,6 @@ Physics::Physics(Engine & engine) : _engine(engine){
 }
 
 Physics::~Physics(){
-	//_engine.entities.iterate<Collider>([&](uint64_t id, Collider& collider) {
-	//	delete collider._collisionShape;
-	//
-	//	_dynamicsWorld->removeRigidBody(collider._rigidBody);
-	//	delete collider._rigidBody;
-	//});
-
 	delete _dynamicsWorld;
 	delete _solver;
 	delete _overlappingPairCache;
@@ -79,21 +75,36 @@ void Physics::setGravity(glm::vec3 direction){
 }
 
 void Physics::addSphere(uint64_t id, float radius, float mass) {
+	if (_engine.entities.has<Collider>(id))
+		_engine.entities.remove<Collider>(id);
+
 	addRigidBody(id, mass, new btSphereShape(static_cast<btScalar>(radius)));
 }
 
 void Physics::addBox(uint64_t id, glm::vec3 dimensions, float mass) {
+	if (_engine.entities.has<Collider>(id))
+		_engine.entities.remove<Collider>(id);
+
 	addRigidBody(id, mass, new btBoxShape(btVector3(dimensions.x, dimensions.y, dimensions.z) * 2));
 }
 
 void Physics::addCylinder(uint64_t id, float radius, float height, float mass) {
+	if (_engine.entities.has<Collider>(id))
+		_engine.entities.remove<Collider>(id);
+
 	addRigidBody(id, mass, new btCylinderShape(btVector3(radius * 2, radius * 2, height)));
 }
 
 void Physics::addCapsule(uint64_t id, float radius, float height, float mass) {
+	if (_engine.entities.has<Collider>(id))
+		_engine.entities.remove<Collider>(id);
+
 	addRigidBody(id, mass, new btCapsuleShape(radius, height));
 }
 
 void Physics::addStaticPlane(uint64_t id){
+	if (_engine.entities.has<Collider>(id))
+		_engine.entities.remove<Collider>(id);
+
 	addRigidBody(id, 0.f, new btStaticPlaneShape(btVector3(0, 0, 1), 0));
 }

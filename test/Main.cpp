@@ -10,38 +10,55 @@
 
 /*
 - Implement hierarchical physics and constraints
+- Raycasting and collision callbacks
 
 - Implement generic components with pointers
 - Implement referenced entity object
+
+- Physics update and timing issues
+
+- Gamestate system for testing
 
 - GPU bullet
 */
 
 void load(Engine& engine) {
-	engine.system<Physics>().setGravity({ 0.0, 0.0, -400.0 });
+	engine.system<Physics>().setGravity(GlobalVec3::down * 400.f);
+	
+	// Skybox
+	{
+		uint64_t id = engine.entities.create();
+	
+		Transform& transform = *engine.entities.add<Transform>(id);
+		transform.setScale({ 500, 500, 500 });
+	
+		engine.system<Renderer>().addShader(id, "vertexShader.glsl", "fragmentShader.glsl");
+		engine.system<Renderer>().addMesh(id, "skybox.obj");
+		engine.system<Renderer>().addTexture(id, "skybox.png");
+	}
 
 	// Camera
 	{
 		uint64_t id = engine.entities.create();
-		Transform& transform = *engine.entities.add<Transform>(id);
 
+		Transform& transform = *engine.entities.add<Transform>(id);
 		transform.setPosition({ 0.0, -50.0, 10.0 });
 		transform.setRotation(glm::dquat({ glm::radians(90.0), 0.0, 0.0 }));
 
-		engine.system<Renderer>().setCamera(id);
-		engine.system<Controller>().setPossessed(id);
-
 		engine.system<Physics>().addSphere(id, 4.0, 50.0);
-
 		Collider& collider = *engine.entities.get<Collider>(id);
 		collider.setGravity({ 0, 0, 0 });
+
+		engine.system<Renderer>().setCamera(id);
+
+		engine.system<Controller>().setPossessed(id);
 	}
 
 	// Floor
 	{
 		uint64_t id = engine.entities.create();
-		Transform& transform = *engine.entities.add<Transform>(id);
 
+		Transform& transform = *engine.entities.add<Transform>(id);
 		transform.setScale({ 10000.0, 10000.0, 10000.0 });
 
 		engine.system<Renderer>().addShader(id, "vertexShader.glsl", "fragmentShader.glsl");
@@ -58,10 +75,10 @@ void load(Engine& engine) {
 
 	// Cubes
 	{
-		for (uint32_t i = 0; i < 16; i++) {
+		for (uint32_t i = 0; i < 32; i++) {
 			uint64_t id = engine.entities.create();
-			Transform& transform = *engine.entities.add<Transform>(id);
 
+			Transform& transform = *engine.entities.add<Transform>(id);
 			transform.setPosition({ 0.0, 0.0, 8.0 + 16.0 * i });
 
 			engine.system<Renderer>().addShader(id, "vertexShader.glsl", "fragmentShader.glsl");
@@ -72,17 +89,6 @@ void load(Engine& engine) {
 		}
 	}
 }
-
-
-
-//class GameState {
-//	Engine& _engine
-//public:
-//
-//};
-
-
-
 
 int main(int argc, char** argv) {
 	// Load

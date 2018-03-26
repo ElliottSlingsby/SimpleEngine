@@ -130,7 +130,7 @@ bool createProgram(GLuint* program, GLuint* vertexShader, GLuint* fragmentShader
 
 void Renderer::_reshape(int height, int width) {
 	_windowSize = { height, width };
-	_projectionMatrix = glm::perspectiveFov(glm::radians(_fov), static_cast<float>(height), static_cast<float>(width), 1.f, 10000.f);
+	_projectionMatrix = glm::perspectiveFov(glm::radians(_fov), static_cast<float>(height), static_cast<float>(width), 1.f, DEFUALY_Z_DEPTH);
 
 	glViewport(0, 0, height, width);
 }

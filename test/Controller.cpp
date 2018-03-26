@@ -17,44 +17,39 @@ void Controller::update(double dt) {
 
 	Transform& transform = *_engine.entities.get<Transform>(_possessed);
 
-	glm::vec3 angles = glm::eulerAngles(transform.rotation());
-	glm::quat rotation({ angles.x, 0.f, angles.z });
-
-	glm::vec3 position = transform.position();
-
 	if (_locked) {
-		rotation = glm::quat({ 0.f, 0.f, -_dCursor.x / 256.f }) * rotation;
-		rotation *= glm::quat({ -_dCursor.y / 256.f, 0.f, 0.f });
+		transform.globalRotate(glm::dquat({ 0.0, 0.0, -_dCursor.x * dt }));
+		transform.rotate(glm::dquat({ -_dCursor.y * dt, 0.0, 0.0 }));
 
 		_dCursor = { 0.0, 0.0 };
 
-		float moveSpeed;
+		double moveSpeed;
 
 		if (_boost)
-			moveSpeed = 2.f;
+			moveSpeed = 200.0 * dt;
 		else
-			moveSpeed = 1.f;
+			moveSpeed = 100.0 * dt;
 
 		if (_forward)
-			position += rotation * (LocalVec3::forward * moveSpeed);
+			transform.translate(LocalDVec3::forward * moveSpeed);
 		if (_back)
-			position += rotation * (LocalVec3::back * moveSpeed);
+			transform.translate(LocalDVec3::back * moveSpeed);
 		if (_left)
-			position += rotation * (LocalVec3::left * moveSpeed);
+			transform.translate(LocalDVec3::left * moveSpeed);
 		if (_right)
-			position += rotation * (LocalVec3::right * moveSpeed);
+			transform.translate(LocalDVec3::right * moveSpeed);
 		if (_up)
-			position += GlobalVec3::up * moveSpeed;
+			transform.globalTranslate(GlobalDVec3::up * moveSpeed);
 		if (_down)
-			position += GlobalVec3::down * moveSpeed;
+			transform.globalTranslate(GlobalDVec3::down * moveSpeed);
 	}
-
-	transform.setPosition(position);
-	transform.setRotation(rotation);
 
 	Collider* collider = _engine.entities.get<Collider>(_possessed);
 
 	if (collider) {
+		glm::dvec3 angles = glm::eulerAngles(transform.rotation());
+		transform.setRotation(glm::dquat({ angles.x, 0.f, angles.z }));
+
 		collider->setAngularVelocity({ 0, 0, 0 });
 		collider->setLinearVelocity({ 0, 0, 0 });
 

@@ -140,6 +140,9 @@ void EntityManager<typeWidth>::_erase(uint32_t index) {
 		return;
 	}
 
+	// clear masks before in-case a component checks for others
+	_identities[index].mask.clear();
+
 	// remove components from each pool
 	for (uint32_t i = 0; i < typeWidth; i++) {
 		if (_identities[index].mask.has(i)) {
@@ -149,7 +152,6 @@ void EntityManager<typeWidth>::_erase(uint32_t index) {
 	}
 
 	// clear up identity, increment version
-	_identities[index].mask.clear();
 	_identities[index].version++;
 	_identities[index].flags = Identity::Empty;
 

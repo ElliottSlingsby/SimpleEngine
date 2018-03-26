@@ -28,6 +28,7 @@
 #define DEFUALT_WIDTH 800
 #define DEFUALT_HEIGHT 600
 #define DEFUALT_FOV 90.f
+#define DEFUALY_Z_DEPTH 100000.f
 
 class Renderer {
 	struct Program {
