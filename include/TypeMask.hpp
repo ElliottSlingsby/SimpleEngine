@@ -20,6 +20,9 @@ class TypeMask {
 public:
 	inline TypeMask<width>& operator=(const TypeMask<width>& other);
 
+	template <typename T>
+	inline static uint32_t index();
+
 	template <typename ...Ts>
 	inline void fill();
 
@@ -28,6 +31,10 @@ public:
 
 	template <typename ...Ts>
 	inline void sub();
+
+	inline void add(uint32_t i);
+
+	inline void sub(uint32_t i);
 
 	template <typename ...Ts>
 	inline bool has() const;
@@ -61,6 +68,12 @@ TypeMask<width>& TypeMask<width>::operator=(const TypeMask<width>& other) {
 	return *this;
 }
 
+template<size_t width>
+template<typename T>
+inline uint32_t TypeMask<width>::index(){
+	return typeIndex<TypeMask, T>();
+}
+
 template <size_t width>
 template <typename ...Ts>
 void TypeMask<width>::fill() {
@@ -87,6 +100,22 @@ bool TypeMask<width>::has() const {
 
 	unsigned long check = other._mask.to_ulong();
 	return (_mask.to_ulong() & check) == check;
+}
+
+template<size_t width>
+inline void TypeMask<width>::add(uint32_t i){
+	if (i >= width)
+		return;
+
+	_mask[i] = true;
+}
+
+template<size_t width>
+inline void TypeMask<width>::sub(uint32_t i){
+	if (i >= width)
+		return;
+
+	_mask[i] = false;
 }
 
 template<size_t width>

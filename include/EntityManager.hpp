@@ -140,14 +140,12 @@ void EntityManager<typeWidth>::_erase(uint32_t index) {
 		return;
 	}
 
-	// clear masks before in-case a component checks for others
-	_identities[index].mask.clear();
-
 	// remove components from each pool
 	for (uint32_t i = 0; i < typeWidth; i++) {
 		if (_identities[index].mask.has(i)) {
 			assert(_pools[i]); // sanity
 			_pools[i]->erase(index);
+			_identities[index].mask.sub(i);
 		}
 	}
 
@@ -189,7 +187,7 @@ template <uint32_t i, typename ...Ts>
 typename std::enable_if<i < sizeof...(Ts)>::type EntityManager<typeWidth>::_get(uint32_t index, std::tuple<Ts*...>& tuple) {
 	using T = typename std::tuple_element<i, std::tuple<Ts...>>::type;
 
-	std::get<i>(tuple) = _pools[typeIndex<EntityManager, T>()]->get<T>(index);
+	std::get<i>(tuple) = _pools[TypeMask::index<T>()]->get<T>(index);
 
 	_get<i + 1>(index, tuple);
 }
@@ -203,10 +201,10 @@ template <uint32_t i, typename ...Ts>
 typename std::enable_if < i < sizeof...(Ts)>::type EntityManager<typeWidth>::_reserve(uint32_t index) {
 	using T = std::tuple_element<i, std::tuple<Ts...>>::type;
 
-	if (_pools[typeIndex<EntityManager, T>()] == nullptr)
-		_pools[typeIndex<EntityManager, T>()] = new ObjectPool<T>(_chunkSize);
+	if (_pools[TypeMask::index<T>()] == nullptr)
+		_pools[TypeMask::index<T>()] = new ObjectPool<T>(_chunkSize);
 
-	_pools[typeIndex<EntityManager, T>()]->reserve(index);
+	_pools[TypeMask::index<T>()]->reserve(index);
 
 	_reserve<i + 1, T>(index);
 }
@@ -214,13 +212,13 @@ typename std::enable_if < i < sizeof...(Ts)>::type EntityManager<typeWidth>::_re
 template<uint32_t typeWidth>
 template <typename T, typename ...Ts>
 typename std::enable_if<std::is_constructible<T, EntityManager<typeWidth>&, uint64_t, Ts...>::value>::type EntityManager<typeWidth>::_insert(uint32_t index, Ts&&... args) {
-	_pools[typeIndex<EntityManager, T>()]->insert<T>(index, *this, combine32(index, _identities[index].version), std::forward<Ts>(args)...);
+	_pools[TypeMask::index<T>()]->insert<T>(index, *this, combine32(index, _identities[index].version), std::forward<Ts>(args)...);
 }
 
 template<uint32_t typeWidth>
 template <typename T, typename ...Ts>
 typename std::enable_if<std::is_constructible<T, Ts...>::value>::type EntityManager<typeWidth>::_insert(uint32_t index, Ts&&... args) {
-	_pools[typeIndex<EntityManager, T>()]->insert<T>(index, std::forward<Ts>(args)...);
+	_pools[TypeMask::index<T>()]->insert<T>(index, std::forward<Ts>(args)...);
 }
 
 template<uint32_t typeWidth>
@@ -298,7 +296,7 @@ T* EntityManager<typeWidth>::get(uint64_t id) {
 	if (!_validId(index, version))
 		return nullptr;
 
-	uint32_t type = typeIndex<EntityManager, T>();
+	uint32_t type = TypeMask::index<T>();
 
 	if (_pools[type] == nullptr)
 		return nullptr;
@@ -324,7 +322,7 @@ T* EntityManager<typeWidth>::add(uint64_t id, Ts&&... args) {
 
 	assert(hasFlags(_identities[index].flags, Identity::Active)); // sanity
 
-	uint32_t type = typeIndex<EntityManager, T>();
+	uint32_t type = TypeMask::index<T>();
 
 	if (_identities[index].mask.has<T>()) 
 		return _pools[type]->get<T>(index);
@@ -350,7 +348,7 @@ void EntityManager<typeWidth>::remove(uint64_t id) {
 	if (!_validId(index, version))
 		return;
 
-	uint32_t type = typeIndex<EntityManager, T>();
+	uint32_t type = TypeMask::index<T>();
 
 	assert(_pools[type] != nullptr); // sanity
 	assert(hasFlags(_identities[index].flags, Identity::Active)); // sanity
