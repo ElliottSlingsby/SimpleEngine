@@ -457,7 +457,7 @@ void EntityManager<typeWidth>::dereference(uint64_t id) {
 
 	assert(hasFlags(_identities[index].flags, Identity::Active)); // sanity;
 
-	assert(!_identities[index].references && "calling dereference with no more references");
+	assert(_identities[index].references && "calling dereference with no more references");
 
 	if (!_identities[index].references) 
 		return;
@@ -488,7 +488,7 @@ void EntityManager<typeWidth>::setEnabled(uint64_t id, bool enabled) {
 
 template<uint32_t typeWidth>
 inline void EntityManager<typeWidth>::enginePtr(void * engine) {
-	assert(!_enginePtr);
+	assert(!_enginePtr); // sanity;
 
 	if (!_enginePtr)
 		_enginePtr = engine;
@@ -496,7 +496,7 @@ inline void EntityManager<typeWidth>::enginePtr(void * engine) {
 
 template<uint32_t typeWidth>
 inline void * EntityManager<typeWidth>::enginePtr() {
-	assert(_enginePtr);
+	assert(_enginePtr); // sanity;
 
 	return _enginePtr;
 }

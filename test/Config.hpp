@@ -14,6 +14,7 @@ enum Events {
 	Update,
 	Keypress,
 	Cursor,
+	Reset,
 };
 
 const size_t chunkSize = 1024 * 1024 * 128; // 128 mb

@@ -7,25 +7,25 @@ void Physics::addRigidBody(uint64_t id, float mass, btCollisionShape* shape){
 	Transform& transform = *_engine.entities.add<Transform>(id);
 	Collider& collider = *_engine.entities.add<Collider>(id);
 
-	if (collider.collisionShape)
-		delete collider.collisionShape;
+	if (collider._collisionShape)
+		delete collider._collisionShape;
 
-	if (collider.rigidBody) {
-		_dynamicsWorld->removeRigidBody(collider.rigidBody);
-		delete collider.rigidBody;
+	if (collider._rigidBody) {
+		_dynamicsWorld->removeRigidBody(collider._rigidBody);
+		delete collider._rigidBody;
 	}
 	
-	collider.collisionShape = shape;
+	collider._collisionShape = shape;
 
 	btVector3 localInertia(0, 0, 0);
 
 	if (mass != 0.f)
-		collider.collisionShape->calculateLocalInertia(static_cast<btScalar>(mass), localInertia);
+		collider._collisionShape->calculateLocalInertia(static_cast<btScalar>(mass), localInertia);
 
-	btRigidBody::btRigidBodyConstructionInfo rbInfo(static_cast<btScalar>(mass), &transform, collider.collisionShape, localInertia);
-	collider.rigidBody = new btRigidBody(rbInfo);
+	btRigidBody::btRigidBodyConstructionInfo rbInfo(static_cast<btScalar>(mass), &transform, collider._collisionShape, localInertia);
+	collider._rigidBody = new btRigidBody(rbInfo);
 
-	_dynamicsWorld->addRigidBody(collider.rigidBody);
+	_dynamicsWorld->addRigidBody(collider._rigidBody);
 }
 
 Physics::Physics(Engine & engine) : _engine(engine){
@@ -34,12 +34,12 @@ Physics::Physics(Engine & engine) : _engine(engine){
 }
 
 Physics::~Physics(){
-	_engine.entities.iterate<Collider>([&](uint64_t id, Collider& collider) {
-		delete collider.collisionShape;
-
-		_dynamicsWorld->removeRigidBody(collider.rigidBody);
-		delete collider.rigidBody;
-	});
+	//_engine.entities.iterate<Collider>([&](uint64_t id, Collider& collider) {
+	//	delete collider._collisionShape;
+	//
+	//	_dynamicsWorld->removeRigidBody(collider._rigidBody);
+	//	delete collider._rigidBody;
+	//});
 
 	delete _dynamicsWorld;
 	delete _solver;

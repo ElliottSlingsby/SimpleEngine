@@ -10,7 +10,6 @@
 
 /*
 - Implement hierarchical physics and constraints
-- Abstract collider and transform component
 
 - Implement generic components with pointers
 - Implement referenced entity object
@@ -18,24 +17,15 @@
 - GPU bullet
 */
 
-int main(int argc, char** argv) {
-	// Load
-	Engine engine(chunkSize);
-
-	engine.newSystem<Controller>();
-	engine.newSystem<Physics>();
-	engine.newSystem<Renderer>();
-
-	engine.events.dispatch(Events::Load, argc, argv);
-
-	engine.system<Physics>().setGravity({ 0.0, 0.0, -100.0 });
+void load(Engine& engine) {
+	engine.system<Physics>().setGravity({ 0.0, 0.0, -400.0 });
 
 	// Camera
 	{
 		uint64_t id = engine.entities.create();
 		Transform& transform = *engine.entities.add<Transform>(id);
 
-		transform.setPosition({ 0.0, -200.0, 200.0 });
+		transform.setPosition({ 0.0, -50.0, 10.0 });
 		transform.setRotation(glm::dquat({ glm::radians(90.0), 0.0, 0.0 }));
 
 		engine.system<Renderer>().setCamera(id);
@@ -44,7 +34,7 @@ int main(int argc, char** argv) {
 		engine.system<Physics>().addSphere(id, 4.0, 50.0);
 
 		Collider& collider = *engine.entities.get<Collider>(id);
-		collider.rigidBody->setGravity(btVector3(0, 0, 0));
+		collider.setGravity({ 0, 0, 0 });
 	}
 
 	// Floor
@@ -63,16 +53,16 @@ int main(int argc, char** argv) {
 		engine.system<Physics>().addStaticPlane(id);
 
 		Collider& collider = *engine.entities.get<Collider>(id);
-		collider.rigidBody->setFriction(10.f);
+		collider.setFriction(10.f);
 	}
 
 	// Cubes
 	{
-		for (uint32_t i = 0; i < 1; i++) {
+		for (uint32_t i = 0; i < 16; i++) {
 			uint64_t id = engine.entities.create();
 			Transform& transform = *engine.entities.add<Transform>(id);
 
-			transform.setPosition({ 0.0, 0.0, 18 * i });
+			transform.setPosition({ 0.0, 0.0, 8.0 + 16.0 * i });
 
 			engine.system<Renderer>().addShader(id, "vertexShader.glsl", "fragmentShader.glsl");
 			engine.system<Renderer>().addMesh(id, "dcube.obj");
@@ -81,6 +71,30 @@ int main(int argc, char** argv) {
 			engine.system<Physics>().addBox(id, { 4.0, 4.0, 4.0 }, 100.0);
 		}
 	}
+}
+
+
+
+//class GameState {
+//	Engine& _engine
+//public:
+//
+//};
+
+
+
+
+int main(int argc, char** argv) {
+	// Load
+	Engine engine(chunkSize);
+
+	engine.newSystem<Controller>();
+	engine.newSystem<Physics>();
+	engine.newSystem<Renderer>();
+
+	engine.events.dispatch(Events::Load, argc, argv);
+
+	load(engine);
 	
 	// Update
 	TimePoint timer;

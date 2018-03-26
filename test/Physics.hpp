@@ -44,4 +44,6 @@ public:
 	//void addStaticMesh(uint64_t id, const std::string& file); // btBvhTriangleMeshShape
 	void addStaticPlane(uint64_t id); // btStaticPlaneShape
 	//void addStaticHeightmap(uint64_t id, const std::string& file); // btHeightfieldTerrainShape
+
+	friend class Collider;
 };

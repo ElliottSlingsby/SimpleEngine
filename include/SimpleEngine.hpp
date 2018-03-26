@@ -16,15 +16,6 @@ public:
 	using EventHandler = EventHandler<events, listeners>;
 	using EntityManager = EntityManager<components>;
 
-	class Component {
-	protected:
-		SimpleEngine& _engine;
-		const uint64_t _id;
-
-	public:
-		Component(EntityManager& entities, uint64_t id) : _engine(*static_cast<SimpleEngine*>(entities.enginePtr())), _id(id){}
-	};
-
 	EventHandler events;
 	EntityManager entities;
 
@@ -51,6 +42,8 @@ SimpleEngine<systems, components, events, listeners>::SimpleEngine(size_t chunkS
 
 template <uint32_t systems, uint32_t components, uint32_t events, uint32_t listeners>
 inline SimpleEngine<systems, components, events, listeners>::~SimpleEngine(){
+	entities.clear();
+
 	for (uint32_t i = 0; i < systems; i++) {
 		if (_systems[i] == std::nullopt)
 			continue;

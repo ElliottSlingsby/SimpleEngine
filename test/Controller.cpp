@@ -8,16 +8,12 @@ Controller::Controller(Engine& engine) : _engine(engine) {
 	_engine.events.subscribe(this, Events::Update, &Controller::update);
 	_engine.events.subscribe(this, Events::Cursor, &Controller::cursor);
 	_engine.events.subscribe(this, Events::Keypress, &Controller::keypress);
+	_engine.events.subscribe(this, Events::Reset, &Controller::reset);
 }
 
 void Controller::update(double dt) {
-	if (!_possessed || !_engine.entities.has<Transform, Collider>(_possessed))
+	if (!_possessed || !_engine.entities.has<Transform>(_possessed))
 		return;
-
-	Collider& collider = *_engine.entities.get<Collider>(_possessed);
-
-	collider.rigidBody->setAngularVelocity(btVector3(0, 0, 0));
-	collider.rigidBody->setLinearVelocity(btVector3(0, 0, 0));
 
 	Transform& transform = *_engine.entities.get<Transform>(_possessed);
 
@@ -53,12 +49,17 @@ void Controller::update(double dt) {
 			position += GlobalVec3::down * moveSpeed;
 	}
 
-	btTransform newTransform;
-	newTransform.setOrigin(btVector3(position.x, position.y, position.z));
-	newTransform.setRotation(btQuaternion(rotation.x, rotation.y, rotation.z, rotation.w));
+	transform.setPosition(position);
+	transform.setRotation(rotation);
 
-	collider.rigidBody->activate();
-	collider.rigidBody->setWorldTransform(newTransform);
+	Collider* collider = _engine.entities.get<Collider>(_possessed);
+
+	if (collider) {
+		collider->setAngularVelocity({ 0, 0, 0 });
+		collider->setLinearVelocity({ 0, 0, 0 });
+
+		collider->activate();
+	}
 }
 
 void Controller::cursor(double x, double y){
@@ -104,6 +105,13 @@ void Controller::keypress(int key, int scancode, int action, int mods) {
 		_down = value;
 	if (key == GLFW_KEY_LEFT_SHIFT)
 		_boost = value;
+}
+
+void Controller::reset(){
+	if (_possessed)
+		_engine.entities.dereference(_possessed);
+
+	_possessed = 0;
 }
 
 void Controller::setPossessed(uint64_t id) {

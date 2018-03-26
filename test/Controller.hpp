@@ -30,6 +30,7 @@ public:
 	void update(double dt);
 	void cursor(double x, double y);
 	void keypress(int key, int scancode, int action, int mods);
+	void reset();
 
 	void setPossessed(uint64_t id);
 };

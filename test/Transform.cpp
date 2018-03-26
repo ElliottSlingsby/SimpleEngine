@@ -1,6 +1,28 @@
 #include "Transform.hpp"
 
-Transform::Transform(Engine::EntityManager& entities, uint64_t id) : Component(entities, id){
+void Transform::_setPosition(const glm::dvec3& position) {
+	if (!_collider) {
+		_position = position;
+		return;
+	}
+
+	btTransform transform = _collider->_rigidBody->getWorldTransform();
+	transform.setOrigin(btVector3(static_cast<btScalar>(position.x), static_cast<btScalar>(position.y), static_cast<btScalar>(position.z)));
+	_collider->_rigidBody->setWorldTransform(transform);
+}
+
+void Transform::_setRotation(const glm::dquat& rotation) {
+	if (!_collider) {
+		_rotation = rotation;
+		return;
+	}
+
+	btTransform transform = _collider->_rigidBody->getWorldTransform();
+	transform.setRotation(btQuaternion(static_cast<btScalar>(rotation.x), static_cast<btScalar>(rotation.y), static_cast<btScalar>(rotation.z), static_cast<btScalar>(rotation.w)));
+	_collider->_rigidBody->setWorldTransform(transform);
+}
+
+Transform::Transform(Engine::EntityManager& entities, uint64_t id) : _engine(*static_cast<Engine*>(entities.enginePtr())), _id(id) {
 	if (_engine.entities.has<Collider>(_id))
 		_collider = _engine.entities.get<Collider>(_id);
 }
@@ -41,11 +63,11 @@ void Transform::removeChildren() {
 }
 
 void Transform::setPosition(const glm::dvec3& position) {
-	_position = position;
+	_setPosition(position);
 }
 
 void Transform::setRotation(const glm::dquat& rotation) {
-	_rotation = rotation;
+	_setRotation(rotation);
 }
 
 void Transform::setScale(const glm::dvec3& scale) {
@@ -101,19 +123,19 @@ glm::dvec3 Transform::worldScale() const {
 }
 
 void Transform::rotate(const glm::dquat& rotation) {
-	_rotation *= rotation;
+	_setRotation(_rotation * rotation);
 }
 
 void Transform::translate(const glm::dvec3& translation) {
-	_position += _rotation * translation;
+	setPosition(_position + _rotation * translation);
 }
 
 void Transform::globalRotate(const glm::dquat& rotation) {
-	_rotation = _rotation * rotation;
+	_setRotation(_rotation * rotation);
 }
 
 void Transform::globalTranslate(const glm::dvec3& translation) {
-	_position += translation;
+	setPosition(_position + translation);
 }
 
 void Transform::getWorldTransform(btTransform& transform) const {

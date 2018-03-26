@@ -11,7 +11,10 @@
 #include "Config.hpp"
 #include "Collider.hpp"
 
-class Transform : public btMotionState, public Engine::Component {
+class Transform : public btMotionState{
+	Engine& _engine;
+	uint64_t _id;
+
 	Transform* _parent = nullptr;
 	std::vector<Transform*> _children;
 
@@ -20,6 +23,9 @@ class Transform : public btMotionState, public Engine::Component {
 	glm::dvec3 _position;
 	glm::dquat _rotation;
 	glm::dvec3 _scale = { 1.f, 1.f, 1.f };
+
+	void _setPosition(const glm::dvec3& position);
+	void _setRotation(const glm::dquat& rotation);
 
 public:
 	Transform(Engine::EntityManager& entities, uint64_t id);

@@ -203,6 +203,7 @@ void Renderer::_extract(uint64_t parent, const aiScene* scene, const aiNode * no
 Renderer::Renderer(Engine& engine) : _engine(engine) {
 	_engine.events.subscribe(this, Events::Load, &Renderer::load);
 	_engine.events.subscribe(this, Events::Update, &Renderer::update);
+	_engine.events.subscribe(this, Events::Reset, &Renderer::reset);
 }
 
 Renderer::~Renderer() {
@@ -351,6 +352,13 @@ void Renderer::update(double dt) {
 	glCheckError();
 
 	glfwSwapBuffers(_window);
+}
+
+void Renderer::reset(){
+	if (_camera)
+		_engine.entities.dereference(_camera);
+
+	_camera = 0;
 }
 
 bool Renderer::addScene(uint64_t id, const std::string & sceneFile) {

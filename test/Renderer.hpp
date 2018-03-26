@@ -76,6 +76,7 @@ public:
 
 	void load(int argc, char** argv);
 	void update(double dt);
+	void reset();
 
 	bool addScene(uint64_t id, const std::string& sceneFile);
 
