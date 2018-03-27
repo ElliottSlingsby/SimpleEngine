@@ -27,8 +27,8 @@
 #define DEFAULT_TITLE ""
 #define DEFUALT_WIDTH 800
 #define DEFUALT_HEIGHT 600
-#define DEFUALT_FOV 90.f
-#define DEFUALY_Z_DEPTH 100000.f
+#define DEFUALT_FOV 70.0
+#define DEFUALT_ZDEPTH 100000.0
 
 class Renderer {
 	struct Program {
@@ -49,23 +49,38 @@ class Renderer {
 		GLsizei indexCount = 0;
 	};
 
+	//struct Line {
+	//	glm::dvec3 from;
+	//	glm::dvec3 to;
+	//	glm::tvec3<uint8_t> colour;
+	//};
+
+	//struct Point {
+	//	glm::dvec3 position;
+	//	glm::tvec3<uint8_t> colour;
+	//};
+
 	Engine& _engine;
 
 	GLFWwindow* _window = nullptr;
 
 	std::vector<Program> _programs;
 
-	glm::mat4 _projectionMatrix;
+	glm::dmat4 _projectionMatrix;
 
 	std::string _path;
 	glm::uvec2 _windowSize;
-	float _fov;
+	double _fov;
+	double _zDepth;
 
 	uint64_t _camera = 0;
 
 	std::unordered_map<std::string, uint32_t> _shaders;
 	std::unordered_map<std::string, GLuint> _textures;
 	std::unordered_map<std::string, Mesh> _meshes;
+
+	//std::vector<Line> _debugLines;
+	//std::vector<Point> _debugPoints;
 
 	void _reshape(int height, int width);
 
@@ -76,6 +91,7 @@ public:
 	~Renderer();
 
 	void load(int argc, char** argv);
+	void input();
 	void update(double dt);
 	void reset();
 
@@ -89,7 +105,13 @@ public:
 
 	void lockCursor(bool lock);
 
-	friend void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods);
-	friend void cursorCallback(GLFWwindow* window, double x, double y);
-	friend void windowSizeCallback(GLFWwindow* window, int height, int width);
+	glm::dmat4 projectionMatrix() const;
+	glm::dmat4 viewMatrix() const;
+
+	glm::uvec2 windowSize() const;
+
+	friend void keypressCallback(GLFWwindow* window, int key, int scancode, int action, int mods);
+	friend void mousemoveCallback(GLFWwindow* window, double x, double y);
+	friend void mousepressCallback(GLFWwindow* window, int button, int action, int mods);
+	friend void windowsizeCallback(GLFWwindow* window, int height, int width);
 };

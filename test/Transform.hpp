@@ -31,6 +31,8 @@ public:
 	Transform(Engine::EntityManager& entities, uint64_t id);
 	~Transform();
 
+	uint64_t id() const;
+
 	void setParent(Transform* other);
 	void setChild(Transform* other);
 
@@ -54,6 +56,9 @@ public:
 
 	void globalRotate(const glm::dquat& rotation);
 	void globalTranslate(const glm::dvec3& translation);
+
+	void rotate(const glm::dquat& rotation, double scalar);
+	void globalRotate(const glm::dquat& rotation, double scalar);
 
 	void getWorldTransform(btTransform& transform) const override;
 	void setWorldTransform(const btTransform& transform) override;

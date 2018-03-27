@@ -3,6 +3,8 @@
 #include "Collider.hpp"
 #include "Transform.hpp"
 
+#include <BulletCollision\NarrowPhaseCollision\btRaycastCallback.h>
+
 void Physics::addRigidBody(uint64_t id, float mass, btCollisionShape* shape){
 	if (!_dynamicsWorld)
 		return;
@@ -10,13 +12,8 @@ void Physics::addRigidBody(uint64_t id, float mass, btCollisionShape* shape){
 	Transform& transform = *_engine.entities.add<Transform>(id);
 	Collider& collider = *_engine.entities.add<Collider>(id);
 
-	if (collider._collisionShape)
-		delete collider._collisionShape;
-
-	if (collider._rigidBody) {
-		_dynamicsWorld->removeRigidBody(collider._rigidBody);
-		delete collider._rigidBody;
-	}
+	if (collider._collisionShape || collider._rigidBody)
+		return;
 	
 	collider._collisionShape = shape;
 
@@ -27,6 +24,8 @@ void Physics::addRigidBody(uint64_t id, float mass, btCollisionShape* shape){
 
 	btRigidBody::btRigidBodyConstructionInfo rbInfo(static_cast<btScalar>(mass), &transform, collider._collisionShape, localInertia);
 	collider._rigidBody = new btRigidBody(rbInfo);
+
+	collider._rigidBody->setUserPointer(&transform);
 
 	_dynamicsWorld->addRigidBody(collider._rigidBody);
 }
@@ -63,7 +62,7 @@ void Physics::update(double dt){
 		_dynamicsWorld->stepSimulation(static_cast<float>(dt) / DEFUALT_PHYSICS_STEPS, 0);
 }
 
-void Physics::setGravity(glm::vec3 direction){
+void Physics::setGravity(const glm::dvec3& direction){
 	if (!_dynamicsWorld)
 		return;
 
@@ -81,7 +80,7 @@ void Physics::addSphere(uint64_t id, float radius, float mass) {
 	addRigidBody(id, mass, new btSphereShape(static_cast<btScalar>(radius)));
 }
 
-void Physics::addBox(uint64_t id, glm::vec3 dimensions, float mass) {
+void Physics::addBox(uint64_t id, const glm::dvec3& dimensions, float mass) {
 	if (_engine.entities.has<Collider>(id))
 		_engine.entities.remove<Collider>(id);
 
@@ -107,4 +106,49 @@ void Physics::addStaticPlane(uint64_t id){
 		_engine.entities.remove<Collider>(id);
 
 	addRigidBody(id, 0.f, new btStaticPlaneShape(btVector3(0, 0, 1), 0));
+}
+
+void Physics::rayTest(const glm::dvec3 & from, const glm::dvec3 & to, std::vector<RayHit>& hits){
+	btVector3 bFrom(from.x, from.y, from.z);
+	btVector3 bTo(to.x, to.y, to.z);
+
+	btCollisionWorld::AllHitsRayResultCallback results(bFrom, bTo);
+
+	results.m_flags |= btTriangleRaycastCallback::kF_KeepUnflippedNormal;
+	results.m_flags |= btTriangleRaycastCallback::kF_UseSubSimplexConvexCastRaytest;
+
+	_dynamicsWorld->rayTest(bFrom, bTo, results);
+
+	hits.reserve(results.m_collisionObjects.size());
+
+	for (uint32_t i = 0; i < results.m_collisionObjects.size(); i++) {
+		uint64_t id = static_cast<Transform*>(results.m_collisionObjects[i]->getUserPointer())->id();
+
+		btVector3 position = results.m_hitPointWorld[i];
+		btVector3 normal = results.m_hitNormalWorld[i];
+
+		hits.push_back({ id,{ position.x(), position.y(), position.z() },{ normal.x(), normal.y(), normal.z() } });
+	}
+}
+
+Physics::RayHit Physics::rayTest(const glm::dvec3 & from, const glm::dvec3 & to){
+	btVector3 bFrom(from.x, from.y, from.z);
+	btVector3 bTo(to.x, to.y, to.z);
+
+	btCollisionWorld::ClosestRayResultCallback results(bFrom, bTo);
+
+	results.m_flags |= btTriangleRaycastCallback::kF_KeepUnflippedNormal;
+	results.m_flags |= btTriangleRaycastCallback::kF_UseSubSimplexConvexCastRaytest;
+
+	_dynamicsWorld->rayTest(bFrom, bTo, results);
+
+	if (!results.hasHit())
+		return RayHit();
+
+	uint64_t id = static_cast<Transform*>(results.m_collisionObject->getUserPointer())->id();
+
+	btVector3 position = results.m_hitPointWorld;
+	btVector3 normal = results.m_hitNormalWorld;
+
+	return { id, { position.x(), position.y(), position.z() }, { normal.x(), normal.y(), normal.z() } };
 }

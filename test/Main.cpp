@@ -16,8 +16,6 @@
 - Implement referenced entity object
 
 - Physics update and timing issues
-
-- GPU bullet
 */
 
 class MyState {
@@ -26,28 +24,38 @@ class MyState {
 	uint64_t _camera = 0;
 	std::vector<uint64_t> _cubes;
 
-	void _spawnCubes() {
-		glm::dvec3 offset = { 0.0, 0.0, 8.0 };
-
-		if (_cubes.size()) {
-			offset += _engine.entities.get<Transform>(*_cubes.rbegin())->position();
-			offset.z += 8.0;
-		}
-
+	void _spawnCubes(glm::dvec3 position = { 0.0, 0.0, 0.0 }, double zRotation = 0.0) {
 		for (uint32_t i = 0; i < 32; i++) {
 			uint64_t id = _engine.entities.create();
 
 			Transform& transform = *_engine.entities.add<Transform>(id);
-			transform.setPosition(offset + glm::dvec3(0.0, 0.0, 16.0 * i));
+			transform.setPosition(position + glm::dvec3(0.0, 0.0, 8.0 + 16.0 * i));
+			transform.setRotation(glm::dquat({ 0.0, 0.0, zRotation }));
 
 			_engine.system<Renderer>().addShader(id, "vertexShader.glsl", "fragmentShader.glsl");
 			_engine.system<Renderer>().addMesh(id, "dcube.obj");
 			_engine.system<Renderer>().addTexture(id, "net.png");
 
-			_engine.system<Physics>().addBox(id, { 4.0, 4.0, 4.0 }, 100.0);
+			_engine.system<Physics>().addBox(id, { 4.0, 4.0, 4.0 }, 1.0);
 
 			_cubes.push_back(id);
 		}
+	}
+
+	void _spawnDomino(glm::dvec3 position = { 0.0, 0.0, 0.0 }, double zRotation = 0.0) {
+		uint64_t id = _engine.entities.create();
+
+		Transform& transform = *_engine.entities.add<Transform>(id);
+		transform.setPosition(glm::dvec3(0.0, 0.0, 26.0) + position);
+		transform.setRotation(glm::dquat({ 0.0, 0.0, zRotation }));
+
+		_engine.system<Renderer>().addShader(id, "vertexShader.glsl", "fragmentShader.glsl");
+		_engine.system<Renderer>().addMesh(id, "domino.obj");
+		_engine.system<Renderer>().addTexture(id, "domino.png");
+
+		_engine.system<Physics>().addBox(id, { 6.0, 2.5, 13.0 }, 10.0);
+
+		_cubes.push_back(id);
 	}
 
 public:
@@ -65,7 +73,7 @@ public:
 			uint64_t id = _engine.entities.create();
 
 			Transform& transform = *_engine.entities.add<Transform>(id);
-			transform.setScale({ 500, 500, 500 });
+			transform.setScale({ 1000, 1000, 1000 });
 
 			_engine.system<Renderer>().addShader(id, "vertexShader.glsl", "fragmentShader.glsl");
 			_engine.system<Renderer>().addMesh(id, "skybox.obj");
@@ -110,25 +118,32 @@ public:
 		}
 
 		// Cubes
-		_spawnCubes();
+		//_spawnCubes();
 	}
 
 	void keypress(int key, int scancode, int action, int mods) {
 		if (action != GLFW_RELEASE)
 			return;
 
-		if (key == GLFW_KEY_1) {
-			_spawnCubes();
+		if (key == GLFW_KEY_3) {
+			Transform& transform = *_engine.entities.get<Transform>(_camera);
+
+			glm::dvec3 offset = transform.position();
+			offset.z = 0.0;
+
+			glm::dvec3 angles = glm::eulerAngles(transform.rotation());
+		
+			_spawnCubes(offset, angles.z);
 		}
-		else if (key == GLFW_KEY_2) {
+		if (key == GLFW_KEY_1) {
 			for (uint64_t id : _cubes)
 				_engine.entities.erase(id);
 
 			_cubes.clear();
 
-			_spawnCubes();
+			//_spawnCubes();
 		}
-		else if (key == GLFW_KEY_3) {
+		else if (key == GLFW_KEY_2) {
 			if (_engine.entities.has<Collider>(_camera)) {
 				_engine.entities.remove<Collider>(_camera);
 			}
@@ -137,6 +152,15 @@ public:
 				Collider& collider = *_engine.entities.get<Collider>(_camera);
 				collider.setGravity({ 0, 0, 0 });
 			}
+		}
+		else if (key == GLFW_KEY_4) {
+			Transform& transform = *_engine.entities.get<Transform>(_camera);
+
+			glm::dvec3 offset = transform.position();
+			offset.z = 0.0;
+
+			glm::dvec3 angles = glm::eulerAngles(transform.rotation());
+			_spawnDomino(offset, angles.z);
 		}
 	}
 };
@@ -160,6 +184,7 @@ int main(int argc, char** argv) {
 	while (engine.running) {
 		startTime(&timer);
 
+		engine.events.dispatch(Events::Input);
 		engine.events.dispatch(Events::Update, dt);
 
 		dt = deltaTime(timer);

@@ -19,16 +19,22 @@ class Controller {
 
 	bool _boost = false;
 
-	glm::dvec2 _cursor;
-	glm::dvec2 _dCursor;
+	bool _action0 = false;
+
+	glm::dvec2 _mousePos;
+	glm::dvec2 _dMousePos;
 
 	bool _locked = true;
+
+	uint64_t _cursor = 0;
 
 public:
 	Controller(Engine& engine);
 
+	void load(int argc, char** argv);
 	void update(double dt);
-	void cursor(double x, double y);
+	void mousemove(double x, double y);
+	void mousepress(int button, int action, int mods);
 	void keypress(int key, int scancode, int action, int mods);
 	void reset();
 

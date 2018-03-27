@@ -11,10 +11,14 @@ using Engine = SimpleEngine<MAX_SYSTEMS, MAX_COMPONENTS, MAX_EVENTS, MAX_LISTENE
 
 enum Events {
 	Load,
+	Input,
 	Update,
-	Keypress,
-	Cursor,
 	Reset,
+
+	Keypress,
+	Mousemove,
+	Mousepress,
+	Windowsize,
 };
 
 const size_t chunkSize = 1024 * 1024 * 128; // 128 mb

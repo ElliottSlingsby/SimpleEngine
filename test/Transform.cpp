@@ -26,8 +26,15 @@ Transform::Transform(Engine::EntityManager& entities, uint64_t id) : _engine(*st
 }
 
 Transform::~Transform() {
+	if (_collider)
+		_engine.entities.remove<Collider>(_id);
+
 	removeParent();
 	removeChildren();
+}
+
+uint64_t Transform::id() const{
+	return _id;
 }
 
 void Transform::setParent(Transform* other) {

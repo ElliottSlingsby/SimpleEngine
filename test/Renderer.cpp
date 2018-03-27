@@ -38,22 +38,29 @@ void errorCallback(int error, const char* description) {
 	std::cerr << "GLFW Error - " << error << " - " << description << std::endl;
 }
 
-void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods) {
+void keypressCallback(GLFWwindow* window, int key, int scancode, int action, int mods) {
 	Renderer& renderer = *(Renderer*)glfwGetWindowUserPointer(window);
 
 	renderer._engine.events.dispatch(Events::Keypress, key, scancode, action, mods);
 }
 
-void cursorCallback(GLFWwindow* window, double x, double y){
+void mousemoveCallback(GLFWwindow* window, double x, double y){
 	Renderer& renderer = *(Renderer*)glfwGetWindowUserPointer(window);
 	
-	renderer._engine.events.dispatch(Events::Cursor, x, y);
+	renderer._engine.events.dispatch(Events::Mousemove, x, y);
 }
 
-void windowSizeCallback(GLFWwindow* window, int height, int width) {
+void mousepressCallback(GLFWwindow* window, int button, int action, int mods) {
+	Renderer& renderer = *(Renderer*)glfwGetWindowUserPointer(window);
+
+	renderer._engine.events.dispatch(Events::Mousepress, button, action, mods);
+}
+
+void windowsizeCallback(GLFWwindow* window, int height, int width) {
 	Renderer& renderer = *(Renderer*)glfwGetWindowUserPointer(window);
 
 	renderer._reshape(height, width);
+	renderer._engine.events.dispatch(Events::Windowsize, height, width);
 }
 
 bool compileShader(GLuint type, GLuint* shader, const std::string& src) {
@@ -130,7 +137,7 @@ bool createProgram(GLuint* program, GLuint* vertexShader, GLuint* fragmentShader
 
 void Renderer::_reshape(int height, int width) {
 	_windowSize = { height, width };
-	_projectionMatrix = glm::perspectiveFov(glm::radians(_fov), static_cast<float>(height), static_cast<float>(width), 1.f, DEFUALY_Z_DEPTH);
+	_projectionMatrix = glm::perspectiveFov(glm::radians(_fov), static_cast<double>(height), static_cast<double>(width), 1.0, _zDepth);
 
 	glViewport(0, 0, height, width);
 }
@@ -201,7 +208,8 @@ void Renderer::_extract(uint64_t parent, const aiScene* scene, const aiNode * no
 }
 
 Renderer::Renderer(Engine& engine) : _engine(engine) {
-	_engine.events.subscribe(this, Events::Load, &Renderer::load);
+	_engine.events.subscribe(this, Events::Load, &Renderer::load, -1);
+	_engine.events.subscribe(this, Events::Input, &Renderer::input);
 	_engine.events.subscribe(this, Events::Update, &Renderer::update);
 	_engine.events.subscribe(this, Events::Reset, &Renderer::reset);
 }
@@ -218,6 +226,7 @@ void Renderer::load(int argc, char** argv) {
 	_path = upperPath(replace('\\', '/', argv[0])) + DATA_FOLDER + '/';
 	_windowSize = { DEFUALT_WIDTH, DEFUALT_HEIGHT };
 	_fov = DEFUALT_FOV;
+	_zDepth = DEFUALT_ZDEPTH;
 
 	stbi_set_flip_vertically_on_load(true);
 
@@ -248,12 +257,13 @@ void Renderer::load(int argc, char** argv) {
 
 	glfwSetWindowUserPointer(_window, this);
 
-	glfwSetKeyCallback(_window, keyCallback);
-	glfwSetWindowSizeCallback(_window, windowSizeCallback);
+	glfwSetKeyCallback(_window, keypressCallback);
+	glfwSetWindowSizeCallback(_window, windowsizeCallback);
+	glfwSetCursorPosCallback(_window, mousemoveCallback);
+	glfwSetMouseButtonCallback(_window, mousepressCallback);
 
 	lockCursor(true);
-	glfwSetCursorPosCallback(_window, cursorCallback);
-
+	
 	glEnable(GL_CULL_FACE);
 	glEnable(GL_DEPTH_TEST);
 
@@ -262,14 +272,14 @@ void Renderer::load(int argc, char** argv) {
 	glCheckError();
 }
 
-void Renderer::update(double dt) {
+void Renderer::input(){
 	glfwPollEvents();
 
-	if (glfwWindowShouldClose(_window)) {
+	if (glfwWindowShouldClose(_window))
 		_engine.running = false;
-		return;
-	}
+}
 
+void Renderer::update(double dt) {
 	glClearColor(0.f, 0.f, 0.f, 1.f);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
@@ -287,20 +297,13 @@ void Renderer::update(double dt) {
 
 		// projection matrix
 		if (program.uniformProjection != -1)
-			glUniformMatrix4fv(program.uniformProjection, 1, GL_FALSE, &(_projectionMatrix)[0][0]);
+			glUniformMatrix4fv(program.uniformProjection, 1, GL_FALSE, &(static_cast<glm::mat4>(_projectionMatrix))[0][0]);
 
 		// view matrix
-		glm::dmat4 viewMatrix;
+		glm::dmat4 viewMatrix = Renderer::viewMatrix();
 
-		if ((program.uniformModelView != -1 || program.uniformView != -1) && _camera) {
-			Transform& cameraTransform = *_engine.entities.get<Transform>(_camera);
-
-			viewMatrix *= glm::transpose(glm::mat4_cast(cameraTransform.worldRotation()));
-			viewMatrix = glm::translate(viewMatrix, -cameraTransform.worldPosition());
-
-			if (program.uniformView != -1)
-				glUniformMatrix4fv(program.uniformView, 1, GL_FALSE, &(static_cast<glm::mat4>(viewMatrix))[0][0]);
-		}
+		if (program.uniformView != -1) 
+			glUniformMatrix4fv(program.uniformView, 1, GL_FALSE, &(static_cast<glm::mat4>(viewMatrix))[0][0]);
 
 		// model matrix
 		glm::dmat4 modelMatrix;
@@ -581,7 +584,7 @@ bool Renderer::addShader(uint64_t id, const std::string& vertexShader, const std
 }
 
 void Renderer::setCamera(uint64_t id) {
-	if ((id && !_engine.entities.valid(id)) || (id && !_engine.entities.has<Transform>(id)))
+	if (id && !_engine.entities.valid(id))
 		return;
 
 	if (_camera)
@@ -598,4 +601,25 @@ void Renderer::lockCursor(bool lock){
 		glfwSetInputMode(_window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 	else
 		glfwSetInputMode(_window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+}
+
+glm::dmat4 Renderer::projectionMatrix() const{
+	return _projectionMatrix;
+}
+
+glm::dmat4 Renderer::viewMatrix() const {
+	glm::dmat4 matrix;
+
+	if (_camera && _engine.entities.has<Transform>(_camera)) {
+		Transform& cameraTransform = *_engine.entities.get<Transform>(_camera);
+
+		matrix *= glm::transpose(glm::mat4_cast(cameraTransform.worldRotation()));
+		matrix = glm::translate(matrix, -cameraTransform.worldPosition());
+	}
+
+	return matrix;
+}
+
+glm::uvec2 Renderer::windowSize() const{
+	return _windowSize;
 }
