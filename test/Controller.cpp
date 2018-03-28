@@ -20,7 +20,9 @@ Controller::Controller(Engine& engine) : _engine(engine) {
 
 void Controller::load(int argc, char ** argv){
 	_cursor = _engine.entities.create();
-	_engine.entities.add<Transform>(_cursor);
+
+	Transform& transform = *_engine.entities.add<Transform>(_cursor);
+	transform.setScale({ 2, 2, 2 });
 
 	_engine.system<Renderer>().addShader(_cursor, "vertexShader.glsl", "fragmentShader.glsl");
 	_engine.system<Renderer>().addMesh(_cursor, "arrow.obj");
@@ -74,26 +76,43 @@ void Controller::update(double dt) {
 		collider->activate();
 	}
 
-	if (_action0 && _cursor && _engine.entities.has<Transform>(_cursor)) {
-		Renderer& renderer = _engine.system<Renderer>();
 
-		glm::dvec2 mousePos = ((_mousePos / static_cast<glm::dvec2>(renderer.windowSize())) * 2.0) - 1.0;
 
-		glm::dvec4 cursor = glm::inverse(renderer.projectionMatrix() * renderer.viewMatrix()) * glm::dvec4(mousePos.x, -mousePos.y, 0.0, 1.0);
+	if (_cursor && _engine.entities.has<Transform>(_cursor)) {
+		glm::dvec3 target;
 
-		Transform& cursorTransform = *_engine.entities.get<Transform>(_cursor);
+		if (_action0) {
+			Renderer& renderer = _engine.system<Renderer>();
 
-		glm::dvec3 cursorPosition = glm::dvec3(cursor.x / cursor.w, cursor.y / cursor.w, cursor.z / cursor.w);
-		glm::dvec3 possessedPosition = _engine.entities.get<Transform>(_possessed)->position();
+			Transform& transform = *_engine.entities.get<Transform>(_possessed);
 
-		glm::dvec3 target = possessedPosition + glm::normalize(cursorPosition - possessedPosition) * 1000.0;
+			if (!_locked) {
+				glm::dvec2 mousePos = ((_mousePos / static_cast<glm::dvec2>(renderer.windowSize())) * 2.0) - 1.0;
 
-		auto hit = _engine.system<Physics>().rayTest(possessedPosition, target);
+				glm::dvec4 mouseToWorld = glm::inverse(renderer.projectionMatrix() * renderer.viewMatrix()) * glm::dvec4(mousePos.x, -mousePos.y, 0.0, 1.0);
+				glm::dvec3 cursorPosition = glm::dvec3(mouseToWorld.x, mouseToWorld.y, mouseToWorld.z) / mouseToWorld.w;
 
-		if (hit.id)
-			cursorTransform.setPosition(hit.position);
-		else
-			cursorTransform.setPosition(target);
+				target = transform.position() + glm::normalize(cursorPosition - transform.position()) * 10000.0;
+			}
+			else {
+				target = transform.position() + transform.rotation() * LocalDVec3::forward * 10000.0;
+			}
+
+			auto hit = _engine.system<Physics>().rayTest(transform.position(), target);
+
+			if (hit.id)
+				target = hit.position;
+
+			_cursorPosition = target;
+		}
+
+		_engine.entities.get<Transform>(_cursor)->setRotation(glm::dquat({ 0.0, 0.0, glm::radians(_cursorI) }));
+		_engine.entities.get<Transform>(_cursor)->setPosition(_cursorPosition + glm::dvec3(0.0, 0.0, ((glm::sin(glm::radians(_cursorI)) + 1.0) / 2.0) * 16.0));
+
+		_cursorI += 360.0 * dt;
+
+		if (_cursorI >= 360.0)
+			_cursorI = 0;
 	}
 }
 

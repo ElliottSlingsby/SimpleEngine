@@ -66,11 +66,7 @@ void Physics::setGravity(const glm::dvec3& direction){
 	if (!_dynamicsWorld)
 		return;
 
-	_dynamicsWorld->setGravity(btVector3(
-		static_cast<btScalar>(direction.x), 
-		static_cast<btScalar>(direction.y), 
-		static_cast<btScalar>(direction.z)
-	));
+	_dynamicsWorld->setGravity(toBt(direction));
 }
 
 void Physics::addSphere(uint64_t id, float radius, float mass) {
@@ -109,13 +105,14 @@ void Physics::addStaticPlane(uint64_t id){
 }
 
 void Physics::rayTest(const glm::dvec3 & from, const glm::dvec3 & to, std::vector<RayHit>& hits){
-	btVector3 bFrom(from.x, from.y, from.z);
-	btVector3 bTo(to.x, to.y, to.z);
+	btVector3 bFrom(toBt(from));
+	btVector3 bTo(toBt(to));
 
 	btCollisionWorld::AllHitsRayResultCallback results(bFrom, bTo);
 
 	results.m_flags |= btTriangleRaycastCallback::kF_KeepUnflippedNormal;
 	results.m_flags |= btTriangleRaycastCallback::kF_UseSubSimplexConvexCastRaytest;
+	results.m_flags |= btTriangleRaycastCallback::kF_FilterBackfaces;
 
 	_dynamicsWorld->rayTest(bFrom, bTo, results);
 
@@ -132,8 +129,8 @@ void Physics::rayTest(const glm::dvec3 & from, const glm::dvec3 & to, std::vecto
 }
 
 Physics::RayHit Physics::rayTest(const glm::dvec3 & from, const glm::dvec3 & to){
-	btVector3 bFrom(from.x, from.y, from.z);
-	btVector3 bTo(to.x, to.y, to.z);
+	btVector3 bFrom(toBt(from));
+	btVector3 bTo(toBt(to));
 
 	btCollisionWorld::ClosestRayResultCallback results(bFrom, bTo);
 
@@ -151,4 +148,14 @@ Physics::RayHit Physics::rayTest(const glm::dvec3 & from, const glm::dvec3 & to)
 	btVector3 normal = results.m_hitNormalWorld;
 
 	return { id, { position.x(), position.y(), position.z() }, { normal.x(), normal.y(), normal.z() } };
+}
+
+void Physics::sphereTest(float radius, const glm::dvec3 & position, const glm::dquat & rotation, std::vector<SweepHit>& hits){
+
+
+	//btCollisionWorld::ClosestConvexResultCallback results(0, )
+}
+
+void Physics::sphereSweep(uint64_t id, float radius, const glm::dvec3 & fromPos, const glm::dquat & fromRot, const glm::dvec3 & toPos, const glm::dvec3 & toRot, std::vector<SweepHit>& hits){
+
 }

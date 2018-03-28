@@ -8,12 +8,14 @@ layout (location = 2) in vec2 inTexcoord;
 
 out vec3 normal;
 out vec2 texcoord;
+//out vec3 tangent;
+//out vec3 bitangent;
 
 uniform mat4 model; // model to world
 uniform mat4 view; // world to view
 uniform mat4 projection; // view to projection
 
-uniform mat4 modelView; // model to view
+uniform mat4 modelView; // model to view (more precise)
 
 void main(){
 	mat4 matrix = projection * modelView;
@@ -21,4 +23,6 @@ void main(){
 
 	normal = inNormal;
 	texcoord = inTexcoord;
+	//tangent = inTangent;
+	//bitangent = inBitangent;
 };

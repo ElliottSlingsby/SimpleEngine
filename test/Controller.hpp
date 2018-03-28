@@ -3,6 +3,7 @@
 #include "Config.hpp"
 
 #include <glm\vec2.hpp>
+#include <glm\vec3.hpp>
 
 class Controller {
 	Engine& _engine;
@@ -27,6 +28,9 @@ class Controller {
 	bool _locked = true;
 
 	uint64_t _cursor = 0;
+
+	glm::dvec3 _cursorPosition;
+	double _cursorI = 0.0;
 
 public:
 	Controller(Engine& engine);

@@ -8,7 +8,7 @@
 
 class Collider{
 	Engine& _engine;
-	uint64_t _id;
+	const uint64_t _id;
 
 	btCollisionShape* _collisionShape = nullptr;
 	btRigidBody* _rigidBody = nullptr;

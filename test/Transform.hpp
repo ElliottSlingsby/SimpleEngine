@@ -11,9 +11,47 @@
 #include "Config.hpp"
 #include "Collider.hpp"
 
+template <typename T>
+glm::tquat<T> toGlm(const btQuaternion& from) {
+	return glm::tquat<T>{
+		static_cast<T>(from.w()),
+		static_cast<T>(from.x()),
+		static_cast<T>(from.y()),
+		static_cast<T>(from.z())
+	};
+}
+
+template <typename T>
+glm::tvec3<T> toGlm(const btVector3& from) {
+	return glm::tvec3<T>{
+		static_cast<T>(from.x()),
+		static_cast<T>(from.y()),
+		static_cast<T>(from.z())
+	};
+}
+
+template <typename T>
+btQuaternion toBt(const glm::tquat<T>& from) {
+	return btQuaternion{
+		static_cast<btScalar>(from.x),
+		static_cast<btScalar>(from.y),
+		static_cast<btScalar>(from.z),
+		static_cast<btScalar>(from.w)
+	};
+}
+
+template <typename T>
+btVector3 toBt(const glm::tvec3<T>& from) {
+	return btVector3{
+		static_cast<btScalar>(from.x),
+		static_cast<btScalar>(from.y),
+		static_cast<btScalar>(from.z)
+	};
+}
+
 class Transform : public btMotionState{
 	Engine& _engine;
-	uint64_t _id;
+	const uint64_t _id;
 
 	Transform* _parent = nullptr;
 	std::vector<Transform*> _children;

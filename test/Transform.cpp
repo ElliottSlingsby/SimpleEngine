@@ -5,7 +5,8 @@ void Transform::_setPosition(const glm::dvec3& position) {
 
 	if (_collider) {
 		btTransform transform = _collider->_rigidBody->getWorldTransform();
-		transform.setOrigin(btVector3(static_cast<btScalar>(position.x), static_cast<btScalar>(position.y), static_cast<btScalar>(position.z)));
+
+		transform.setOrigin(toBt(position));
 		_collider->_rigidBody->setWorldTransform(transform);
 	}
 }
@@ -15,7 +16,8 @@ void Transform::_setRotation(const glm::dquat& rotation) {
 
 	if (_collider) {
 		btTransform transform = _collider->_rigidBody->getWorldTransform();
-		transform.setRotation(btQuaternion(static_cast<btScalar>(rotation.x), static_cast<btScalar>(rotation.y), static_cast<btScalar>(rotation.z), static_cast<btScalar>(rotation.w)));
+
+		transform.setRotation(toBt(rotation));
 		_collider->_rigidBody->setWorldTransform(transform);
 	}
 }
@@ -144,27 +146,11 @@ void Transform::globalTranslate(const glm::dvec3& translation) {
 }
 
 void Transform::getWorldTransform(btTransform& transform) const {
-	transform.setOrigin(btVector3(
-		static_cast<btScalar>(_position.x),
-		static_cast<btScalar>(_position.y),
-		static_cast<btScalar>(_position.z)
-	));
-
-	transform.setRotation(btQuaternion(
-		static_cast<btScalar>(_rotation.x),
-		static_cast<btScalar>(_rotation.y),
-		static_cast<btScalar>(_rotation.z),
-		static_cast<btScalar>(_rotation.w)
-	));
+	transform.setOrigin(toBt(_position));
+	transform.setRotation(toBt(_rotation));
 }
 
 void Transform::setWorldTransform(const btTransform& transform) {
-	_position.x = static_cast<double>(transform.getOrigin().x());
-	_position.y = static_cast<double>(transform.getOrigin().y());
-	_position.z = static_cast<double>(transform.getOrigin().z());
-
-	_rotation.x = static_cast<float> (transform.getRotation().x());
-	_rotation.y = static_cast<float>(transform.getRotation().y());
-	_rotation.z = static_cast<float>(transform.getRotation().z());
-	_rotation.w = static_cast<float>(transform.getRotation().w());
+	_position = toGlm<double>(transform.getOrigin());
+	_rotation = toGlm<double>(transform.getRotation());
 }
