@@ -112,7 +112,6 @@ void Physics::rayTest(const glm::dvec3 & from, const glm::dvec3 & to, std::vecto
 
 	results.m_flags |= btTriangleRaycastCallback::kF_KeepUnflippedNormal;
 	results.m_flags |= btTriangleRaycastCallback::kF_UseSubSimplexConvexCastRaytest;
-	results.m_flags |= btTriangleRaycastCallback::kF_FilterBackfaces;
 
 	_dynamicsWorld->rayTest(bFrom, bTo, results);
 

@@ -10,11 +10,11 @@
 
 /*
 - Implement hierarchical physics and constraints
-- Raycasting and collision callbacks
+- Collision callbacks
 
-- Implement generic components with pointers
 - Implement referenced entity object
 
+- Physics proportions
 - Physics update and timing issues
 */
 
@@ -25,7 +25,7 @@ class MyState {
 	std::vector<uint64_t> _cubes;
 
 	void _spawnCubes(glm::dvec3 position = { 0.0, 0.0, 0.0 }, double zRotation = 0.0) {
-		for (uint32_t i = 0; i < 32; i++) {
+		for (uint32_t i = 0; i < 1000; i++) {
 			uint64_t id = _engine.entities.create();
 
 			Transform& transform = *_engine.entities.add<Transform>(id);
@@ -37,6 +37,8 @@ class MyState {
 			_engine.system<Renderer>().addTexture(id, "net.png");
 
 			_engine.system<Physics>().addBox(id, { 4.0, 4.0, 4.0 }, 1.0);
+			Collider& collider = *_engine.entities.get<Collider>(id);
+			collider.deactivate();
 
 			_cubes.push_back(id);
 		}
@@ -53,7 +55,7 @@ class MyState {
 		_engine.system<Renderer>().addMesh(id, "domino.obj");
 		_engine.system<Renderer>().addTexture(id, "domino.png");
 
-		_engine.system<Physics>().addBox(id, { 6.0, 2.5, 13.0 }, 10.0);
+		_engine.system<Physics>().addBox(id, { 6.0, 2.5, 13.0 }, 100.0);
 
 		_cubes.push_back(id);
 	}
@@ -88,7 +90,7 @@ public:
 			transform.setPosition({ 0.0, -50.0, 10.0 });
 			transform.setRotation(glm::dquat({ glm::radians(90.0), 0.0, 0.0 }));
 
-			_engine.system<Physics>().addSphere(id, 4.0, 50.0);
+			_engine.system<Physics>().addSphere(id, 4.0, 100.0);
 			Collider& collider = *_engine.entities.get<Collider>(id);
 			collider.setGravity({ 0, 0, 0 });
 
@@ -116,9 +118,6 @@ public:
 			Collider& collider = *_engine.entities.get<Collider>(id);
 			collider.setFriction(10.f);
 		}
-
-		// Cubes
-		//_spawnCubes();
 	}
 
 	void keypress(int key, int scancode, int action, int mods) {
@@ -140,8 +139,6 @@ public:
 				_engine.entities.erase(id);
 
 			_cubes.clear();
-
-			//_spawnCubes();
 		}
 		else if (key == GLFW_KEY_2) {
 			if (_engine.entities.has<Collider>(_camera)) {

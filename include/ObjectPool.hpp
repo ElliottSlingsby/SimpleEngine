@@ -5,6 +5,8 @@
 #include <cassert>
 #include <utility>
 
+#include <type_traits>
+
 #include <vector>
 
 class BasePool {
@@ -14,6 +16,8 @@ protected:
 
 	std::vector<uint8_t*> _chunks;
 
+	inline uint8_t* _get(uint32_t index);
+
 public:
 	inline BasePool(size_t elementSize, size_t chunkSize);
 
@@ -22,23 +26,47 @@ public:
 	inline void reserve(uint32_t index);
 
 	template <typename T>
-	inline T* get(uint32_t index);
+	inline typename std::enable_if<std::is_pointer<T>::value == false, T*>::type get(uint32_t index);
 
+	template <typename T>
+	inline typename std::enable_if<std::is_pointer<T>::value == true, T&>::type get(uint32_t index);
+	
 	template <typename T, typename ...Ts>
-	inline void insert(uint32_t index, Ts&&... args);
+	inline typename std::enable_if<std::is_pointer<T>::value == false>::type insert(uint32_t index, Ts&&... args);
+
+	template <typename T, typename T1, typename ...Ts>
+	inline typename std::enable_if<std::is_pointer<T>::value == true>::type insert(uint32_t index, Ts&&... args);
 
 	inline uint32_t count() const;
 
 	virtual inline void erase(uint32_t index) = 0;
 };
 
-template <class T>
+template <typename T>
 class ObjectPool : public BasePool {
+	template <typename T1>
+	inline typename std::enable_if<std::is_pointer<T1>::value == false>::type _erase(uint32_t index);
+
+	template <typename T1>
+	inline typename std::enable_if<std::is_pointer<T1>::value == true>::type _erase(uint32_t index);
+
 public:
-	ObjectPool(size_t chunkSize);
+	inline ObjectPool(size_t chunkSize);
 
 	inline void erase(uint32_t index) override;
 };
+
+inline uint8_t * BasePool::_get(uint32_t index){
+	assert(index < count());
+
+	size_t elementsPerChunk = _chunkSize / _elementSize;
+
+	uint32_t chunk = static_cast<uint32_t>(index / elementsPerChunk);
+
+	size_t offset = (index - (chunk * elementsPerChunk)) * _elementSize;
+
+	return _chunks[chunk] + offset;
+}
 
 BasePool::BasePool(size_t elementSize, size_t chunkSize) : _elementSize(elementSize), _chunkSize(chunkSize) {}
 
@@ -64,28 +92,34 @@ void BasePool::reserve(uint32_t index) {
 	}
 }
 
-template<typename T>
-T* BasePool::get(uint32_t index) {
+template <typename T>
+typename std::enable_if<std::is_pointer<T>::value == false, T*>::type BasePool::get(uint32_t index) {
 	assert(sizeof(T) <= _elementSize);
-	assert(index < count());
 
-	size_t elementsPerChunk = _chunkSize / _elementSize;
+	return reinterpret_cast<T*>(_get(index));
+}
 
-	uint32_t chunk = static_cast<uint32_t>(index / elementsPerChunk);
-
-	size_t offset = (index - (chunk * elementsPerChunk)) * _elementSize;
-
-	return reinterpret_cast<T*>(_chunks[chunk] + offset);
+template <typename T>
+typename std::enable_if<std::is_pointer<T>::value == true, T&>::type BasePool::get(uint32_t index) {
+	return *reinterpret_cast<T*>(_get(index));
 }
 
 template <typename T, typename ...Ts>
-void BasePool::insert(uint32_t index, Ts&&... args) {
+typename std::enable_if<std::is_pointer<T>::value == false>::type BasePool::insert(uint32_t index, Ts&&... args) {
 	assert(sizeof(T) <= _elementSize);
 
 	if (index >= count())
 		reserve(index);
 
-	new(static_cast<void*>(get<T*>(index))) T(std::forward<Ts>(args)...);
+	new(static_cast<void*>(get<T>(index))) T(std::forward<Ts>(args)...);
+}
+
+template <typename T, typename T1, typename ...Ts>
+typename std::enable_if<std::is_pointer<T>::value == true>::type BasePool::insert(uint32_t index, Ts&&... args) {
+	if (index >= count())
+		reserve(index);
+
+	get<T>(index) = new T1(std::forward<Ts>(args)...);
 }
 
 uint32_t BasePool::count() const {
@@ -93,10 +127,22 @@ uint32_t BasePool::count() const {
 	return static_cast<uint32_t>(_chunks.size() * elementsPerChunk);
 }
 
-template<class T>
+template<typename T>
 ObjectPool<T>::ObjectPool(size_t chunkSize) : BasePool(sizeof(T), chunkSize) { }
 
-template<class T>
-void ObjectPool<T>::erase(uint32_t index) {
+template<typename T>
+template<typename T1>
+typename std::enable_if<std::is_pointer<T1>::value == false>::type ObjectPool<T>::_erase(uint32_t index) {
 	get<T>(index)->~T();
+}
+
+template<typename T>
+template<typename T1>
+typename std::enable_if<std::is_pointer<T1>::value == true>::type ObjectPool<T>::_erase(uint32_t index) {
+	delete get<T>(index);
+}
+
+template <typename T>
+void ObjectPool<T>::erase(uint32_t index) {
+	_erase<T>(index);
 }

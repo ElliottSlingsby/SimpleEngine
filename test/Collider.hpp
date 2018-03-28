@@ -24,6 +24,7 @@ public:
 	void setLinearVelocity(const glm::vec3& velocity);
 
 	void activate();
+	void deactivate();
 
 	friend class Transform;
 	friend class Physics;

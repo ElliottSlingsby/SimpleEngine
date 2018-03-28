@@ -58,22 +58,34 @@ class EntityManager {
 	void _iterate(const Identity& identity, const T& lambda);
 
 	template <uint32_t i, typename ...Ts>
-	inline typename std::enable_if<i == sizeof...(Ts)>::type _get(uint32_t index, std::tuple<Ts*...>& tuple);
+	inline typename std::enable_if<i == sizeof...(Ts)>::type _getI(uint32_t index, std::tuple<Ts*...>& tuple);
 
 	template <uint32_t i, typename ...Ts>
-	inline typename std::enable_if < i < sizeof...(Ts)>::type _get(uint32_t index, std::tuple<Ts*...>& tuple);
+	inline typename std::enable_if<i < sizeof...(Ts)>::type _getI(uint32_t index, std::tuple<Ts*...>& tuple);
 
 	template <uint32_t i, typename ...Ts>
 	inline typename std::enable_if<i == sizeof...(Ts)>::type _reserve(uint32_t index);
 
 	template <uint32_t i, typename ...Ts>
-	inline typename std::enable_if < i < sizeof...(Ts)>::type _reserve(uint32_t index);
+	inline typename std::enable_if<i < sizeof...(Ts)>::type _reserve(uint32_t index);
 
-	template <typename T, typename ...Ts>
-	inline typename std::enable_if<std::is_constructible<T, EntityManager<typeWidth>&, uint64_t, Ts...>::value>::type _insert(uint32_t index, Ts&&... args);
+	template <typename T, typename T1, typename ...Ts>
+	inline typename std::enable_if<std::is_pointer<T>::value == false && std::is_constructible<T, EntityManager<typeWidth>&, uint64_t, Ts...>::value>::type _insert(uint32_t index, Ts&&... args);
 
-	template <typename T, typename ...Ts>
-	inline typename std::enable_if<std::is_constructible<T, Ts...>::value>::type _insert(uint32_t index, Ts&&... args);
+	template <typename T, typename T1, typename ...Ts>
+	inline typename std::enable_if<std::is_pointer<T>::value == false && std::is_constructible<T, Ts...>::value>::type _insert(uint32_t index, Ts&&... args);
+
+	template <typename T, typename T1, typename ...Ts>
+	inline typename std::enable_if<std::is_pointer<T>::value == true && std::is_constructible<T1, EntityManager<typeWidth>&, uint64_t, Ts...>::value>::type _insert(uint32_t index, Ts&&... args);
+
+	template <typename T, typename T1, typename ...Ts>
+	inline typename std::enable_if<std::is_pointer<T>::value == true && std::is_constructible<T1, Ts...>::value>::type _insert(uint32_t index, Ts&&... args);
+
+	template <typename T>
+	inline bool _get(uint64_t id);
+
+	template <typename T, typename T1, typename ...Ts>
+	inline bool _add(uint64_t id, Ts&&... args);
 
 public:
 	inline EntityManager(size_t chunkSize);
@@ -87,10 +99,19 @@ public:
 	inline void erase(uint64_t id);
 
 	template <typename T>
-	inline T* get(uint64_t id);
+	inline typename std::enable_if<std::is_pointer<T>::value == false, T*>::type get(uint64_t id);
+
+	template <typename T>
+	inline typename std::enable_if<std::is_pointer<T>::value == true, T>::type get(uint64_t id);
 
 	template <typename T, typename ...Ts>
-	inline T* add(uint64_t id, Ts&&... args);
+	inline typename std::enable_if<std::is_pointer<T>::value == false, T*>::type add(uint64_t id, Ts&&... args);
+
+	template <typename T, typename ...Ts>
+	inline typename std::enable_if<std::is_pointer<T>::value == true, T>::type add(uint64_t id, Ts&&... args);
+
+	template <typename T, typename T1, typename ...Ts>
+	inline typename std::enable_if<std::is_pointer<T>::value == true, T1*>::type add(uint64_t id, Ts&&... args);
 
 	template <typename T>
 	inline void remove(uint64_t id);
@@ -173,23 +194,23 @@ inline void EntityManager<typeWidth>::_iterate(const Identity& identity, const T
 
 	// get components and call lambda
 	std::tuple<Ts*...> components;
-	_get<0>(identity.index, components);
+	_getI<0>(identity.index, components);
 
 	lambda(combine32(identity.index, identity.version), *std::get<Ts*>(components)...);
 }
 
 template<uint32_t typeWidth>
 template <uint32_t i, typename ...Ts>
-typename std::enable_if<i == sizeof...(Ts)>::type EntityManager<typeWidth>::_get(uint32_t index, std::tuple<Ts*...>& tuple) { }
+typename std::enable_if<i == sizeof...(Ts)>::type EntityManager<typeWidth>::_getI(uint32_t index, std::tuple<Ts*...>& tuple) { }
 
 template<uint32_t typeWidth>
 template <uint32_t i, typename ...Ts>
-typename std::enable_if<i < sizeof...(Ts)>::type EntityManager<typeWidth>::_get(uint32_t index, std::tuple<Ts*...>& tuple) {
+typename std::enable_if<i < sizeof...(Ts)>::type EntityManager<typeWidth>::_getI(uint32_t index, std::tuple<Ts*...>& tuple) {
 	using T = typename std::tuple_element<i, std::tuple<Ts...>>::type;
 
 	std::get<i>(tuple) = _pools[TypeMask::index<T>()]->get<T>(index);
 
-	_get<i + 1>(index, tuple);
+	_getI<i + 1>(index, tuple);
 }
 
 template<uint32_t typeWidth>
@@ -198,7 +219,7 @@ typename std::enable_if<i == sizeof...(Ts)>::type EntityManager<typeWidth>::_res
 
 template<uint32_t typeWidth>
 template <uint32_t i, typename ...Ts>
-typename std::enable_if < i < sizeof...(Ts)>::type EntityManager<typeWidth>::_reserve(uint32_t index) {
+typename std::enable_if<i < sizeof...(Ts)>::type EntityManager<typeWidth>::_reserve(uint32_t index) {
 	using T = std::tuple_element<i, std::tuple<Ts...>>::type;
 
 	if (_pools[TypeMask::index<T>()] == nullptr)
@@ -210,15 +231,78 @@ typename std::enable_if < i < sizeof...(Ts)>::type EntityManager<typeWidth>::_re
 }
 
 template<uint32_t typeWidth>
-template <typename T, typename ...Ts>
-typename std::enable_if<std::is_constructible<T, EntityManager<typeWidth>&, uint64_t, Ts...>::value>::type EntityManager<typeWidth>::_insert(uint32_t index, Ts&&... args) {
+template <typename T, typename T1, typename ...Ts>
+typename std::enable_if<std::is_pointer<T>::value == false && std::is_constructible<T, EntityManager<typeWidth>&, uint64_t, Ts...>::value>::type EntityManager<typeWidth>::_insert(uint32_t index, Ts&&... args) {
 	_pools[TypeMask::index<T>()]->insert<T>(index, *this, combine32(index, _identities[index].version), std::forward<Ts>(args)...);
 }
 
 template<uint32_t typeWidth>
-template <typename T, typename ...Ts>
-typename std::enable_if<std::is_constructible<T, Ts...>::value>::type EntityManager<typeWidth>::_insert(uint32_t index, Ts&&... args) {
+template <typename T, typename T1, typename ...Ts>
+typename std::enable_if<std::is_pointer<T>::value == false && std::is_constructible<T, Ts...>::value>::type EntityManager<typeWidth>::_insert(uint32_t index, Ts&&... args) {
 	_pools[TypeMask::index<T>()]->insert<T>(index, std::forward<Ts>(args)...);
+}
+
+template<uint32_t typeWidth>
+template <typename T, typename T1, typename ...Ts>
+typename std::enable_if<std::is_pointer<T>::value == true && std::is_constructible<T1, EntityManager<typeWidth>&, uint64_t, Ts...>::value>::type EntityManager<typeWidth>::_insert(uint32_t index, Ts&&... args) {
+	_pools[TypeMask::index<T>()]->insert<T, T1>(index, *this, combine32(index, _identities[index].version), std::forward<Ts>(args)...);
+}
+
+template<uint32_t typeWidth>
+template <typename T, typename T1, typename ...Ts>
+typename std::enable_if<std::is_pointer<T>::value == true && std::is_constructible<T1, Ts...>::value>::type EntityManager<typeWidth>::_insert(uint32_t index, Ts&&... args) {
+	_pools[TypeMask::index<T>()]->insert<T, T1>(index, std::forward<Ts>(args)...);
+}
+
+template<uint32_t typeWidth>
+template <typename T>
+bool EntityManager<typeWidth>::_get(uint64_t id) {
+	uint32_t index = front64(id);
+	uint32_t version = back64(id);
+
+	if (!_validId(index, version))
+		return false;
+
+	uint32_t type = TypeMask::index<T>();
+
+	if (_pools[type] == nullptr)
+		return false;
+
+	assert(hasFlags(_identities[index].flags, Identity::Active)); // sanity
+
+	if (!_identities[index].mask.has<T>())
+		return false;
+
+	return true;
+}
+
+template<uint32_t typeWidth>
+template <typename T, typename T1, typename ...Ts>
+bool EntityManager<typeWidth>::_add(uint64_t id, Ts&&... args) {
+	uint32_t index = front64(id);
+	uint32_t version = back64(id);
+
+	assert(_validId(index, version) && "calling add with invalid id");
+
+	if (!_validId(index, version))
+		return false;
+
+	assert(hasFlags(_identities[index].flags, Identity::Active)); // sanity
+
+	uint32_t type = TypeMask::index<T>();
+
+	if (_identities[index].mask.has<T>())
+		return true;
+
+	// update identity
+	_identities[index].mask.add<T>();
+
+	// create pool if it doesn't exist
+	if (_pools[type] == nullptr)
+		_pools[type] = new ObjectPool<T>(_chunkSize);
+
+	_insert<T, T1, Ts...>(index, std::forward<Ts>(args)...);
+	return true;
 }
 
 template<uint32_t typeWidth>
@@ -289,54 +373,47 @@ void EntityManager<typeWidth>::erase(uint64_t id) {
 
 template <uint32_t typeWidth>
 template <typename T>
-T* EntityManager<typeWidth>::get(uint64_t id) {
-	uint32_t index = front64(id);
-	uint32_t version = back64(id);
-
-	if (!_validId(index, version))
+typename std::enable_if<std::is_pointer<T>::value == false, T*>::type EntityManager<typeWidth>::get(uint64_t id) {
+	if (!_get<T>(id))
 		return nullptr;
 
-	uint32_t type = TypeMask::index<T>();
+	return _pools[TypeMask::index<T>()]->get<T>(front64(id));
+}
 
-	if (_pools[type] == nullptr)
+template <uint32_t typeWidth>
+template <typename T>
+typename std::enable_if<std::is_pointer<T>::value == true, T>::type EntityManager<typeWidth>::get(uint64_t id) {
+	if (!_get<T>(id))
 		return nullptr;
 
-	assert(hasFlags(_identities[index].flags, Identity::Active)); // sanity
-
-	if (!_identities[index].mask.has<T>())
-		return nullptr;
-
-	return _pools[type]->get<T>(index);
+	return *_pools[TypeMask::index<T>()]->get<T>(front64(id));
 }
 
 template <uint32_t typeWidth>
 template <typename T, typename ...Ts>
-T* EntityManager<typeWidth>::add(uint64_t id, Ts&&... args) {
-	uint32_t index = front64(id);
-	uint32_t version = back64(id);
-
-	assert(_validId(index, version) && "calling add with invalid id");
-
-	if (!_validId(index, version))
+typename std::enable_if<std::is_pointer<T>::value == false, T*>::type EntityManager<typeWidth>::add(uint64_t id, Ts&&... args) {
+	if (!_add<T, typename std::remove_pointer<T>::type>(id, std::forward<Ts>(args)...))
 		return nullptr;
 
-	assert(hasFlags(_identities[index].flags, Identity::Active)); // sanity
+	return _pools[TypeMask::index<T>()]->get<T>(front64(id));
+}
 
-	uint32_t type = TypeMask::index<T>();
+template <uint32_t typeWidth>
+template <typename T, typename ...Ts>
+typename std::enable_if<std::is_pointer<T>::value == true, T>::type EntityManager<typeWidth>::add(uint64_t id, Ts&&... args) {
+	if (!_add<T, typename std::remove_pointer<T>::type>(id, std::forward<Ts>(args)...))
+		return nullptr;
 
-	if (_identities[index].mask.has<T>()) 
-		return _pools[type]->get<T>(index);
+	return _pools[TypeMask::index<T>()]->get<T>(front64(id));
+}
 
-	// create pool if it doesn't exist
-	if (_pools[type] == nullptr)
-		_pools[type] = new ObjectPool<T>(_chunkSize);
-	
-	_insert<T, Ts...>(index, std::forward<Ts>(args)...);
+template <uint32_t typeWidth>
+template <typename T, typename T1, typename ...Ts>
+typename std::enable_if<std::is_pointer<T>::value == true, T1*>::type EntityManager<typeWidth>::add(uint64_t id, Ts&&... args) {
+	if (!_add<T, T1>(id, std::forward<Ts>(args)...))
+		return nullptr;
 
-	// update identity
-	_identities[index].mask.add<T>();
-
-	return _pools[type]->get<T>(index);
+	return reinterpret_cast<T1*>(_pools[TypeMask::index<T>()]->get<T>(front64(id)));
 }
 
 template <uint32_t typeWidth>

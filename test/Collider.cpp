@@ -45,3 +45,8 @@ void Collider::activate(){
 	if (_rigidBody)
 		_rigidBody->activate();
 }
+
+void Collider::deactivate(){
+	if (_rigidBody)
+		_rigidBody->forceActivationState(WANTS_DEACTIVATION);
+}

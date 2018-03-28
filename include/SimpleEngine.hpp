@@ -12,6 +12,12 @@ template <uint32_t systems, uint32_t components, uint32_t events, uint32_t liste
 class SimpleEngine {
 	std::optional<BasePtr> _systems[systems];
 
+	template <typename T, typename ...Ts>
+	inline typename std::enable_if<std::is_constructible<T, SimpleEngine&, Ts...>::value>::type _newSystem(Ts&&... args);
+
+	template <typename T, typename ...Ts>
+	inline typename std::enable_if<!std::is_constructible<T, SimpleEngine&, Ts...>::value>::type _newSystem(Ts&&... args);
+
 public:
 	using EventHandler = EventHandler<events, listeners>;
 	using EntityManager = EntityManager<components>;
@@ -34,6 +40,18 @@ public:
 	template <typename T>
 	inline bool hasSystem();
 };
+
+template <uint32_t systems, uint32_t components, uint32_t events, uint32_t listeners>
+template <typename T, typename ...Ts>
+typename std::enable_if<std::is_constructible<T, SimpleEngine<systems, components, events, listeners>&, Ts...>::value>::type SimpleEngine<systems, components, events, listeners>::_newSystem(Ts&&... args) {
+	new (&_systems[typeIndex<SimpleEngine, T>()]) std::optional<VirtualPtr<T>>(*this, std::forward<Ts>(args)...);
+}
+
+template <uint32_t systems, uint32_t components, uint32_t events, uint32_t listeners>
+template <typename T, typename ...Ts>
+typename std::enable_if<!std::is_constructible<T, SimpleEngine<systems, components, events, listeners>&, Ts...>::value>::type SimpleEngine<systems, components, events, listeners>::_newSystem(Ts&&... args) {
+	new (&_systems[typeIndex<SimpleEngine, T>()]) std::optional<VirtualPtr<T>>(std::forward<Ts>(args)...);
+}
 
 template <uint32_t systems, uint32_t components, uint32_t events, uint32_t listeners>
 SimpleEngine<systems, components, events, listeners>::SimpleEngine(size_t chunkSize) : entities(chunkSize){
@@ -60,7 +78,7 @@ void SimpleEngine<systems, components, events, listeners>::newSystem(Ts && ...ar
 	assert(index < systems && "ran out of system slots");
 
 	if (!hasSystem<T>())
-		new (&_systems[index]) std::optional<VirtualPtr<T>>(*this, std::forward<Ts>(args)...);
+		_newSystem<T>(std::forward<Ts>(args)...);
 }
 
 template <uint32_t systems, uint32_t components, uint32_t events, uint32_t listeners>
