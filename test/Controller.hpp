@@ -43,4 +43,6 @@ public:
 	void reset();
 
 	void setPossessed(uint64_t id);
+
+	glm::dvec3 cursorPosition() const;
 };

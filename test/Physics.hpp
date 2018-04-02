@@ -25,7 +25,7 @@ class Physics {
 
 	btDiscreteDynamicsWorld* _dynamicsWorld;
 
-	void addRigidBody(uint64_t id, float mass, btCollisionShape* shape);
+	void _addRigidBody(uint64_t id, float mass, btCollisionShape* shape);
 
 public:
 	struct RayHit {
@@ -38,6 +38,8 @@ public:
 		uint64_t id = 0;
 		glm::dvec3 position;
 	};
+
+	void _removeRigidBody(btRigidBody* rigidBody);
 
 	Physics(Engine& engine);
 	~Physics();
@@ -75,5 +77,5 @@ public:
 	//void meshSweep(const std::string& file, const glm::dvec3& fromPos, const glm::dquat& fromRot, const glm::dvec3& toPos, const glm::dvec3& toRot);
 	//void planeSweep(const glm::dvec3& position, const glm::dvec3& fromPos, const glm::dquat& fromRot, const glm::dvec3& toPos, const glm::dvec3& toRot);
 
-	friend class Collider;
+	//friend class Collider;
 };

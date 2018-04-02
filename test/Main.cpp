@@ -12,10 +12,17 @@
 - Implement hierarchical physics and constraints
 - Collision callbacks
 
+- Dynamic component implementation for iterate
+
 - Implement referenced entity object
 
 - Physics proportions
 - Physics update and timing issues
+
+- Assimp mesh and bone hierachy loading
+- Vertex weights and animations
+
+- Deffered rendering and lighting
 */
 
 class MyState {
@@ -25,7 +32,7 @@ class MyState {
 	std::vector<uint64_t> _cubes;
 
 	void _spawnCubes(glm::dvec3 position = { 0.0, 0.0, 0.0 }, double zRotation = 0.0) {
-		for (uint32_t i = 0; i < 1000; i++) {
+		for (uint32_t i = 0; i < 100; i++) {
 			uint64_t id = _engine.entities.create();
 
 			Transform& transform = *_engine.entities.add<Transform>(id);
@@ -38,7 +45,7 @@ class MyState {
 
 			_engine.system<Physics>().addBox(id, { 4.0, 4.0, 4.0 }, 1.0);
 			Collider& collider = *_engine.entities.get<Collider>(id);
-			collider.deactivate();
+			//collider.deactivate();
 
 			_cubes.push_back(id);
 		}
@@ -67,8 +74,47 @@ public:
 	}
 
 	void load(int argc, char** argv) {
-		// Gravity
 		_engine.system<Physics>().setGravity(GlobalVec3::down * 400.f);
+
+		// FBX bone test
+		{
+			uint64_t parent = _engine.entities.create();
+
+			Transform& parentTransform = *_engine.entities.add<Transform>(parent);
+			parentTransform.setPosition({ 0, 100, 100 });
+			parentTransform.setScale({ 30, 30, 10 });
+
+			_engine.system<Renderer>().addShader(parent, "vertexShader.glsl", "fragmentShader.glsl");
+			_engine.system<Renderer>().addMesh(parent, "cube.obj");
+			_engine.system<Renderer>().addTexture(parent, "rgb.png");
+
+
+
+
+			_engine.system<Physics>().addBox(parent, { 15, 15, 5 }, 10.f);
+
+			//_engine.entities.get<Collider>(parent)->setGravity({ 0,0,0 });
+
+			_engine.system<Controller>().setPossessed(parent);
+
+
+			uint64_t child = _engine.entities.create();
+
+			Transform& childTransform = *_engine.entities.add<Transform>(child);
+			//childTransform.setPosition({ 0, 100, 150 });
+			childTransform.setPosition({ 0, 0, 25 });
+			childTransform.setScale({ 15, 15, 15 });
+
+			childTransform.setParent(&parentTransform);
+
+			_engine.system<Renderer>().addShader(child, "vertexShader.glsl", "fragmentShader.glsl");
+			_engine.system<Renderer>().addMesh(child, "sphere.obj");
+			_engine.system<Renderer>().addTexture(child, "rgb.png");
+
+			_engine.system<Physics>().addSphere(child, 15, 10.f);
+
+			//_engine.entities.get<Collider>(child)->setGravity({ 0,0,0 });
+		}
 
 		// Skybox
 		{
@@ -80,6 +126,7 @@ public:
 			_engine.system<Renderer>().addShader(id, "vertexShader.glsl", "fragmentShader.glsl");
 			_engine.system<Renderer>().addMesh(id, "skybox.obj");
 			_engine.system<Renderer>().addTexture(id, "skybox.png");
+
 		}
 
 		// Camera
@@ -87,7 +134,7 @@ public:
 			uint64_t id = _engine.entities.create();
 
 			Transform& transform = *_engine.entities.add<Transform>(id);
-			transform.setPosition({ 0.0, -50.0, 10.0 });
+			transform.setPosition({ 0.0, -50.0, 100.0 });
 			transform.setRotation(glm::dquat({ glm::radians(90.0), 0.0, 0.0 }));
 
 			_engine.system<Physics>().addSphere(id, 4.0, 100.0);
@@ -117,6 +164,17 @@ public:
 
 			Collider& collider = *_engine.entities.get<Collider>(id);
 			collider.setFriction(10.f);
+
+			uint64_t child = _engine.entities.create();
+
+			Transform& childTransform = *_engine.entities.add<Transform>(child);
+			//childTransform.setParent(&transform);
+			childTransform.setScale({ 5.0, 5.0, 5.0 });
+
+			_engine.system<Renderer>().addShader(child, "vertexShader.glsl", "fragmentShader.glsl");
+			_engine.system<Renderer>().addMesh(child, "axis.obj");
+			_engine.system<Renderer>().addTexture(child, "rgb.png");
+
 		}
 	}
 
@@ -127,12 +185,12 @@ public:
 		if (key == GLFW_KEY_3) {
 			Transform& transform = *_engine.entities.get<Transform>(_camera);
 
-			glm::dvec3 offset = transform.position();
-			offset.z = 0.0;
+			//glm::dvec3 offset = transform.position();
+			//offset.z = 0.0;
 
 			glm::dvec3 angles = glm::eulerAngles(transform.rotation());
 		
-			_spawnCubes(offset, angles.z);
+			_spawnCubes(_engine.system<Controller>().cursorPosition(), angles.z);
 		}
 		if (key == GLFW_KEY_1) {
 			for (uint64_t id : _cubes)
@@ -153,11 +211,11 @@ public:
 		else if (key == GLFW_KEY_4) {
 			Transform& transform = *_engine.entities.get<Transform>(_camera);
 
-			glm::dvec3 offset = transform.position();
-			offset.z = 0.0;
+			//glm::dvec3 offset = transform.position();
+			//offset.z = 0.0;
 
 			glm::dvec3 angles = glm::eulerAngles(transform.rotation());
-			_spawnDomino(offset, angles.z);
+			_spawnDomino(_engine.system<Controller>().cursorPosition(), angles.z);
 		}
 	}
 };
@@ -178,11 +236,21 @@ int main(int argc, char** argv) {
 	TimePoint timer;
 	double dt = 0.0;
 
+	const double counter = 1.0;
+	double i = counter;
+
 	while (engine.running) {
 		startTime(&timer);
 
 		engine.events.dispatch(Events::Input);
 		engine.events.dispatch(Events::Update, dt);
+
+		i -= dt;
+
+		if (i <= 0.0) {
+			std::cout << 1.0 / dt << " fps" << std::endl;
+			i = counter;
+		}
 
 		dt = deltaTime(timer);
 	}

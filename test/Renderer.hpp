@@ -79,12 +79,17 @@ class Renderer {
 	std::unordered_map<std::string, GLuint> _textures;
 	std::unordered_map<std::string, Mesh> _meshes;
 
+	bool _hasDefualtProgram = false;
+	uint32_t _defaultProgram;
+
 	//std::vector<Line> _debugLines;
 	//std::vector<Point> _debugPoints;
 
 	void _reshape(int height, int width);
 
 	void _extract(uint64_t parent, const aiScene* scene, const aiNode* node);
+
+	bool _loadShader(uint32_t* index, const std::string& vertexShader, const std::string& fragmentShader);
 
 public:
 	Renderer(Engine& engine);
@@ -101,6 +106,7 @@ public:
 	bool addTexture(uint64_t id, const std::string& textureFile);
 	bool addShader(uint64_t id, const std::string& vertexShader, const std::string& fragmentShader);
 
+	bool setDefaultShader(const std::string& vertexShader, const std::string& fragmentShader);
 	void setCamera(uint64_t id);
 
 	void lockCursor(bool lock);

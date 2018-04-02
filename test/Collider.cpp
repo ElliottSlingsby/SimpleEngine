@@ -3,17 +3,65 @@
 #include "Transform.hpp"
 #include "Physics.hpp"
 
-Collider::Collider(Engine::EntityManager& entities, uint64_t id) : _engine(*static_cast<Engine*>(entities.enginePtr())), _id(id) {
-	if (_engine.entities.has<Transform>(_id))
-		_engine.entities.get<Transform>(id)->_collider = this;
+void Collider::_setWorldPosition() {
+	Transform* transform = _engine.entities.get<Transform>(_id);
+
+	if (!_rigidBody) {
+		// do special stuff if part of CompoundShape
+
+		return;
+	}
+
+	btTransform bulletTransform = _rigidBody->getWorldTransform();
+	bulletTransform.setOrigin(toBt(transform->worldPosition()));
+
+	_rigidBody->setWorldTransform(bulletTransform);
+}
+
+void Collider::_setWorldRotation() {
+	Transform* transform = _engine.entities.get<Transform>(_id);
+
+	if (!_rigidBody) {
+		// do special stuff if part of CompoundShape
+
+		return;
+	}
+
+	btTransform bulletTransform = _rigidBody->getWorldTransform();
+	bulletTransform.setRotation(toBt(transform->worldRotation()));
+
+	_rigidBody->setWorldTransform(bulletTransform);
+}
+
+void Collider::_rebuildCompoundShape(){
+	Transform* transform = _engine.entities.get<Transform>(_id);
+
+	// find root transform
+
+	// delete CompoundShape using root's pointer
+
+	// create new one and add the root's Shape
+
+	// update root's RigidBody with CompoundSHape
+
+	// recursively go through children and
+	//		if has RigidBody remove from world and delete
+	//		add their Shape to the CompoundShape
+	//		update their CompoundShape pointer
+}
+
+Collider::Collider(Engine::EntityManager& entities, uint64_t id, btCollisionShape* const collisionShape, const btRigidBody::btRigidBodyConstructionInfo& constructionInfo, btDynamicsWorld* dynamicsWorld) : _engine(*static_cast<Engine*>(entities.enginePtr())), _id(id), _collisionShape(collisionShape), _rigidBody(new btRigidBody(constructionInfo)){
+	Transform* transform = _engine.entities.get<Transform>(id);
+	transform->_setCollider(this);
+	_rigidBody->setUserPointer(transform);
+	dynamicsWorld->addRigidBody(_rigidBody);
 }
 
 Collider::~Collider(){
-	if (_engine.entities.has<Transform>(_id))
-		_engine.entities.get<Transform>(_id)->_collider = nullptr;
+	_engine.entities.get<Transform>(_id)->_setCollider(nullptr);
 
 	if (_rigidBody) {
-		_engine.system<Physics>()._dynamicsWorld->removeRigidBody(_rigidBody);
+		_engine.system<Physics>()._removeRigidBody(_rigidBody);
 		delete _rigidBody;
 	}
 

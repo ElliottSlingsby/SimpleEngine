@@ -150,13 +150,13 @@ inline void applyTransform(Transform& transform, const aiMatrix4x4& aiMatrix) {
 		aiMatrix.d1, aiMatrix.d2, aiMatrix.d3, aiMatrix.d4
 	);
 
-	transform.setPosition({ aiMatrix.a4, aiMatrix.b4, aiMatrix.c4 });
-	transform.setRotation(glm::quat_cast(matrix));
+	transform.translate({ aiMatrix.a4, aiMatrix.b4, aiMatrix.c4 });
+	transform.rotate(glm::quat_cast(matrix));
 }
 
 void Renderer::_extract(uint64_t parent, const aiScene* scene, const aiNode * node){
 	Transform& parentTransform = *_engine.entities.add<Transform>(parent);
-
+	
 	if (!strcmp(node->mName.C_Str(), "RootNode"))
 		applyTransform(parentTransform, node->mTransformation);
 	else if (strcmpSuffix(node->mName.C_Str(), "$AssimpFbx$_Translation"))
@@ -172,8 +172,6 @@ void Renderer::_extract(uint64_t parent, const aiScene* scene, const aiNode * no
 	else if (strcmpSuffix(node->mName.C_Str(), "$AssimpFbx$_ScalingPivot"))
 		applyTransform(parentTransform, node->mTransformation);
 	else if (strcmpSuffix(node->mName.C_Str(), "$AssimpFbx$_ScalingOffset"))
-		applyTransform(parentTransform, node->mTransformation);
-	else if (strcmpSuffix(node->mName.C_Str(), "$AssimpFbx$_Translation"))
 		applyTransform(parentTransform, node->mTransformation);
 	else if (strcmpSuffix(node->mName.C_Str(), "$AssimpFbx$_Scaling"))
 		applyTransform(parentTransform, node->mTransformation);
@@ -193,7 +191,7 @@ void Renderer::_extract(uint64_t parent, const aiScene* scene, const aiNode * no
 		addShader(entity, "vertexShader.glsl", "fragmentShader.glsl"); // remove me
 		addMesh(entity, "axis.obj"); // remove me
 		addTexture(entity, "rgb.png"); // remove me
-
+		
 		Model& model = *_engine.entities.add<Model>(entity);
 
 		for (uint32_t i = 0; i < node->mNumMeshes; i++) {
@@ -205,6 +203,47 @@ void Renderer::_extract(uint64_t parent, const aiScene* scene, const aiNode * no
 
 	for (uint32_t i = 0; i < node->mNumChildren; i++)
 		_extract(entity, scene, node->mChildren[i]);
+}
+
+bool Renderer::_loadShader(uint32_t* index, const std::string& vertexShader, const std::string& fragmentShader) {
+	if (_shaders.find(vertexShader + '/' + fragmentShader) != _shaders.end()) {
+		*index = _shaders[vertexShader + fragmentShader];
+		return true;
+	}
+
+	Program program;
+
+	std::string vertexSrc = readFile(_path + vertexShader);
+	std::string fragmentSrc = readFile(_path + fragmentShader);
+
+	if ((vertexSrc == "" || fragmentSrc == "") || !createProgram(&program.program, &program.vertexShader, &program.fragmentShader, vertexSrc, fragmentSrc)) {
+		std::cerr << "cannot create program program" << std::endl;
+
+		if (vertexSrc == "")
+			std::cerr << _path << vertexShader << std::endl;
+
+		if (fragmentSrc == "")
+			std::cerr << _path << fragmentShader << std::endl;
+
+		return false;
+	}
+
+	// get uniform locations
+	program.uniformModel = glGetUniformLocation(program.program, MODEL_UNIFORM);
+	program.uniformView = glGetUniformLocation(program.program, VIEW_UNIFORM);
+	program.uniformProjection = glGetUniformLocation(program.program, PROJECTION_UNIFORM);
+	program.uniformModelView = glGetUniformLocation(program.program, MODELVIEW_UNIFORM);
+	program.uniformTexture = glGetUniformLocation(program.program, TEXTURE_UNIFORM);
+
+	glCheckError();
+
+	_programs.push_back(program);
+
+	*index = static_cast<uint32_t>(_programs.size() - 1);
+
+	_shaders[vertexShader + '/' + fragmentShader] = *index;
+
+	return true;
 }
 
 Renderer::Renderer(Engine& engine) : _engine(engine) {
@@ -241,6 +280,8 @@ void Renderer::load(int argc, char** argv) {
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 6);
 
+	glfwWindowHint(GLFW_SAMPLES, 4);
+
 	glfwWindowHint(GLFW_REFRESH_RATE, 1);
 
 	_window = glfwCreateWindow(_windowSize.x, _windowSize.y, DEFAULT_TITLE, nullptr, nullptr);
@@ -266,6 +307,8 @@ void Renderer::load(int argc, char** argv) {
 	
 	glEnable(GL_CULL_FACE);
 	glEnable(GL_DEPTH_TEST);
+	glEnable(GL_MULTISAMPLE);
+	glEnable(GL_DITHER);
 
 	_reshape(_windowSize.x, _windowSize.y);
 
@@ -381,6 +424,7 @@ bool Renderer::addScene(uint64_t id, const std::string & sceneFile) {
 		aiProcess_RemoveComponent
 	);
 
+
 	if (!scene) {
 		std::cerr << importer.GetErrorString() << std::endl;
 		return false;
@@ -484,7 +528,10 @@ bool Renderer::addMesh(uint64_t id, const std::string& meshFile) {
 
 	_meshes[meshFile].arrayObject = model.arrayObject;
 	_meshes[meshFile].attribBuffer = model.attribBuffer;
-	 _meshes[meshFile].indexCount = model.indexCount;
+	_meshes[meshFile].indexCount = model.indexCount;
+
+	if (_hasDefualtProgram)
+		model.program = _defaultProgram;
 
 	return true;
 }
@@ -531,6 +578,9 @@ bool Renderer::addTexture(uint64_t id, const std::string& textureFile) {
 
 	_textures[textureFile] = model.texture;
 
+	if (_hasDefualtProgram)
+		model.program = _defaultProgram;
+
 	return true;
 }
 
@@ -540,45 +590,19 @@ bool Renderer::addShader(uint64_t id, const std::string& vertexShader, const std
 
 	Model& model = *_engine.entities.add<Model>(id);
 
-	if (_shaders.find(vertexShader + fragmentShader) != _shaders.end()) {
-		model.hasProgram = true;
-		model.program = _shaders[vertexShader + fragmentShader];
-
-		return true;
-	}
-
-	Program program;
-
-	std::string vertexSrc = readFile(_path + vertexShader);
-	std::string fragmentSrc = readFile(_path + fragmentShader);
-
-	if ((vertexSrc == "" || fragmentSrc == "") || !createProgram(&program.program, &program.vertexShader, &program.fragmentShader, vertexSrc, fragmentSrc)) {
-		std::cerr << "cannot create program program" << std::endl;
-
-		if (vertexSrc == "")
-			std::cerr << _path << vertexShader << std::endl;
-
-		if (fragmentSrc == "")
-			std::cerr << _path << fragmentShader << std::endl;
-
+	if (!_loadShader(&model.program, vertexShader, fragmentShader))
 		return false;
-	}
-
-	// get uniform locations
-	program.uniformModel = glGetUniformLocation(program.program, MODEL_UNIFORM);
-	program.uniformView = glGetUniformLocation(program.program, VIEW_UNIFORM);
-	program.uniformProjection = glGetUniformLocation(program.program, PROJECTION_UNIFORM);
-	program.uniformModelView = glGetUniformLocation(program.program, MODELVIEW_UNIFORM);
-	program.uniformTexture = glGetUniformLocation(program.program, TEXTURE_UNIFORM);
-
-	glCheckError();
-
-	_programs.push_back(program);
-
+	
 	model.hasProgram = true;
-	model.program = static_cast<uint32_t>(_programs.size() - 1);
 
-	_shaders[vertexShader + fragmentShader] = model.program;
+	return true;
+}
+
+bool Renderer::setDefaultShader(const std::string& vertexShader, const std::string& fragmentShader){
+	if (!_loadShader(&_defaultProgram, vertexShader, fragmentShader))
+		return false;
+
+	_hasDefualtProgram = true;
 
 	return true;
 }

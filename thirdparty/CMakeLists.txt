@@ -18,7 +18,7 @@ add_subdirectory("glad-gl-4.6")
 set_target_properties("glad" PROPERTIES FOLDER "Thirdparty")
 
 # GLM maths library
-option(GLM_STATIC_LIBRARY_ENABLE "" ON)
+option(GLM_STATIC_LIBRARY_ENABLE ON)
 
 add_external_tar("glm-0.9.8.5" "https://github.com/g-truc/glm/archive/0.9.8.5.tar.gz" "")
 
@@ -45,6 +45,7 @@ option(BUILD_UNIT_TESTS OFF)
 
 option(USE_GLUT OFF)
 option(USE_GRAPHICAL_BENCHMARK OFF)
+option(USE_DOUBLE_PRECISION ON)
 
 add_external_tar("bullet3-2.87" "https://github.com/bulletphysics/bullet3/archive/2.87.tar.gz" "")
 

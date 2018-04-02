@@ -22,7 +22,7 @@ void Controller::load(int argc, char ** argv){
 	_cursor = _engine.entities.create();
 
 	Transform& transform = *_engine.entities.add<Transform>(_cursor);
-	transform.setScale({ 2, 2, 2 });
+	//transform.setScale({ 2, 2, 2 });
 
 	_engine.system<Renderer>().addShader(_cursor, "vertexShader.glsl", "fragmentShader.glsl");
 	_engine.system<Renderer>().addMesh(_cursor, "arrow.obj");
@@ -46,7 +46,7 @@ void Controller::update(double dt) {
 		double moveSpeed;
 
 		if (_boost)
-			moveSpeed = 200.0 * dt;
+			moveSpeed = 500.0 * dt;
 		else
 			moveSpeed = 100.0 * dt;
 
@@ -75,9 +75,7 @@ void Controller::update(double dt) {
 
 		collider->activate();
 	}
-
-
-
+	
 	if (_cursor && _engine.entities.has<Transform>(_cursor)) {
 		glm::dvec3 target;
 
@@ -117,13 +115,13 @@ void Controller::update(double dt) {
 }
 
 void Controller::mousemove(double x, double y){
-	glm::dvec2 newCursor = { x, y };
+	glm::dvec2 newMousePos = { x, y };
 
 	if (_mousePos == glm::dvec2(0.0, 0.0))
-		_mousePos = newCursor;
+		_mousePos = newMousePos;
 
-	_dMousePos = newCursor - _mousePos;
-	_mousePos = newCursor;
+	_dMousePos = newMousePos - _mousePos;
+	_mousePos = newMousePos;
 }
 
 void Controller::mousepress(int button, int action, int mods){
@@ -186,4 +184,8 @@ void Controller::setPossessed(uint64_t id) {
 		_engine.entities.reference(id);
 	
 	_possessed = id;
+}
+
+glm::dvec3 Controller::cursorPosition() const{
+	return _cursorPosition;
 }

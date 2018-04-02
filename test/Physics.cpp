@@ -5,29 +5,27 @@
 
 #include <BulletCollision\NarrowPhaseCollision\btRaycastCallback.h>
 
-void Physics::addRigidBody(uint64_t id, float mass, btCollisionShape* shape){
+void Physics::_addRigidBody(uint64_t id, float mass, btCollisionShape* shape){
 	if (!_dynamicsWorld)
 		return;
 
 	Transform& transform = *_engine.entities.add<Transform>(id);
-	Collider& collider = *_engine.entities.add<Collider>(id);
 
-	if (collider._collisionShape || collider._rigidBody)
-		return;
-	
-	collider._collisionShape = shape;
+	if (_engine.entities.has<Collider>(id))
+		_engine.entities.remove<Collider>(id);
 
-	btVector3 localInertia(0, 0, 0);
+	btVector3 localInertia;
 
 	if (mass != 0.f)
-		collider._collisionShape->calculateLocalInertia(static_cast<btScalar>(mass), localInertia);
+		shape->calculateLocalInertia(static_cast<btScalar>(mass), localInertia);
 
-	btRigidBody::btRigidBodyConstructionInfo rbInfo(static_cast<btScalar>(mass), &transform, collider._collisionShape, localInertia);
-	collider._rigidBody = new btRigidBody(rbInfo);
+	btRigidBody::btRigidBodyConstructionInfo rigidBodyInfo(static_cast<btScalar>(mass), &transform, shape, localInertia);
 
-	collider._rigidBody->setUserPointer(&transform);
+	Collider& collider = *_engine.entities.add<Collider>(id, shape, rigidBodyInfo, _dynamicsWorld);
+}
 
-	_dynamicsWorld->addRigidBody(collider._rigidBody);
+void Physics::_removeRigidBody(btRigidBody * rigidBody){
+	_dynamicsWorld->removeCollisionObject(rigidBody);
 }
 
 Physics::Physics(Engine & engine) : _engine(engine){
@@ -73,35 +71,35 @@ void Physics::addSphere(uint64_t id, float radius, float mass) {
 	if (_engine.entities.has<Collider>(id))
 		_engine.entities.remove<Collider>(id);
 
-	addRigidBody(id, mass, new btSphereShape(static_cast<btScalar>(radius)));
+	_addRigidBody(id, mass, new btSphereShape(static_cast<btScalar>(radius)));
 }
 
 void Physics::addBox(uint64_t id, const glm::dvec3& dimensions, float mass) {
 	if (_engine.entities.has<Collider>(id))
 		_engine.entities.remove<Collider>(id);
 
-	addRigidBody(id, mass, new btBoxShape(btVector3(dimensions.x, dimensions.y, dimensions.z) * 2));
+	_addRigidBody(id, mass, new btBoxShape(btVector3(dimensions.x, dimensions.y, dimensions.z) * 2));
 }
 
 void Physics::addCylinder(uint64_t id, float radius, float height, float mass) {
 	if (_engine.entities.has<Collider>(id))
 		_engine.entities.remove<Collider>(id);
 
-	addRigidBody(id, mass, new btCylinderShape(btVector3(radius * 2, radius * 2, height)));
+	_addRigidBody(id, mass, new btCylinderShape(btVector3(radius * 2, radius * 2, height)));
 }
 
 void Physics::addCapsule(uint64_t id, float radius, float height, float mass) {
 	if (_engine.entities.has<Collider>(id))
 		_engine.entities.remove<Collider>(id);
 
-	addRigidBody(id, mass, new btCapsuleShape(radius, height));
+	_addRigidBody(id, mass, new btCapsuleShape(radius, height));
 }
 
 void Physics::addStaticPlane(uint64_t id){
 	if (_engine.entities.has<Collider>(id))
 		_engine.entities.remove<Collider>(id);
 
-	addRigidBody(id, 0.f, new btStaticPlaneShape(btVector3(0, 0, 1), 0));
+	_addRigidBody(id, 0.f, new btStaticPlaneShape(btVector3(0, 0, 1), 0));
 }
 
 void Physics::rayTest(const glm::dvec3 & from, const glm::dvec3 & to, std::vector<RayHit>& hits){

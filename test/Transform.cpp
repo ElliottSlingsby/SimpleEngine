@@ -1,29 +1,42 @@
 #include "Transform.hpp"
 
+void Transform::getWorldTransform(btTransform& transform) const {
+	transform.setOrigin(toBt(worldPosition()));
+	transform.setRotation(toBt(worldRotation()));
+}
+
+void Transform::setWorldTransform(const btTransform& transform) {
+	_position = glm::dvec3();
+	glm::dvec3 parentPosition = worldPosition();
+
+	_rotation = glm::dquat();
+	glm::dquat parentRotation = worldRotation();
+	
+	_position = (toGlm<double>(transform.getOrigin()) - parentPosition) * parentRotation;
+	_rotation = glm::inverse(parentRotation) * toGlm<double>(transform.getRotation());
+}
+
 void Transform::_setPosition(const glm::dvec3& position) {
+	glm::dvec3 difference = position - _position;
 	_position = position;
-
-	if (_collider) {
-		btTransform transform = _collider->_rigidBody->getWorldTransform();
-
-		transform.setOrigin(toBt(position));
-		_collider->_rigidBody->setWorldTransform(transform);
-	}
+	
+	if (_collider) 
+		_collider->_setWorldPosition();
 }
 
 void Transform::_setRotation(const glm::dquat& rotation) {
 	_rotation = rotation;
+	
+	if (_collider)
+		_collider->_setWorldRotation();
+}
 
-	if (_collider) {
-		btTransform transform = _collider->_rigidBody->getWorldTransform();
-
-		transform.setRotation(toBt(rotation));
-		_collider->_rigidBody->setWorldTransform(transform);
-	}
+void Transform::_setCollider(Collider* collider) {
+	_collider = collider;
 }
 
 Transform::Transform(Engine::EntityManager& entities, uint64_t id) : _engine(*static_cast<Engine*>(entities.enginePtr())), _id(id) {
-	if (_engine.entities.has<Collider>(_id))
+	if (_engine.entities.has<Collider>(_id)) 
 		_collider = _engine.entities.get<Collider>(_id);
 }
 
@@ -45,6 +58,9 @@ void Transform::setParent(Transform* other) {
 
 	other->_children.push_back(this);
 	_parent = other;
+
+	if (_collider)
+		_collider->_rebuildCompoundShape();
 }
 
 void Transform::setChild(Transform* other) {
@@ -53,20 +69,72 @@ void Transform::setChild(Transform* other) {
 
 	_children.push_back(other);
 	other->setParent(this);
+
+	if (_collider)
+		_collider->_rebuildCompoundShape();
 }
 
 void Transform::removeParent() {
-	if (_parent)
-		_parent->_children.erase(std::find(_parent->_children.begin(), _parent->_children.end(), this));
+	if (!_parent)
+		return;
+	
+	_parent->_children.erase(std::find(_parent->_children.begin(), _parent->_children.end(), this));
+
+	if (_parent->_collider)
+		_parent->_collider->_rebuildCompoundShape();
 
 	_parent = nullptr;
+
+	if (_collider) 
+		_collider->_rebuildCompoundShape();
+}
+
+void Transform::removeChild(uint32_t i){
+	if (i >= _children.size())
+		return;
+
+	Transform* child = _children[i];
+	child->_parent = nullptr;
+
+	if (child->_collider)
+		child->_collider->_rebuildCompoundShape();
+
+	_children.erase(_children.begin() + i);
+
+	if (_collider) 
+		_collider->_rebuildCompoundShape();
 }
 
 void Transform::removeChildren() {
-	for (Transform* child : _children)
+	if (!_children.size())
+		return;
+
+	for (Transform* child : _children) {
 		child->_parent = nullptr;
+		
+		if (child->_collider)
+			child->_collider->_rebuildCompoundShape();
+	}
 
 	_children.clear();
+
+	if (_collider)
+		_collider->_rebuildCompoundShape();
+}
+
+Transform* Transform::parent() {
+	return _parent;
+}
+
+Transform* Transform::child(uint32_t i) {
+	if (i >= _children.size())
+		return nullptr;
+
+	return _children[i];
+}
+
+uint32_t Transform::children() const {
+	return static_cast<uint32_t>(_children.size());
 }
 
 void Transform::setPosition(const glm::dvec3& position) {
@@ -94,6 +162,9 @@ glm::dvec3 Transform::scale() const {
 }
 
 glm::dvec3 Transform::worldPosition() const {
+	if (!hasFlags(_inheritanceFlags, Position))
+		return _position;
+
 	glm::dvec3 position = _position;
 	Transform* rParent = _parent;
 
@@ -106,6 +177,9 @@ glm::dvec3 Transform::worldPosition() const {
 }
 
 glm::dquat Transform::worldRotation() const {
+	if (!hasFlags(_inheritanceFlags, Rotation))
+		return _rotation;
+
 	glm::dquat rotation = _rotation;
 	Transform* rParent = _parent;
 
@@ -118,9 +192,12 @@ glm::dquat Transform::worldRotation() const {
 }
 
 glm::dvec3 Transform::worldScale() const {
+	if (!hasFlags(_inheritanceFlags, Scale))
+		return _scale;
+
 	glm::dvec3 scale = _scale;
 	Transform* rParent = _parent;
-
+	
 	while (rParent != nullptr) {
 		scale *= rParent->_scale;
 		rParent = rParent->_parent;
@@ -145,12 +222,23 @@ void Transform::globalTranslate(const glm::dvec3& translation) {
 	_setPosition(_position + translation);
 }
 
-void Transform::getWorldTransform(btTransform& transform) const {
-	transform.setOrigin(toBt(_position));
-	transform.setRotation(toBt(_rotation));
+void Transform::inheritPosition(bool value) {
+	if (value)
+		_inheritanceFlags |= Position;
+	else
+		_inheritanceFlags &= ~Position;
 }
 
-void Transform::setWorldTransform(const btTransform& transform) {
-	_position = toGlm<double>(transform.getOrigin());
-	_rotation = toGlm<double>(transform.getRotation());
+void Transform::inheritRotation(bool value) {
+	if (value)
+		_inheritanceFlags |= Rotation;
+	else
+		_inheritanceFlags &= ~Rotation;
+}
+
+void Transform::inheritScale(bool value) {
+	if (value)
+		_inheritanceFlags |= Scale;
+	else
+		_inheritanceFlags &= ~Scale;
 }
