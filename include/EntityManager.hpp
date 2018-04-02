@@ -142,9 +142,6 @@ public:
 
 template<uint32_t typeWidth>
 bool EntityManager<typeWidth>::_validId(uint32_t index, uint32_t version) const{
-	assert(index < _identities.size() && "id index out of range");
-	assert(version == _identities[index].version && "id version mismatch");
-
 	if (index >= _identities.size())
 		return false;
 

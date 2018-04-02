@@ -29,7 +29,7 @@ class MyState {
 	Engine& _engine;
 
 	uint64_t _camera = 0;
-	std::vector<uint64_t> _cubes;
+	std::vector<uint64_t> _junk;
 
 	void _spawnCubes(glm::dvec3 position = { 0.0, 0.0, 0.0 }, double zRotation = 0.0) {
 		for (uint32_t i = 0; i < 100; i++) {
@@ -45,9 +45,9 @@ class MyState {
 
 			_engine.system<Physics>().addBox(id, { 4.0, 4.0, 4.0 }, 1.0);
 			Collider& collider = *_engine.entities.get<Collider>(id);
-			//collider.deactivate();
+			collider.deactivate();
 
-			_cubes.push_back(id);
+			_junk.push_back(id);
 		}
 	}
 
@@ -64,7 +64,7 @@ class MyState {
 
 		_engine.system<Physics>().addBox(id, { 6.0, 2.5, 13.0 }, 100.0);
 
-		_cubes.push_back(id);
+		_junk.push_back(id);
 	}
 
 public:
@@ -76,10 +76,9 @@ public:
 	void load(int argc, char** argv) {
 		_engine.system<Physics>().setGravity(GlobalVec3::down * 400.f);
 
-		// FBX bone test
+		// Child / Parent Test
+		uint64_t parent = _engine.entities.create();
 		{
-			uint64_t parent = _engine.entities.create();
-
 			Transform& parentTransform = *_engine.entities.add<Transform>(parent);
 			parentTransform.setPosition({ 0, 100, 100 });
 			parentTransform.setScale({ 30, 30, 10 });
@@ -88,24 +87,18 @@ public:
 			_engine.system<Renderer>().addMesh(parent, "cube.obj");
 			_engine.system<Renderer>().addTexture(parent, "rgb.png");
 
-
-
-
 			_engine.system<Physics>().addBox(parent, { 15, 15, 5 }, 10.f);
 
-			//_engine.entities.get<Collider>(parent)->setGravity({ 0,0,0 });
+			_engine.entities.get<Collider>(parent)->setGravity({ 0, 0, 0 });
+		}
 
-			_engine.system<Controller>().setPossessed(parent);
-
-
-			uint64_t child = _engine.entities.create();
-
+		uint64_t child = _engine.entities.create();
+		{
 			Transform& childTransform = *_engine.entities.add<Transform>(child);
-			//childTransform.setPosition({ 0, 100, 150 });
 			childTransform.setPosition({ 0, 0, 25 });
 			childTransform.setScale({ 15, 15, 15 });
 
-			childTransform.setParent(&parentTransform);
+			childTransform.setParent(parent);
 
 			_engine.system<Renderer>().addShader(child, "vertexShader.glsl", "fragmentShader.glsl");
 			_engine.system<Renderer>().addMesh(child, "sphere.obj");
@@ -113,68 +106,69 @@ public:
 
 			_engine.system<Physics>().addSphere(child, 15, 10.f);
 
-			//_engine.entities.get<Collider>(child)->setGravity({ 0,0,0 });
+			_engine.entities.get<Collider>(child)->setGravity({ 0, 0, 0 });
 		}
 
-		// Skybox
-		{
-			uint64_t id = _engine.entities.create();
+		// Erase test
+		_engine.entities.erase(parent);
 
-			Transform& transform = *_engine.entities.add<Transform>(id);
+		// Skybox
+		uint64_t skybox = _engine.entities.create();
+		{
+			Transform& transform = *_engine.entities.add<Transform>(skybox);
 			transform.setScale({ 1000, 1000, 1000 });
 
-			_engine.system<Renderer>().addShader(id, "vertexShader.glsl", "fragmentShader.glsl");
-			_engine.system<Renderer>().addMesh(id, "skybox.obj");
-			_engine.system<Renderer>().addTexture(id, "skybox.png");
+			_engine.system<Renderer>().addShader(skybox, "vertexShader.glsl", "fragmentShader.glsl");
+			_engine.system<Renderer>().addMesh(skybox, "skybox.obj");
+			_engine.system<Renderer>().addTexture(skybox, "skybox.png");
 
 		}
 
 		// Camera
+		uint64_t camera = _engine.entities.create();
 		{
-			uint64_t id = _engine.entities.create();
-
-			Transform& transform = *_engine.entities.add<Transform>(id);
+			Transform& transform = *_engine.entities.add<Transform>(camera);
 			transform.setPosition({ 0.0, -50.0, 100.0 });
 			transform.setRotation(glm::dquat({ glm::radians(90.0), 0.0, 0.0 }));
 
-			_engine.system<Physics>().addSphere(id, 4.0, 100.0);
-			Collider& collider = *_engine.entities.get<Collider>(id);
+			_engine.system<Physics>().addSphere(camera, 4.0, 100.0);
+			Collider& collider = *_engine.entities.get<Collider>(camera);
 			collider.setGravity({ 0, 0, 0 });
 
-			_engine.system<Renderer>().setCamera(id);
-			_engine.system<Controller>().setPossessed(id);
+			_engine.system<Renderer>().setCamera(camera);
+			_engine.system<Controller>().setPossessed(camera);
 
-			_camera = id;
+			_camera = camera;
 		}
 
 		// Floor
+		uint64_t floor = _engine.entities.create();
 		{
-			uint64_t id = _engine.entities.create();
-
-			Transform& transform = *_engine.entities.add<Transform>(id);
+			Transform& transform = *_engine.entities.add<Transform>(floor);
 			transform.setScale({ 10000.0, 10000.0, 10000.0 });
 
-			_engine.system<Renderer>().addShader(id, "vertexShader.glsl", "fragmentShader.glsl");
-			_engine.system<Renderer>().addMesh(id, "plane.obj");
-			_engine.system<Renderer>().addTexture(id, "checker.png");
+			_engine.system<Renderer>().addShader(floor, "vertexShader.glsl", "fragmentShader.glsl");
+			_engine.system<Renderer>().addMesh(floor, "plane.obj");
+			_engine.system<Renderer>().addTexture(floor, "checker.png");
 
-			_engine.entities.get<Model>(id)->linearTexture = false;
+			_engine.entities.get<Model>(floor)->linearTexture = false;
 
-			_engine.system<Physics>().addStaticPlane(id);
+			_engine.system<Physics>().addStaticPlane(floor);
 
-			Collider& collider = *_engine.entities.get<Collider>(id);
+			Collider& collider = *_engine.entities.get<Collider>(floor);
 			collider.setFriction(10.f);
+		}
 
-			uint64_t child = _engine.entities.create();
-
-			Transform& childTransform = *_engine.entities.add<Transform>(child);
-			//childTransform.setParent(&transform);
+		// Axis
+		uint64_t axis = _engine.entities.create();
+		{
+			Transform& childTransform = *_engine.entities.add<Transform>(axis);
+			childTransform.setParent(floor);
 			childTransform.setScale({ 5.0, 5.0, 5.0 });
 
-			_engine.system<Renderer>().addShader(child, "vertexShader.glsl", "fragmentShader.glsl");
-			_engine.system<Renderer>().addMesh(child, "axis.obj");
-			_engine.system<Renderer>().addTexture(child, "rgb.png");
-
+			_engine.system<Renderer>().addShader(axis, "vertexShader.glsl", "fragmentShader.glsl");
+			_engine.system<Renderer>().addMesh(axis, "axis.obj");
+			_engine.system<Renderer>().addTexture(axis, "rgb.png");
 		}
 	}
 
@@ -185,18 +179,14 @@ public:
 		if (key == GLFW_KEY_3) {
 			Transform& transform = *_engine.entities.get<Transform>(_camera);
 
-			//glm::dvec3 offset = transform.position();
-			//offset.z = 0.0;
-
 			glm::dvec3 angles = glm::eulerAngles(transform.rotation());
-		
 			_spawnCubes(_engine.system<Controller>().cursorPosition(), angles.z);
 		}
 		if (key == GLFW_KEY_1) {
-			for (uint64_t id : _cubes)
+			for (uint64_t id : _junk)
 				_engine.entities.erase(id);
 
-			_cubes.clear();
+			_junk.clear();
 		}
 		else if (key == GLFW_KEY_2) {
 			if (_engine.entities.has<Collider>(_camera)) {
@@ -210,9 +200,6 @@ public:
 		}
 		else if (key == GLFW_KEY_4) {
 			Transform& transform = *_engine.entities.get<Transform>(_camera);
-
-			//glm::dvec3 offset = transform.position();
-			//offset.z = 0.0;
 
 			glm::dvec3 angles = glm::eulerAngles(transform.rotation());
 			_spawnDomino(_engine.system<Controller>().cursorPosition(), angles.z);

@@ -184,7 +184,7 @@ void Renderer::_extract(uint64_t parent, const aiScene* scene, const aiNode * no
 		entity = _engine.entities.create();
 	
 		Transform& transform = *_engine.entities.add<Transform>(entity);
-		transform.setParent(_engine.entities.get<Transform>(parent));
+		transform.setParent(entity);
 
 		applyTransform(transform, node->mTransformation);
 

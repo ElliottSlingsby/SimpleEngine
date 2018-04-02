@@ -51,10 +51,11 @@ inline btVector3 toBt(const glm::tvec3<T>& from) {
 
 class Transform : public btMotionState{
 	enum InheritanceFlags : uint8_t {
-		None = 0x00,
-		Position = 0x01,
-		Rotation = 0x02,
-		Scale = 0x04,
+		None = 0,
+
+		Position = 1,
+		Rotation = 2,
+		Scale = 4,
 	};
 
 	Engine& _engine;
@@ -64,10 +65,8 @@ class Transform : public btMotionState{
 	glm::dquat _rotation;
 	glm::dvec3 _scale = { 1.f, 1.f, 1.f };
 
-	Transform* _parent = nullptr;
-	std::vector<Transform*> _children;
-
-	Collider* _collider = nullptr;
+	uint64_t _parent = 0;
+	std::vector<uint64_t> _children;
 
 	uint8_t _inheritanceFlags = Position | Rotation;
 
@@ -78,22 +77,23 @@ class Transform : public btMotionState{
 	void _setRotation(const glm::dquat& rotation);
 
 public:
-	void _setCollider(Collider* collider);
-
 	Transform(Engine::EntityManager& entities, uint64_t id);
 	~Transform();
 
 	uint64_t id() const;
 
-	void setParent(Transform* other);
-	void setChild(Transform* other);
+	void setParent(uint64_t other);
+	void setChild(uint64_t other);
 
 	void removeParent();
 	void removeChild(uint32_t i);
+
 	void removeChildren();
 
-	Transform* parent();
-	Transform* child(uint32_t i);
+	uint64_t root() const;
+
+	uint64_t parent();
+	uint64_t child(uint32_t i);
 
 	uint32_t children() const;
 
@@ -105,10 +105,14 @@ public:
 	glm::dquat rotation() const;
 	glm::dvec3 scale() const;
 
+	glm::dvec3 relativePosition(uint64_t to) const;
+	glm::dquat relativeRotation(uint64_t to) const;
+	glm::dvec3 relativeScale(uint64_t to) const;
+
 	glm::dvec3 worldPosition() const;
 	glm::dquat worldRotation() const;
 	glm::dvec3 worldScale() const;
-
+	
 	void rotate(const glm::dquat& rotation);
 	void translate(const glm::dvec3& translation);
 
@@ -118,6 +122,4 @@ public:
 	void inheritPosition(bool value);
 	void inheritRotation(bool value);
 	void inheritScale(bool value);
-
-	//friend class Collider;
 };

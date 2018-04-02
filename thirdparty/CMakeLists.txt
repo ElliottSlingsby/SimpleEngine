@@ -3,10 +3,10 @@ add_custom_target("uninstall")
 set_target_properties("uninstall" PROPERTIES FOLDER "CMakePredefinedTargets")
 
 # GLFW native window handler
-option(GLFW_BUILD_DOCS OFF)
-option(GLFW_BUILD_EXAMPLES OFF)
-option(GLFW_BUILD_TESTS OFF)
-option(GLFW_INSTALL OFF)
+option(GLFW_BUILD_DOCS "" OFF)
+option(GLFW_BUILD_EXAMPLES "" OFF)
+option(GLFW_BUILD_TESTS "" OFF)
+option(GLFW_INSTALL "" OFF)
 
 add_external_tar("glfw-3.2.1" "https://github.com/glfw/glfw/archive/3.2.1.tar.gz" "")
 
@@ -18,13 +18,15 @@ add_subdirectory("glad-gl-4.6")
 set_target_properties("glad" PROPERTIES FOLDER "Thirdparty")
 
 # GLM maths library
-option(GLM_STATIC_LIBRARY_ENABLE ON)
+option(GLM_STATIC_LIBRARY_ENABLE "" ON)
 
 add_external_tar("glm-0.9.8.5" "https://github.com/g-truc/glm/archive/0.9.8.5.tar.gz" "")
 
 set_target_properties("glm_static" PROPERTIES FOLDER "Thirdparty")
 
 # TinyObjLoader obj loader
+#option(TINYOBJLOADER_USE_DOUBLE "" ON)
+
 add_external_tar("tinyobjloader-1.0.6" "https://github.com/syoyo/tinyobjloader/archive/v1.0.6.tar.gz" "")
 
 set_target_properties("tinyobjloader" PROPERTIES FOLDER "Thirdparty")
@@ -35,17 +37,17 @@ add_subdirectory("stb")
 set_target_properties("stb_dummy" PROPERTIES FOLDER "Thirdparty")
 
 # Bullet3 physics library
-option(BUILD_BULLET2_DEMOS OFF)
-option(BUILD_CLSOCKET OFF)
-option(BUILD_CPU_DEMOS OFF)
-option(BUILD_ENET OFF)
-option(BUILD_EXTRAS OFF)
-option(BUILD_OPENGL3_DEMOS OFF)
-option(BUILD_UNIT_TESTS OFF)
+option(BUILD_BULLET2_DEMOS "" OFF)
+option(BUILD_CLSOCKET "" OFF)
+option(BUILD_CPU_DEMOS "" OFF)
+option(BUILD_ENET "" OFF)
+option(BUILD_EXTRAS "" OFF)
+option(BUILD_OPENGL3_DEMOS "" OFF)
+option(BUILD_UNIT_TESTS "" OFF)
 
-option(USE_GLUT OFF)
-option(USE_GRAPHICAL_BENCHMARK OFF)
-option(USE_DOUBLE_PRECISION ON)
+option(USE_GLUT "" OFF)
+option(USE_GRAPHICAL_BENCHMARK "" OFF)
+#option(USE_DOUBLE_PRECISION "" ON)
 
 add_external_tar("bullet3-2.87" "https://github.com/bulletphysics/bullet3/archive/2.87.tar.gz" "")
 
@@ -73,8 +75,10 @@ set_target_properties("BulletSoftBody" PROPERTIES FOLDER "Thirdparty")
 set_target_properties("LinearMath" PROPERTIES FOLDER "Thirdparty")
 
 # Assimp
-option(ASSIMP_BUILD_TESTS OFF)
-option(ASSIMP_BUILD_SAMPLES OFF)
+option(ASSIMP_BUILD_TESTS "" OFF)
+option(ASSIMP_BUILD_SAMPLES "" OFF)
+option(ASSIMP_BUILD_SAMPLES "" OFF)
+#option(ASSIMP_DOUBLE_PRECISION "" ON)
 
 add_external_tar("assimp-4.1.0" "https://github.com/assimp/assimp/archive/v4.1.0.tar.gz" "")
 

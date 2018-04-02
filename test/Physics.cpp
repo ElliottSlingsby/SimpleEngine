@@ -21,11 +21,15 @@ void Physics::_addRigidBody(uint64_t id, float mass, btCollisionShape* shape){
 
 	btRigidBody::btRigidBodyConstructionInfo rigidBodyInfo(static_cast<btScalar>(mass), &transform, shape, localInertia);
 
-	Collider& collider = *_engine.entities.add<Collider>(id, shape, rigidBodyInfo, _dynamicsWorld);
+	Collider& collider = *_engine.entities.add<Collider>(id, shape, rigidBodyInfo);
 }
 
-void Physics::_removeRigidBody(btRigidBody * rigidBody){
-	_dynamicsWorld->removeCollisionObject(rigidBody);
+void Physics::_register(btRigidBody * rigidBody){
+	_dynamicsWorld->addRigidBody(rigidBody);
+}
+
+void Physics::_unregister(btRigidBody * rigidBody) {
+	_dynamicsWorld->removeRigidBody(rigidBody);
 }
 
 Physics::Physics(Engine & engine) : _engine(engine){
@@ -43,16 +47,12 @@ Physics::~Physics(){
 
 void Physics::load(int argc, char ** argv){
 	_collisionConfiguration = new btDefaultCollisionConfiguration();
-
 	_dispatcher = new btCollisionDispatcher(_collisionConfiguration);
-
 	_overlappingPairCache = new btDbvtBroadphase();
-
 	_solver = new btSequentialImpulseConstraintSolver;
-
 	_dynamicsWorld = new btDiscreteDynamicsWorld(_dispatcher, _overlappingPairCache, _solver, _collisionConfiguration);
 
-	setGravity({ 0.f, 0.f, 0.f });
+	setGravity(glm::dvec3());
 }
 
 void Physics::update(double dt){
@@ -118,10 +118,7 @@ void Physics::rayTest(const glm::dvec3 & from, const glm::dvec3 & to, std::vecto
 	for (uint32_t i = 0; i < results.m_collisionObjects.size(); i++) {
 		uint64_t id = static_cast<Transform*>(results.m_collisionObjects[i]->getUserPointer())->id();
 
-		btVector3 position = results.m_hitPointWorld[i];
-		btVector3 normal = results.m_hitNormalWorld[i];
-
-		hits.push_back({ id,{ position.x(), position.y(), position.z() },{ normal.x(), normal.y(), normal.z() } });
+		hits.push_back({ id, toGlm<double>(results.m_hitPointWorld[i]), toGlm<double>(results.m_hitNormalWorld[i]) });
 	}
 }
 
@@ -141,16 +138,11 @@ Physics::RayHit Physics::rayTest(const glm::dvec3 & from, const glm::dvec3 & to)
 
 	uint64_t id = static_cast<Transform*>(results.m_collisionObject->getUserPointer())->id();
 
-	btVector3 position = results.m_hitPointWorld;
-	btVector3 normal = results.m_hitNormalWorld;
-
-	return { id, { position.x(), position.y(), position.z() }, { normal.x(), normal.y(), normal.z() } };
+	return { id, toGlm<double>(results.m_hitPointWorld), toGlm<double>(results.m_hitNormalWorld) };
 }
 
 void Physics::sphereTest(float radius, const glm::dvec3 & position, const glm::dquat & rotation, std::vector<SweepHit>& hits){
 
-
-	//btCollisionWorld::ClosestConvexResultCallback results(0, )
 }
 
 void Physics::sphereSweep(uint64_t id, float radius, const glm::dvec3 & fromPos, const glm::dquat & fromRot, const glm::dvec3 & toPos, const glm::dvec3 & toRot, std::vector<SweepHit>& hits){

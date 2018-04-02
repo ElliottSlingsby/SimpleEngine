@@ -16,16 +16,15 @@ class Physics {
 	Engine& _engine;
 
 	btDefaultCollisionConfiguration* _collisionConfiguration;
-
 	btCollisionDispatcher* _dispatcher;
-
 	btBroadphaseInterface* _overlappingPairCache;
-
 	btSequentialImpulseConstraintSolver* _solver;
-
 	btDiscreteDynamicsWorld* _dynamicsWorld;
 
 	void _addRigidBody(uint64_t id, float mass, btCollisionShape* shape);
+
+	void _register(btRigidBody* rigidBody);
+	void _unregister(btRigidBody* rigidBody);
 
 public:
 	struct RayHit {
@@ -38,8 +37,6 @@ public:
 		uint64_t id = 0;
 		glm::dvec3 position;
 	};
-
-	void _removeRigidBody(btRigidBody* rigidBody);
 
 	Physics(Engine& engine);
 	~Physics();
@@ -64,18 +61,7 @@ public:
 	RayHit rayTest(const glm::dvec3& from, const glm::dvec3& to);
 
 	void sphereTest(float radius, const glm::dvec3& position, const glm::dquat& rotation, std::vector<SweepHit>& hits);
-	//void boxTest(const glm::dvec3& dimensions, const glm::dvec3& position, const glm::dquat& rotation);
-	//void cylinderTest(float radius,  float height, const glm::dvec3& position, const glm::dquat& rotation);
-	//void capsuleTest(float radius, float height, const glm::dvec3& position, const glm::dquat& rotation);
-	//void meshTest(const std::string& file, const glm::dvec3& position, const glm::dquat& rotation);
-	//void planeTest(const glm::dvec3& position, const glm::dquat& rotation);
-
 	void sphereSweep(uint64_t id, float radius, const glm::dvec3& fromPos, const glm::dquat& fromRot, const glm::dvec3& toPos, const glm::dvec3& toRot, std::vector<SweepHit>& hits);
-	//void boxSweep(const glm::dvec3& dimensions, const glm::dvec3& fromPos, const glm::dquat& fromRot, const glm::dvec3& toPos, const glm::dvec3& toRotn);
-	//void cylinderSweep(float radius,  float height, const glm::dvec3& fromPos, const glm::dquat& fromRot, const glm::dvec3& toPos, const glm::dvec3& toRot);
-	//void capsuleSweep(float radius, float height, const glm::dvec3& fromPos, const glm::dquat& fromRot, const glm::dvec3& toPos, const glm::dvec3& toRot);
-	//void meshSweep(const std::string& file, const glm::dvec3& fromPos, const glm::dquat& fromRot, const glm::dvec3& toPos, const glm::dvec3& toRot);
-	//void planeSweep(const glm::dvec3& position, const glm::dvec3& fromPos, const glm::dquat& fromRot, const glm::dvec3& toPos, const glm::dvec3& toRot);
 
-	//friend class Collider;
+	friend class Collider;
 };
