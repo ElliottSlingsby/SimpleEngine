@@ -279,6 +279,7 @@ void Renderer::load(int argc, char** argv) {
 
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 6);
+	glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
 	glfwWindowHint(GLFW_SAMPLES, 4);
 
@@ -294,7 +295,7 @@ void Renderer::load(int argc, char** argv) {
 
 	glfwMakeContextCurrent(_window);
 	gladLoadGLLoader((GLADloadproc)glfwGetProcAddress);
-	//glfwSwapInterval(1); // v-sync
+	glfwSwapInterval(1);
 
 	glfwSetWindowUserPointer(_window, this);
 

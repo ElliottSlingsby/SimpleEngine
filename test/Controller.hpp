@@ -30,7 +30,7 @@ class Controller {
 	uint64_t _cursor = 0;
 
 	glm::dvec3 _cursorPosition;
-	double _cursorI = 0.0;
+	double _cursorI = 180.0;
 
 public:
 	Controller(Engine& engine);

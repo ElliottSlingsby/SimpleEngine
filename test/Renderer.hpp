@@ -49,17 +49,6 @@ class Renderer {
 		GLsizei indexCount = 0;
 	};
 
-	//struct Line {
-	//	glm::dvec3 from;
-	//	glm::dvec3 to;
-	//	glm::tvec3<uint8_t> colour;
-	//};
-
-	//struct Point {
-	//	glm::dvec3 position;
-	//	glm::tvec3<uint8_t> colour;
-	//};
-
 	Engine& _engine;
 
 	GLFWwindow* _window = nullptr;
@@ -81,9 +70,6 @@ class Renderer {
 
 	bool _hasDefualtProgram = false;
 	uint32_t _defaultProgram;
-
-	//std::vector<Line> _debugLines;
-	//std::vector<Point> _debugPoints;
 
 	void _reshape(int height, int width);
 

@@ -105,12 +105,12 @@ void Controller::update(double dt) {
 		}
 
 		_engine.entities.get<Transform>(_cursor)->setRotation(glm::dquat({ 0.0, 0.0, glm::radians(_cursorI) }));
-		_engine.entities.get<Transform>(_cursor)->setPosition(_cursorPosition + glm::dvec3(0.0, 0.0, ((glm::sin(glm::radians(_cursorI)) + 1.0) / 2.0) * 16.0));
+		_engine.entities.get<Transform>(_cursor)->setPosition(_cursorPosition + glm::dvec3(0.0, 0.0, ((glm::cos(glm::radians(_cursorI)) + 1.0) / 2.0) * 16.0));
 
-		_cursorI += 360.0 * dt;
+		//_cursorI += 360.0 * dt;
 
-		if (_cursorI >= 360.0)
-			_cursorI = 0;
+		//if (_cursorI >= 360.0)
+		//	_cursorI = 0;
 	}
 }
 
