@@ -26,6 +26,12 @@ class Physics {
 	void _register(btRigidBody* rigidBody);
 	void _unregister(btRigidBody* rigidBody);
 
+	void _recursiveUpdateWorldTransform(uint64_t id, uint64_t rootCollider);
+
+	void _recursiveUpdateCompoundShape(btCompoundShape* compoundShape, uint64_t id, uint64_t rootCollider, btScalar* mass);
+
+	bool _recursiveHasCollider(uint64_t id);
+
 public:
 	struct RayHit {
 		uint64_t id = 0;
@@ -43,6 +49,9 @@ public:
 
 	void load(int argc, char** argv);
 	void update(double dt);
+
+	void updateWorldTransform(uint64_t id);
+	void updateCompoundShape(uint64_t id);
 	
 	void setGravity(const glm::dvec3& direction);
 	

@@ -15,17 +15,20 @@ class Collider{
 	Engine& _engine;
 	const uint64_t _id;
 
-	btCollisionShape* const _collisionShape;
-	btRigidBody _rigidBody;
+	const btRigidBody::btRigidBodyConstructionInfo& _constructionInfo;
 
-	bool _compoundInheritance = true;
+	btCollisionShape* const _collisionShape;
+	btRigidBody* _rigidBody;
+
+	btCompoundShape* _compoundShape = nullptr;
+	bool _rootCompound = false;
+	uint32_t _compoundIndex;
+
+	//bool _compoundInheritance = true;
 
 public:
 	Collider(Engine::EntityManager& entities, uint64_t id, btCollisionShape* const collisionShape, const btRigidBody::btRigidBodyConstructionInfo& constructionInfo);
 	~Collider();
-
-	void setWorldPosition(const glm::dvec3& position);
-	void setWorldRotation(const glm::dquat& rotation);
 
 	void setGravity(const glm::dvec3& direction);
 	void setFriction(double friction);
@@ -36,7 +39,7 @@ public:
 	void activate();
 	void deactivate();
 
-	void setCompoundInheritance(bool value);
+	//void setCompoundInheritance(bool value);
 
 	//void ballConstraint(const glm::dvec3& position);
 	//void ballConstraint(const glm::dvec3& position, uint64_t id, const glm::dvec3& otherPos);

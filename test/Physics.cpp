@@ -32,6 +32,87 @@ void Physics::_unregister(btRigidBody * rigidBody) {
 	_dynamicsWorld->removeRigidBody(rigidBody);
 }
 
+void Physics::_recursiveUpdateWorldTransform(uint64_t id, uint64_t rootCollider){
+	Transform* transform = _engine.entities.get<Transform>(id);
+	Collider* collider = _engine.entities.get<Collider>(id);
+
+	if (collider && (!collider->_compoundShape || collider->_rootCompound)) {
+		btTransform worldTransform = collider->_rigidBody->getWorldTransform();
+
+		worldTransform.setOrigin(toBt(transform->worldPosition()));
+		worldTransform.setRotation(toBt(transform->worldRotation()));
+
+		collider->_rigidBody->setWorldTransform(worldTransform);
+	}
+	else if (collider){
+		btTransform relativeTransform;
+		relativeTransform.setOrigin(toBt(transform->relativePosition(rootCollider)));
+		relativeTransform.setRotation(toBt(transform->relativeRotation(rootCollider)));
+		
+		collider->_compoundShape->updateChildTransform(collider->_compoundIndex, relativeTransform, false);
+	}
+
+	for (uint32_t i = 0; i < transform->children(); i++) 
+		_recursiveUpdateWorldTransform(transform->child(i), rootCollider);
+}
+
+void Physics::_recursiveUpdateCompoundShape(btCompoundShape* compoundShape, uint64_t id, uint64_t rootCollider, btScalar* mass){
+	// starting from root collider, and then recursively through children:
+	//	do nothing and go deeper if no collider
+	//	else
+	//  add shape to collider and update compoundindex using relative transform to root collider
+	//  unregister rigidbody if !compoundshape or compoundshape and rootcompound
+	//  delete compoundshape if compoundshape and rootcompound and change rootcompound
+	//  set compoundshape pointer to new compoundshape
+
+	Transform* transform = _engine.entities.get<Transform>(id);
+
+	if (_engine.entities.has<Collider>(id)) {
+		Collider* collider = _engine.entities.get<Collider>(id);
+
+		if (collider->_rigidBody) {
+			_dynamicsWorld->removeRigidBody(collider->_rigidBody);
+			delete collider->_rigidBody;
+			collider->_rigidBody = nullptr;
+		}
+
+		if (collider->_rootCompound) {
+			collider->_rootCompound = false;
+			delete collider->_compoundShape;
+		}
+
+		btTransform relativeTransform;
+		relativeTransform.setOrigin(toBt(transform->relativePosition(rootCollider)));
+		relativeTransform.setRotation(toBt(transform->relativeRotation(rootCollider)));
+
+		compoundShape->addChildShape(relativeTransform, collider->_collisionShape);
+
+		collider->_compoundIndex = compoundShape->getNumChildShapes() - 1;
+		collider->_compoundShape = compoundShape;
+
+		*mass += collider->_constructionInfo.m_mass;
+	}
+
+	for (uint32_t i = 0; i < transform->children(); i++) 
+		_recursiveUpdateCompoundShape(compoundShape, transform->child(i), rootCollider, mass);
+}
+
+bool Physics::_recursiveHasCollider(uint64_t id){
+	Transform* transform = _engine.entities.get<Transform>(id);
+
+	if (!transform)
+		return false;
+
+	if (_engine.entities.has<Collider>(id))
+		return true;
+
+	for (uint32_t i = 0; i < transform->children(); i++)
+		if (_recursiveHasCollider(transform->child(i)))
+			return true;
+
+	return false;
+}
+
 Physics::Physics(Engine & engine) : _engine(engine){
 	_engine.events.subscribe(this, Events::Load, &Physics::load);
 	_engine.events.subscribe(this, Events::Update, &Physics::update);
@@ -57,7 +138,127 @@ void Physics::load(int argc, char ** argv){
 
 void Physics::update(double dt){
 	for (uint32_t i = 0; i < DEFUALT_PHYSICS_STEPS; i++)
-		_dynamicsWorld->stepSimulation(static_cast<float>(dt) / DEFUALT_PHYSICS_STEPS, 0);
+		_dynamicsWorld->stepSimulation(static_cast<btScalar>(dt) / DEFUALT_PHYSICS_STEPS, 0);
+}
+
+void Physics::updateWorldTransform(uint64_t id){
+	Transform* transform = _engine.entities.get<Transform>(id);
+
+	uint64_t rootCollider = 0;
+	uint64_t i = id;
+
+	while (i) {
+		Collider* collider = _engine.entities.get<Collider>(i);
+
+		if (collider && (collider->_rootCompound || !collider->_compoundShape)) {
+			rootCollider = i;
+			break;
+		}
+
+		i = transform->parent();
+	}
+
+	if (!rootCollider)
+		return;
+
+	_recursiveUpdateWorldTransform(id, rootCollider);
+
+	Collider* collider = _engine.entities.get<Collider>(rootCollider);
+
+	if (collider->_compoundShape)
+		collider->_compoundShape->recalculateLocalAabb();
+}
+
+void Physics::updateCompoundShape(uint64_t id) {
+	if (!_engine.entities.has<Transform, Collider>(id))
+		return;
+
+	Transform* transform = _engine.entities.get<Transform>(id);	
+	Collider* collider = _engine.entities.get<Collider>(id);
+	
+	if (!transform->parent() && !transform->children() && collider->_compoundShape) {
+		if (collider->_rootCompound)
+			delete collider->_compoundShape;
+
+		collider->_compoundShape = nullptr;
+
+		if (collider->_rigidBody) {
+			_dynamicsWorld->removeRigidBody(collider->_rigidBody);
+			delete collider->_rigidBody;
+		}
+
+		auto constructionInfo = collider->_constructionInfo;
+		constructionInfo.m_collisionShape = collider->_collisionShape;
+		constructionInfo.m_motionState = transform;
+
+		if (constructionInfo.m_mass != 0.f)
+			collider->_collisionShape->calculateLocalInertia(constructionInfo.m_mass, constructionInfo.m_localInertia);
+
+		collider->_rigidBody = new btRigidBody(constructionInfo);
+		collider->_rigidBody->setUserPointer(transform);
+		_dynamicsWorld->addRigidBody(collider->_rigidBody);
+
+		return;
+	}
+	else if (!transform->parent() && !transform->children() && !collider->_compoundShape) {
+		return;
+	}
+
+	if (!_recursiveHasCollider(id))
+		return;
+
+	std::vector<uint64_t> stack = { id };
+
+	while (transform->parent()) {
+		stack.push_back(transform->parent());
+		transform = _engine.entities.get<Transform>(transform->parent());
+	}
+
+	while (stack.size() && !_engine.entities.has<Collider>(*stack.rbegin()))
+		stack.pop_back();
+
+	uint64_t root = *stack.rbegin();
+	Collider* rootCollider = _engine.entities.get<Collider>(root);
+
+
+
+
+	
+	btCompoundShape* compoundShape = new btCompoundShape();
+
+	auto constructionInfo = rootCollider->_constructionInfo;
+	constructionInfo.m_collisionShape = compoundShape;
+	constructionInfo.m_motionState = _engine.entities.get<Transform>(root);
+
+	_recursiveUpdateCompoundShape(compoundShape, root, root, &constructionInfo.m_mass);
+	
+	if (constructionInfo.m_mass != 0.f)
+		compoundShape->calculateLocalInertia(constructionInfo.m_mass, constructionInfo.m_localInertia);
+
+	rootCollider->_rigidBody = new btRigidBody(constructionInfo);
+	rootCollider->_rigidBody->setUserPointer(_engine.entities.get<Transform>(root));
+	_dynamicsWorld->addRigidBody(rootCollider->_rigidBody);
+
+	rootCollider->_rootCompound = true;
+	
+
+
+
+
+	// get root collider
+
+	// create new compoundshape
+
+	// starting from root collider, and then recursively through children:
+	//	do nothing and go deeper if no collider
+	//	else
+	//  add shape to collider and update compoundindex using relative transform to root collider
+	//  unregister rigidbody if !compoundshape or compoundshape and rootcompound
+	//  delete compoundshape if compoundshape and rootcompound and change rootcompound
+	//  set compoundshape pointer to new compoundshape
+
+	// set root collider's rigidobyd collision shape
+	// set root collider as rootcompound
 }
 
 void Physics::setGravity(const glm::dvec3& direction){

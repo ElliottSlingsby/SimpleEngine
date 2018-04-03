@@ -9,20 +9,17 @@
 #include "Collider.hpp"
 
 /*
-- Implement hierarchical physics and constraints
-- Collision callbacks
 
-- Dynamic component implementation for iterate
+- Hierarchical compound shapes
+- Implement collision callbacks
 
+- Scale inheritance and physics proportions
+- Physics update event and timing
+
+- Component erase order
+- Dynamic components during iterate
 - Implement referenced entity object
 
-- Physics proportions
-- Physics update and timing issues
-
-- Assimp mesh and bone hierachy loading
-- Vertex weights and animations
-
-- Deffered rendering and lighting
 */
 
 class MyState {
@@ -67,20 +64,11 @@ class MyState {
 		_junk.push_back(id);
 	}
 
-public:
-	MyState(Engine& engine) : _engine(engine) {
-		_engine.events.subscribe(this, Events::Load, &MyState::load);
-		_engine.events.subscribe(this, Events::Keypress, &MyState::keypress);
-	}
-
-	void load(int argc, char** argv) {
-		_engine.system<Physics>().setGravity(GlobalVec3::down * 400.f);
-
-		// Child / Parent Test
+	void _spawnParentTest(const glm::dvec3 position = { 0.0, 0.0, 0.0 }) {
 		uint64_t parent = _engine.entities.create();
 		{
 			Transform& parentTransform = *_engine.entities.add<Transform>(parent);
-			parentTransform.setPosition({ 0, 100, 100 });
+			parentTransform.setPosition(position);
 			parentTransform.setScale({ 30, 30, 10 });
 
 			_engine.system<Renderer>().addShader(parent, "vertexShader.glsl", "fragmentShader.glsl");
@@ -108,9 +96,20 @@ public:
 
 			_engine.entities.get<Collider>(child)->setGravity({ 0, 0, 0 });
 		}
+	}
 
-		// Erase test
-		_engine.entities.erase(parent);
+public:
+	MyState(Engine& engine) : _engine(engine) {
+		_engine.events.subscribe(this, Events::Load, &MyState::load);
+		_engine.events.subscribe(this, Events::Keypress, &MyState::keypress);
+	}
+
+	void load(int argc, char** argv) {
+		_engine.system<Physics>().setGravity(GlobalVec3::down * 400.f);
+		
+		// Spawn test compound entities
+		for (uint32_t i = 0; i < 50; i++)
+			_spawnParentTest({ 0.0, 100.0, 100.0 * i });
 
 		// Skybox
 		uint64_t skybox = _engine.entities.create();
@@ -163,7 +162,7 @@ public:
 		uint64_t axis = _engine.entities.create();
 		{
 			Transform& childTransform = *_engine.entities.add<Transform>(axis);
-			childTransform.setParent(floor);
+			//childTransform.setParent(floor);
 			childTransform.setScale({ 5.0, 5.0, 5.0 });
 
 			_engine.system<Renderer>().addShader(axis, "vertexShader.glsl", "fragmentShader.glsl");
