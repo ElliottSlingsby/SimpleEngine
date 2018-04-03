@@ -28,7 +28,7 @@ class Physics {
 
 	void _recursiveUpdateWorldTransform(uint64_t id, uint64_t rootCollider);
 
-	void _recursiveUpdateCompoundShape(btCompoundShape* compoundShape, uint64_t id, uint64_t rootCollider, btScalar* mass);
+	void _recursiveUpdateCompoundShape(btCompoundShape* compoundShape, uint64_t id, uint64_t rootCollider, std::vector<float>* masses);
 
 	bool _recursiveHasCollider(uint64_t id);
 

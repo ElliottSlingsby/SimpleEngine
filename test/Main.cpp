@@ -10,13 +10,16 @@
 
 /*
 
-- Hierarchical compound shapes
-- Implement collision callbacks
+- Recursive compound shapes to avoid having to change positions of all children, also to implement local scaling, and center of mass
+- (store principal transform, and apply it during _recursiveUpdateWorldTransform and _recursiveUpdateCompoundShape)
 
-- Scale inheritance and physics proportions
+- Collision callbacks
+
+- Concave hulls and triangle meshes
+
 - Physics update event and timing
 
-- Component erase order
+- User defined component erase order
 - Dynamic components during iterate
 - Implement referenced entity object
 
@@ -40,7 +43,7 @@ class MyState {
 			_engine.system<Renderer>().addMesh(id, "dcube.obj");
 			_engine.system<Renderer>().addTexture(id, "net.png");
 
-			_engine.system<Physics>().addBox(id, { 4.0, 4.0, 4.0 }, 1.0);
+			_engine.system<Physics>().addBox(id, { 4.0, 4.0, 4.0 }, 10.0);
 			Collider& collider = *_engine.entities.get<Collider>(id);
 			collider.deactivate();
 
@@ -76,14 +79,12 @@ class MyState {
 			_engine.system<Renderer>().addTexture(parent, "rgb.png");
 
 			_engine.system<Physics>().addBox(parent, { 15, 15, 5 }, 10.f);
-
-			_engine.entities.get<Collider>(parent)->setGravity({ 0, 0, 0 });
 		}
 
 		uint64_t child = _engine.entities.create();
 		{
 			Transform& childTransform = *_engine.entities.add<Transform>(child);
-			childTransform.setPosition({ 0, 0, 25 });
+			childTransform.setPosition({ 0, 1000, 100 });
 			childTransform.setScale({ 15, 15, 15 });
 
 			childTransform.setParent(parent);
@@ -92,9 +93,13 @@ class MyState {
 			_engine.system<Renderer>().addMesh(child, "sphere.obj");
 			_engine.system<Renderer>().addTexture(child, "rgb.png");
 
-			_engine.system<Physics>().addSphere(child, 15, 10.f);
+			_engine.system<Physics>().addSphere(child, 15, 1000.f);
 
-			_engine.entities.get<Collider>(child)->setGravity({ 0, 0, 0 });
+			//_engine.system<Controller>().setPossessed(child);
+			//_engine.entities.get<Collider>(parent)->alwaysActive(true);
+
+			_junk.push_back(parent);
+
 		}
 	}
 
@@ -108,7 +113,7 @@ public:
 		_engine.system<Physics>().setGravity(GlobalVec3::down * 400.f);
 		
 		// Spawn test compound entities
-		for (uint32_t i = 0; i < 50; i++)
+		for (uint32_t i = 0; i < 1; i++)
 			_spawnParentTest({ 0.0, 100.0, 100.0 * i });
 
 		// Skybox
@@ -127,10 +132,10 @@ public:
 		uint64_t camera = _engine.entities.create();
 		{
 			Transform& transform = *_engine.entities.add<Transform>(camera);
-			transform.setPosition({ 0.0, -50.0, 100.0 });
+			transform.setPosition({ 0.0, -50.0, 50.0 });
 			transform.setRotation(glm::dquat({ glm::radians(90.0), 0.0, 0.0 }));
 
-			_engine.system<Physics>().addSphere(camera, 4.0, 100.0);
+			_engine.system<Physics>().addSphere(camera, 4.0, 1.0);
 			Collider& collider = *_engine.entities.get<Collider>(camera);
 			collider.setGravity({ 0, 0, 0 });
 
@@ -162,7 +167,7 @@ public:
 		uint64_t axis = _engine.entities.create();
 		{
 			Transform& childTransform = *_engine.entities.add<Transform>(axis);
-			//childTransform.setParent(floor);
+			childTransform.setParent(floor);
 			childTransform.setScale({ 5.0, 5.0, 5.0 });
 
 			_engine.system<Renderer>().addShader(axis, "vertexShader.glsl", "fragmentShader.glsl");
