@@ -19,6 +19,9 @@ void Transform::setWorldTransform(const btTransform& transform) {
 		_position = (toGlm<double>(transform.getOrigin()) - parent->worldPosition()) * parentRotation;
 		_rotation = glm::inverse(parentRotation) * toGlm<double>(transform.getRotation());
 	}
+
+	if (_engine.entities.has<Collider>(_id)) 
+		_position -= _rotation * _engine.entities.get<Collider>(_id)->_centerOfMass;
 }
 
 void Transform::_setPosition(const glm::dvec3& position) {
@@ -140,11 +143,11 @@ uint64_t Transform::root() const {
 	return id;
 }
 
-uint64_t Transform::parent() {
+uint64_t Transform::parent() const {
 	return _parent;
 }
 
-uint64_t Transform::child(uint32_t i) {
+uint64_t Transform::child(uint32_t i) const {
 	if (i >= _children.size())
 		return 0;
 

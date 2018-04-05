@@ -21,16 +21,19 @@ class Physics {
 	btSequentialImpulseConstraintSolver* _solver;
 	btDiscreteDynamicsWorld* _dynamicsWorld;
 
-	void _addRigidBody(uint64_t id, float mass, btCollisionShape* shape);
+	void _addCollider(uint64_t id, btScalar mass, btCollisionShape* shape);
 
-	void _register(btRigidBody* rigidBody);
-	void _unregister(btRigidBody* rigidBody);
+	void _createRigidBody(uint64_t id, btScalar mass, const btVector3& localInertia);
 
-	void _recursiveUpdateWorldTransform(uint64_t id, uint64_t rootCollider);
+	void _recursiveGetMasses(uint64_t id, std::vector<btScalar>* masses);
 
-	void _recursiveUpdateCompoundShape(btCompoundShape* compoundShape, uint64_t id, uint64_t rootCollider, std::vector<float>* masses);
+	void _recursiveUpdateCompoundShape(uint64_t id, std::vector<btScalar>* masses);
 
-	bool _recursiveHasCollider(uint64_t id);
+	void _removeFromWorld(uint64_t id);
+
+	void _setCenterOfMass(uint64_t id, const btVector3& position);
+
+	uint64_t _rootCollider(uint64_t id) const;
 
 public:
 	struct RayHit {
@@ -60,7 +63,9 @@ public:
 	void addCylinder(uint64_t id, float radius,  float height, float mass = 0.f); // btCylinderShape
 	void addCapsule(uint64_t id, float radius, float height, float mass = 0.f); // btCapsuleShape
 	
-	//void addDynamicMesh(uint64_t id, const std::string& file, float mass); // btConvexPointCloudShape
+	//void addEmpty(uint64_t id, float mass = 0.f); // btEmptyShape
+
+	//void addDynamicMesh(uint64_t id, const std::string& file, float mass); // btConvexHull or btConvexPointCloudShape
 
 	//void addStaticMesh(uint64_t id, const std::string& file); // btBvhTriangleMeshShape
 	void addStaticPlane(uint64_t id); // btStaticPlaneShape

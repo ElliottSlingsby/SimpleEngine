@@ -13,6 +13,10 @@
 - Recursive compound shapes to avoid having to change positions of all children, also to implement local scaling, and center of mass
 - (store principal transform, and apply it during _recursiveUpdateWorldTransform and _recursiveUpdateCompoundShape)
 
+- Allow for noncompound rigidbodys
+- Convert rigidbody compound shape to pod
+- Center of mass offset
+
 - Collision callbacks
 
 - Concave hulls and triangle meshes
@@ -62,7 +66,7 @@ class MyState {
 		_engine.system<Renderer>().addMesh(id, "domino.obj");
 		_engine.system<Renderer>().addTexture(id, "domino.png");
 
-		_engine.system<Physics>().addBox(id, { 6.0, 2.5, 13.0 }, 100.0);
+		_engine.system<Physics>().addBox(id, { 6.0, 2.5, 13.0 }, 10.0);
 
 		_junk.push_back(id);
 	}
@@ -84,7 +88,7 @@ class MyState {
 		uint64_t child = _engine.entities.create();
 		{
 			Transform& childTransform = *_engine.entities.add<Transform>(child);
-			childTransform.setPosition({ 0, 1000, 100 });
+			childTransform.setPosition({ 0, 0, 100 });
 			childTransform.setScale({ 15, 15, 15 });
 
 			childTransform.setParent(parent);
@@ -93,12 +97,34 @@ class MyState {
 			_engine.system<Renderer>().addMesh(child, "sphere.obj");
 			_engine.system<Renderer>().addTexture(child, "rgb.png");
 
-			_engine.system<Physics>().addSphere(child, 15, 1000.f);
+			_engine.system<Physics>().addSphere(child, 15, 100.f);
 
 			//_engine.system<Controller>().setPossessed(child);
 			//_engine.entities.get<Collider>(parent)->alwaysActive(true);
 
 			_junk.push_back(parent);
+
+		}
+
+
+		uint64_t c = _engine.entities.create();
+		{
+			Transform& childTransform = *_engine.entities.add<Transform>(c);
+			childTransform.setPosition({ 0, 0, 100 });
+			childTransform.setScale({ 15, 15, 15 });
+
+			childTransform.setParent(child);
+
+			_engine.system<Renderer>().addShader(c, "vertexShader.glsl", "fragmentShader.glsl");
+			_engine.system<Renderer>().addMesh(c, "sphere.obj");
+			_engine.system<Renderer>().addTexture(c, "rgb.png");
+
+			_engine.system<Physics>().addSphere(c, 15, 10.f);
+
+			//_engine.system<Controller>().setPossessed(child);
+			//_engine.entities.get<Collider>(parent)->alwaysActive(true);
+
+			//_junk.push_back(parent);
 
 		}
 	}
@@ -135,7 +161,7 @@ public:
 			transform.setPosition({ 0.0, -50.0, 50.0 });
 			transform.setRotation(glm::dquat({ glm::radians(90.0), 0.0, 0.0 }));
 
-			_engine.system<Physics>().addSphere(camera, 4.0, 1.0);
+			_engine.system<Physics>().addSphere(camera, 4.0, 100.0);
 			Collider& collider = *_engine.entities.get<Collider>(camera);
 			collider.setGravity({ 0, 0, 0 });
 
@@ -167,7 +193,7 @@ public:
 		uint64_t axis = _engine.entities.create();
 		{
 			Transform& childTransform = *_engine.entities.add<Transform>(axis);
-			childTransform.setParent(floor);
+			//childTransform.setParent(floor);
 			childTransform.setScale({ 5.0, 5.0, 5.0 });
 
 			_engine.system<Renderer>().addShader(axis, "vertexShader.glsl", "fragmentShader.glsl");

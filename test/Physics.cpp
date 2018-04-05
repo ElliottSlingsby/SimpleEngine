@@ -5,115 +5,129 @@
 
 #include <BulletCollision\NarrowPhaseCollision\btRaycastCallback.h>
 
-void Physics::_addRigidBody(uint64_t id, float mass, btCollisionShape* shape){
-	if (!_dynamicsWorld)
-		return;
-
-	Transform& transform = *_engine.entities.add<Transform>(id);
-
-	if (_engine.entities.has<Collider>(id))
-		_engine.entities.remove<Collider>(id);
-
-	Collider& collider = *_engine.entities.add<Collider>(id, shape, mass);
+void Physics::_addCollider(uint64_t id, btScalar mass, btCollisionShape* shape) {
+	shape->setUserPointer(_engine.entities.add<Transform>(id));
+	_engine.entities.add<Collider>(id, shape, mass);
+	updateCompoundShape(id);
 }
 
-void Physics::_register(btRigidBody * rigidBody){
-	if (_dynamicsWorld)
-		_dynamicsWorld->addRigidBody(rigidBody);
+void Physics::_createRigidBody(uint64_t id, btScalar mass, const btVector3& localInertia){
+	Collider* collider = _engine.entities.get<Collider>(id);
+
+	assert(collider && !collider->_rigidBody && collider->_compoundShape);
+
+	collider->_rigidBody = new btRigidBody(
+		mass,
+		_engine.entities.get<Transform>(id),
+		collider->_compoundShape,
+		localInertia
+	);
+
+	collider->_rigidBody->setUserPointer(_engine.entities.get<Transform>(id));
+
+	_dynamicsWorld->addRigidBody(collider->_rigidBody);
 }
 
-void Physics::_unregister(btRigidBody * rigidBody) {
-	if (_dynamicsWorld)
-		_dynamicsWorld->removeRigidBody(rigidBody);
-}
-
-void Physics::_recursiveUpdateWorldTransform(uint64_t id, uint64_t rootCollider){
+void Physics::_recursiveGetMasses(uint64_t id, std::vector<btScalar>* masses){
 	Transform* transform = _engine.entities.get<Transform>(id);
 	Collider* collider = _engine.entities.get<Collider>(id);
 
-	if (collider && (!collider->_compoundShape || collider->_rootCompound)) {
-		// if the root of compoundshape or just a single rigidbody, then update position relative to world
-		btTransform worldTransform = collider->_rigidBody->getWorldTransform();
-		worldTransform.setOrigin(toBt(transform->worldPosition()));
-		worldTransform.setRotation(toBt(transform->worldRotation()));
+	if (!collider)
+		return;
 
-		collider->_rigidBody->setWorldTransform(worldTransform);
-	}
-	else if (collider){
-		// otherwise must be a child of a compoundshape, then update position relative to root of compound shape
-		btTransform relativeTransform;
-		relativeTransform.setOrigin(toBt(transform->relativePosition(rootCollider)));
-		relativeTransform.setRotation(toBt(transform->relativeRotation(rootCollider)));
-		
-		collider->_compoundShape->updateChildTransform(collider->_compoundIndex, relativeTransform, false);
-	}
-
-	// recurse
-	for (uint32_t i = 0; i < transform->children(); i++) 
-		_recursiveUpdateWorldTransform(transform->child(i), rootCollider);
-}
-
-void Physics::_recursiveUpdateCompoundShape(btCompoundShape* compoundShape, uint64_t id, uint64_t rootCollider, std::vector<float>* masses){
-	// starting from root collider, and then recursively through children:
-	//	do nothing and go deeper if no collider
-	//	else
-	//  add shape to collider and update compoundindex using relative transform to root collider
-	//  unregister rigidbody if !compoundshape or compoundshape and rootcompound
-	//  delete compoundshape if compoundshape and rootcompound and change rootcompound
-	//  set compoundshape pointer to new compoundshape
-
-	Transform* transform = _engine.entities.get<Transform>(id);
-
-	// if no collider, then do nothing
-	if (_engine.entities.has<Collider>(id)) {
-		Collider* collider = _engine.entities.get<Collider>(id);
-
-		// otherwise get rid of its rigidbody (no longer needed)
-		if (collider->_rigidBody) {
-			_dynamicsWorld->removeRigidBody(collider->_rigidBody);
-			delete collider->_rigidBody;
-			collider->_rigidBody = nullptr;
-		}
-
-		// delete its compoundshape if it was the root
-		if (collider->_rootCompound) {
-			collider->_rootCompound = false;
-			delete collider->_compoundShape;
-		}
-
-		// get relative position to top most parent with collider
-		btTransform relativeTransform;
-		relativeTransform.setOrigin(toBt(transform->relativePosition(rootCollider)));
-		relativeTransform.setRotation(toBt(transform->relativeRotation(rootCollider)));
-
-		// add the shape to the compoundshape with local offset
-		compoundShape->addChildShape(relativeTransform, collider->_collisionShape);
-
-		collider->_compoundIndex = compoundShape->getNumChildShapes() - 1;
-		collider->_compoundShape = compoundShape;
-
-		masses->push_back(collider->_mass);
-	}
-
-	// recurse
-	for (uint32_t i = 0; i < transform->children(); i++) 
-		_recursiveUpdateCompoundShape(compoundShape, transform->child(i), rootCollider, masses);
-}
-
-bool Physics::_recursiveHasCollider(uint64_t id){
-	Transform* transform = _engine.entities.get<Transform>(id);
-
-	if (!transform)
-		return false;
-
-	if (_engine.entities.has<Collider>(id))
-		return true;
+	masses->push_back(collider->_mass);
 
 	for (uint32_t i = 0; i < transform->children(); i++)
-		if (_recursiveHasCollider(transform->child(i)))
-			return true;
+		_recursiveUpdateCompoundShape(transform->child(i), masses);
+}
 
-	return false;
+void Physics::_recursiveUpdateCompoundShape(uint64_t id, std::vector<btScalar>* masses) {
+	Transform* transform = _engine.entities.get<Transform>(id);
+	Collider* collider = _engine.entities.get<Collider>(id);
+
+	if (!collider)
+		return;
+
+	if (collider->_rigidBody) {
+		_dynamicsWorld->removeRigidBody(collider->_rigidBody);
+		delete collider->_rigidBody;
+		collider->_rigidBody = nullptr;
+	}
+
+	if (collider->_compoundShape)
+		delete collider->_compoundShape;
+
+	collider->_centerOfMass = glm::dvec3();
+	collider->_compoundShape = new btCompoundShape();
+
+	collider->_compoundShape->setUserPointer(transform);
+
+	btTransform identityTransform;
+	identityTransform.setIdentity();
+
+	collider->_compoundShape->addChildShape(identityTransform, collider->_collisionShape);
+
+	masses->push_back(collider->_mass);
+
+	for (uint32_t i = 0; i < transform->children(); i++)
+		_recursiveUpdateCompoundShape(transform->child(i), masses);
+
+	Collider* parentCollider = _engine.entities.get<Collider>(transform->parent());
+
+	if (parentCollider) {
+		btTransform localTransform;
+		localTransform.setOrigin(toBt(transform->position()));
+		localTransform.setRotation(toBt(transform->rotation()));
+
+		collider->_compoundIndex = parentCollider->_compoundShape->getNumChildShapes();
+		parentCollider->_compoundShape->addChildShape(localTransform, collider->_compoundShape);
+	}
+}
+
+void Physics::_removeFromWorld(uint64_t id){
+	Collider* collider = _engine.entities.get<Collider>(id);
+
+	assert(collider && _dynamicsWorld && collider->_rigidBody);
+
+	_dynamicsWorld->removeRigidBody(collider->_rigidBody);
+}
+
+void Physics::_setCenterOfMass(uint64_t id, const btVector3& position) {
+	Collider* collider = _engine.entities.get<Collider>(id);
+
+	if (!collider)
+		return;
+
+	for (uint32_t i = 0; i < collider->_compoundShape->getNumChildShapes(); i++) {
+		btCollisionShape* shape = collider->_compoundShape->getChildShape(i);
+		btTransform offset = collider->_compoundShape->getChildTransform(i);
+
+		Transform* transform = static_cast<Transform*>(shape->getUserPointer());
+		offset.setOrigin(toBt(transform->position()) - position);
+		offset.setRotation(toBt(transform->rotation()));
+
+		collider->_compoundShape->updateChildTransform(i, offset);
+	}
+
+	collider->_centerOfMass = toGlm<double>(position);
+}
+
+uint64_t Physics::_rootCollider(uint64_t id) const {
+	if (!_engine.entities.has<Collider>(id))
+		return 0;
+
+	uint64_t root = id;
+	Transform* i = _engine.entities.get<Transform>(id);
+
+	while (i && i->parent()) {
+		if (!_engine.entities.has<Collider>(i->parent()))
+			break;
+
+		root = i->parent();
+		i = _engine.entities.get<Transform>(i->parent());
+	}
+
+	return root;
 }
 
 Physics::Physics(Engine & engine) : _engine(engine){
@@ -147,136 +161,91 @@ void Physics::update(double dt){
 		_dynamicsWorld->stepSimulation(static_cast<btScalar>(dt) / DEFUALT_PHYSICS_STEPS, 0);
 }
 
-void Physics::updateWorldTransform(uint64_t id){
-	if (!_dynamicsWorld)
-		return;
-
+void Physics::updateWorldTransform(uint64_t id) {
 	Transform* transform = _engine.entities.get<Transform>(id);
+	Collider* collider = _engine.entities.get<Collider>(id);
 
-	uint64_t rootCollider = 0;
-	uint64_t i = id;
-
-	while (i) {
-		Collider* collider = _engine.entities.get<Collider>(i);
-
-		if (collider && (collider->_rootCompound || !collider->_compoundShape)) {
-			rootCollider = i;
-			break;
-		}
-
-		i = transform->parent();
-	}
-
-	if (!rootCollider)
+	if (!collider)
 		return;
 
-	_recursiveUpdateWorldTransform(id, rootCollider);
+	Collider* parentCollider = _engine.entities.get<Collider>(transform->parent());
 
-	Collider* collider = _engine.entities.get<Collider>(rootCollider);
+	if (parentCollider) {
+		btTransform localTransform;
+		localTransform.setOrigin(toBt(transform->position()));
+		localTransform.setRotation(toBt(transform->rotation()));
 
-	if (collider->_compoundShape)
-		collider->_compoundShape->recalculateLocalAabb();
+		parentCollider->_compoundShape->updateChildTransform(collider->_compoundIndex, localTransform);
+
+		// recompute root collider's center of mass
+
+		//uint64_t root = _rootCollider(id);
+
+		//std::vector<btScalar> masses;
+		//_recursiveGetMasses(root, &masses);	
+	}
+	else {
+		btTransform worldTransform;
+		worldTransform.setOrigin(toBt(transform->worldPosition()));
+		worldTransform.setRotation(toBt(transform->worldRotation()));
+
+		collider->_rigidBody->setWorldTransform(worldTransform);
+	}
 }
 
 void Physics::updateCompoundShape(uint64_t id) {
-	if (!_engine.entities.has<Transform, Collider>(id))
-		return;
-
-	Transform* transform = _engine.entities.get<Transform>(id);	
+	Transform* transform = _engine.entities.get<Transform>(id);
 	Collider* collider = _engine.entities.get<Collider>(id);
-	
-	// if not in hierarchy, and hasn't been a compound shape, then do nothing
-	if (!transform->parent() && !transform->children() && !collider->_compoundShape)
+
+	if (!collider)
 		return;
 
-	// if not in hierarchy, but is a compound shape, revert back to normal shape
-	if (!transform->parent() && !transform->children() && collider->_compoundShape) {
-		// delete compound shape if was root
-		if (collider->_rootCompound)
-			delete collider->_compoundShape;
+	// find root collider
+	uint64_t root = _rootCollider(id);
 
-		// null compound shape so it doesn't get used
-		collider->_compoundShape = nullptr;
+	// from root, update all children's compound and shape and get rid of their rigid bodies
+	std::vector<btScalar> masses;
+	_recursiveUpdateCompoundShape(root, &masses);
 
-		// delete rigidbody if exists
-		if (collider->_rigidBody) {
-			_dynamicsWorld->removeRigidBody(collider->_rigidBody);
-			delete collider->_rigidBody;
-		}
-
-		// create new rigidbody
-		btVector3 localInertia;
-
-		if (collider->_mass != 0.f)
-			collider->_collisionShape->calculateLocalInertia(collider->_mass, localInertia);
-
-		collider->_rigidBody = new btRigidBody(collider->_mass, transform, collider->_collisionShape, localInertia);
-		collider->_rigidBody->setUserPointer(transform);
-		_dynamicsWorld->addRigidBody(collider->_rigidBody);
-
-		return;
-	}
-
-	// if has collider in children 
-	if (!_recursiveHasCollider(id))
-		return;
-
-	// find the top most entity parent with a collider
-	std::vector<uint64_t> stack = { id };
-
-	while (transform->parent()) {
-		stack.push_back(transform->parent());
-		transform = _engine.entities.get<Transform>(transform->parent());
-	}
-
-	while (stack.size() && !_engine.entities.has<Collider>(*stack.rbegin()))
-		stack.pop_back();
-
-	uint64_t root = *stack.rbegin();
+	// create root collider's rigidbody with offset for center of mass
 	Transform* rootTransform = _engine.entities.get<Transform>(root);
 	Collider* rootCollider = _engine.entities.get<Collider>(root);
 
-	// build compound shape from children	
-	btCompoundShape* compoundShape = new btCompoundShape();
-
-	std::vector<float> masses;
-	_recursiveUpdateCompoundShape(compoundShape, root, root, &masses);
+	btTransform principal;
+	principal.setIdentity();
 
 	btVector3 localInertia;
-	btTransform principal;
 
-	if (rootCollider->_mass != 0.f)
-		compoundShape->calculatePrincipalAxisTransform(&*masses.begin(), principal, localInertia);
+	btScalar mass = 0;
 
-	// create new rigidbody using new compound shape
-	rootCollider->_rigidBody = new btRigidBody(rootCollider->_mass, rootTransform, compoundShape, localInertia);
-	rootCollider->_rigidBody->setUserPointer(_engine.entities.get<Transform>(root));
-	_dynamicsWorld->addRigidBody(rootCollider->_rigidBody);
-	rootCollider->_rigidBody->setCenterOfMassTransform(principal);
+	for (btScalar i : masses)
+		mass += i;
 
-	rootCollider->_rootCompound = true;
+	if (rootTransform->children() && mass != 0)
+		rootCollider->_compoundShape->calculatePrincipalAxisTransform(&*masses.begin(), principal, localInertia);
+	else if (mass != 0)
+		rootCollider->_collisionShape->calculateLocalInertia(rootCollider->_mass, localInertia);
 
-	// set position to be safe
-	btTransform worldTransform;
-	worldTransform.setOrigin(toBt(rootTransform->worldPosition()));
-	worldTransform.setRotation(toBt(rootTransform->worldRotation()));
+	_createRigidBody(root, mass, localInertia);
 
-	rootCollider->_rigidBody->setWorldTransform(worldTransform);
+	updateWorldTransform(root);
+
+	//_setCenterOfMass(root, principal.getOrigin());
+
 	
-	// get root collider
 
-	// create new compoundshape
+	for (uint32_t i = 0; i < rootCollider->_compoundShape->getNumChildShapes(); i++) {
+		btTransform offset = rootCollider->_compoundShape->getChildTransform(i);
 
-	// starting from root collider, and then recursively through children:
-	//	do nothing and go deeper if no collider
-	//	else
-	//  add shape to collider and update compoundindex using relative transform to root collider
-	//  unregister rigidbody if !compoundshape or compoundshape and rootcompound
-	//  delete compoundshape if compoundshape and rootcompound and change rootcompound
-	//  set compoundshape pointer to new compoundshape
+		offset.setOrigin(offset.getOrigin() - principal.getOrigin());
+		offset.setRotation(offset.getRotation() * -principal.getRotation());
 
-	// set root collider's rigidobyd collision shape
-	// set root collider as rootcompound
+		rootCollider->_compoundShape->updateChildTransform(i, offset);
+	}
+
+	rootCollider->_centerOfMass = toGlm<double>(principal.getOrigin());
+
+	
 }
 
 void Physics::setGravity(const glm::dvec3& direction){
@@ -290,35 +259,35 @@ void Physics::addSphere(uint64_t id, float radius, float mass) {
 	if (_engine.entities.has<Collider>(id))
 		_engine.entities.remove<Collider>(id);
 
-	_addRigidBody(id, mass, new btSphereShape(static_cast<btScalar>(radius)));
+	_addCollider(id, mass, new btSphereShape(static_cast<btScalar>(radius)));
 }
 
 void Physics::addBox(uint64_t id, const glm::dvec3& dimensions, float mass) {
 	if (_engine.entities.has<Collider>(id))
 		_engine.entities.remove<Collider>(id);
 
-	_addRigidBody(id, mass, new btBoxShape(btVector3(dimensions.x, dimensions.y, dimensions.z) * 2));
+	_addCollider(id, mass, new btBoxShape(btVector3(dimensions.x, dimensions.y, dimensions.z) * 2));
 }
 
 void Physics::addCylinder(uint64_t id, float radius, float height, float mass) {
 	if (_engine.entities.has<Collider>(id))
 		_engine.entities.remove<Collider>(id);
 
-	_addRigidBody(id, mass, new btCylinderShape(btVector3(radius * 2, radius * 2, height)));
+	_addCollider(id, mass, new btCylinderShape(btVector3(radius * 2, radius * 2, height)));
 }
 
 void Physics::addCapsule(uint64_t id, float radius, float height, float mass) {
 	if (_engine.entities.has<Collider>(id))
 		_engine.entities.remove<Collider>(id);
 
-	_addRigidBody(id, mass, new btCapsuleShape(radius, height));
+	_addCollider(id, mass, new btCapsuleShape(radius, height));
 }
 
 void Physics::addStaticPlane(uint64_t id){
 	if (_engine.entities.has<Collider>(id))
 		_engine.entities.remove<Collider>(id);
 
-	_addRigidBody(id, 0.f, new btStaticPlaneShape(btVector3(0, 0, 1), 0));
+	_addCollider(id, 0.f, new btStaticPlaneShape(btVector3(0, 0, 1), 0));
 }
 
 void Physics::rayTest(const glm::dvec3 & from, const glm::dvec3 & to, std::vector<RayHit>& hits){

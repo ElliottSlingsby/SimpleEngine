@@ -15,16 +15,18 @@ class Collider{
 	Engine& _engine;
 	const uint64_t _id;
 
-	float _mass;
-
 	btCollisionShape* const _collisionShape;
-	btRigidBody* _rigidBody;
 
+	btRigidBody* _rigidBody = nullptr;
 	btCompoundShape* _compoundShape = nullptr;
-	bool _rootCompound = false;
+
 	uint32_t _compoundIndex;
 
+	double _mass = 0.0;
+
 public:
+	glm::dvec3 _centerOfMass;
+
 	Collider(Engine::EntityManager& entities, uint64_t id, btCollisionShape* const collisionShape, float mass);
 	~Collider();
 

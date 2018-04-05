@@ -92,8 +92,8 @@ public:
 
 	uint64_t root() const;
 
-	uint64_t parent();
-	uint64_t child(uint32_t i);
+	uint64_t parent() const;
+	uint64_t child(uint32_t i) const;
 
 	uint32_t children() const;
 

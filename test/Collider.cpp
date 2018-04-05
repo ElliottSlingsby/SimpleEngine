@@ -3,29 +3,13 @@
 #include "Transform.hpp"
 #include "Physics.hpp"
 
-Collider::Collider(Engine::EntityManager& entities, uint64_t id, btCollisionShape* const collisionShape, float mass) : _engine(*static_cast<Engine*>(entities.enginePtr())), _id(id), _collisionShape(collisionShape), _mass(mass){
-	Transform* transform = _engine.entities.add<Transform>(id);
-
-	btVector3 localInertia;
-
-	if (_mass != 0.f)
-		_collisionShape->calculateLocalInertia(_mass, localInertia);
-
-	_rigidBody = new btRigidBody(_mass, transform, _collisionShape, localInertia);
-	_rigidBody->setUserPointer(transform);
-	_engine.system<Physics>()._register(_rigidBody);
-
-	_engine.system<Physics>().updateCompoundShape(_id); // rebuild self
-}
+Collider::Collider(Engine::EntityManager& entities, uint64_t id, btCollisionShape* const collisionShape, float mass) : _engine(*static_cast<Engine*>(entities.enginePtr())), _id(id), _collisionShape(collisionShape), _mass(mass){}
 
 Collider::~Collider(){
 	if (_rigidBody) {
-		_engine.system<Physics>()._unregister(_rigidBody);
+		_engine.system<Physics>()._removeFromWorld(_id);
 		delete _rigidBody;
 	}
-	
-	if (_rootCompound)
-		delete _compoundShape;
 
 	delete _collisionShape;
 }
