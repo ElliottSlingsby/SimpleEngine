@@ -3,13 +3,23 @@
 #include "Physics.hpp"
 
 void Transform::getWorldTransform(btTransform& transform) const {
-	transform.setOrigin(toBt(worldPosition()));
+	if (_engine.entities.has<Collider>(_id) && !_parent)
+		transform.setOrigin(toBt(worldPosition() + _rotation * _engine.entities.get<Collider>(_id)->centerOfMass()));
+	else
+		transform.setOrigin(toBt(worldPosition()));
+
 	transform.setRotation(toBt(worldRotation()));
 }
 
 void Transform::setWorldTransform(const btTransform& transform) {
 	if (!_parent) {
-		_position = toGlm<double>(transform.getOrigin());
+		Collider* collider = _engine.entities.get<Collider>(_id);
+
+		if (collider)
+			_position = toGlm<double>(transform.getOrigin()) - _rotation * collider->centerOfMass();
+		else
+			_position = toGlm<double>(transform.getOrigin());
+
 		_rotation = toGlm<double>(transform.getRotation());
 	}
 	else {
@@ -19,9 +29,6 @@ void Transform::setWorldTransform(const btTransform& transform) {
 		_position = (toGlm<double>(transform.getOrigin()) - parent->worldPosition()) * parentRotation;
 		_rotation = glm::inverse(parentRotation) * toGlm<double>(transform.getRotation());
 	}
-
-	if (_engine.entities.has<Collider>(_id)) 
-		_position -= _rotation * _engine.entities.get<Collider>(_id)->_centerOfMass;
 }
 
 void Transform::_setPosition(const glm::dvec3& position) {
@@ -192,9 +199,6 @@ glm::dvec3 Transform::relativePosition(uint64_t to) const {
 	while (parent != nullptr && parent->id() != to) {
 		position = parent->_position + parent->_rotation * position;
 		parent = _engine.entities.get<Transform>(parent->_parent);
-
-		//if (parent && parent->id() == to)
-		//	break;
 	}
 
 	return position;
@@ -210,9 +214,6 @@ glm::dquat Transform::relativeRotation(uint64_t to) const {
 	while (parent != nullptr && parent->id() != to) {
 		rotation = parent->_rotation * rotation;
 		parent = _engine.entities.get<Transform>(parent->_parent);
-
-		//if (parent && parent->id() == to)
-		//	break;
 	}
 
 	return rotation;
@@ -228,9 +229,6 @@ glm::dvec3 Transform::relativeScale(uint64_t to) const {
 	while (parent != nullptr && parent->id() != to) {
 		scale *= parent->_scale;
 		parent = _engine.entities.get<Transform>(parent->_parent);
-
-		//if (parent && parent->id() == to)
-		//	break;
 	}
 
 	return scale;
@@ -238,8 +236,8 @@ glm::dvec3 Transform::relativeScale(uint64_t to) const {
 
 glm::dvec3 Transform::worldPosition() const {
 	if (!hasFlags(_inheritanceFlags, Position))
-		return _position;
-
+		return position();
+	
 	return relativePosition(0);
 }
 

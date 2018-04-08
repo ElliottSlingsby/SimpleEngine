@@ -33,6 +33,9 @@ class MyState {
 	Engine& _engine;
 
 	uint64_t _camera = 0;
+	uint64_t _test = 0;
+	uint64_t _test1 = 0;
+
 	std::vector<uint64_t> _junk;
 
 	void _spawnCubes(glm::dvec3 position = { 0.0, 0.0, 0.0 }, double zRotation = 0.0) {
@@ -71,7 +74,7 @@ class MyState {
 		_junk.push_back(id);
 	}
 
-	void _spawnParentTest(const glm::dvec3 position = { 0.0, 0.0, 0.0 }) {
+	uint64_t _spawnParentTest(const glm::dvec3 position = { 0.0, 0.0, 0.0 }) {
 		uint64_t parent = _engine.entities.create();
 		{
 			Transform& parentTransform = *_engine.entities.add<Transform>(parent);
@@ -83,55 +86,65 @@ class MyState {
 			_engine.system<Renderer>().addTexture(parent, "rgb.png");
 
 			_engine.system<Physics>().addBox(parent, { 15, 15, 5 }, 10.f);
+
+			_junk.push_back(parent);
 		}
 
-		uint64_t child = _engine.entities.create();
+		uint64_t child0 = _engine.entities.create();
 		{
-			Transform& childTransform = *_engine.entities.add<Transform>(child);
-			childTransform.setPosition({ 0, 0, 100 });
+			Transform& childTransform = *_engine.entities.add<Transform>(child0);
+			childTransform.setPosition({ 0, 0, 500 });
 			childTransform.setScale({ 15, 15, 15 });
 
 			childTransform.setParent(parent);
 
-			_engine.system<Renderer>().addShader(child, "vertexShader.glsl", "fragmentShader.glsl");
-			_engine.system<Renderer>().addMesh(child, "sphere.obj");
-			_engine.system<Renderer>().addTexture(child, "rgb.png");
+			_engine.system<Renderer>().addShader(child0, "vertexShader.glsl", "fragmentShader.glsl");
+			_engine.system<Renderer>().addMesh(child0, "sphere.obj");
+			_engine.system<Renderer>().addTexture(child0, "rgb.png");
 
-			_engine.system<Physics>().addSphere(child, 15, 100.f);
-
-			//_engine.system<Controller>().setPossessed(child);
-			//_engine.entities.get<Collider>(parent)->alwaysActive(true);
-
-			_junk.push_back(parent);
-
+			_engine.system<Physics>().addSphere(child0, 15, 100.f);
 		}
 
+		//uint64_t child1 = _engine.entities.create();
+		//{
+		//	Transform& childTransform = *_engine.entities.add<Transform>(child1);
+		//	childTransform.setPosition({ 0, 0, 100 });
+		//	childTransform.setScale({ 15, 15, 15 });
+		//
+		//	childTransform.setParent(child0);
+		//
+		//	_engine.system<Renderer>().addShader(child1, "vertexShader.glsl", "fragmentShader.glsl");
+		//	_engine.system<Renderer>().addMesh(child1, "sphere.obj");
+		//	_engine.system<Renderer>().addTexture(child1, "rgb.png");
+		//
+		//	_engine.system<Physics>().addSphere(child1, 15, 10.f);
+		//}
 
-		uint64_t c = _engine.entities.create();
+		_engine.entities.get<Collider>(parent)->alwaysActive(true);
+
+		_test = child0;
+		_test1 = parent;
+
+		return parent;
+	}
+
+	void _spawnAxis(const glm::dvec3& position) {
+		uint64_t axis0 = _engine.entities.create();
 		{
-			Transform& childTransform = *_engine.entities.add<Transform>(c);
-			childTransform.setPosition({ 0, 0, 100 });
-			childTransform.setScale({ 15, 15, 15 });
+			Transform& childTransform = *_engine.entities.add<Transform>(axis0);
+			childTransform.setPosition(position);
+			childTransform.setScale({ 1.0, 1.0, 1.0 });
 
-			childTransform.setParent(child);
-
-			_engine.system<Renderer>().addShader(c, "vertexShader.glsl", "fragmentShader.glsl");
-			_engine.system<Renderer>().addMesh(c, "sphere.obj");
-			_engine.system<Renderer>().addTexture(c, "rgb.png");
-
-			_engine.system<Physics>().addSphere(c, 15, 10.f);
-
-			//_engine.system<Controller>().setPossessed(child);
-			//_engine.entities.get<Collider>(parent)->alwaysActive(true);
-
-			//_junk.push_back(parent);
-
+			_engine.system<Renderer>().addShader(axis0, "vertexShader.glsl", "fragmentShader.glsl");
+			_engine.system<Renderer>().addMesh(axis0, "axis.obj");
+			_engine.system<Renderer>().addTexture(axis0, "rgb.png");
 		}
 	}
 
 public:
 	MyState(Engine& engine) : _engine(engine) {
 		_engine.events.subscribe(this, Events::Load, &MyState::load);
+		_engine.events.subscribe(this, Events::Update, &MyState::update);
 		_engine.events.subscribe(this, Events::Keypress, &MyState::keypress);
 	}
 
@@ -140,7 +153,7 @@ public:
 		
 		// Spawn test compound entities
 		for (uint32_t i = 0; i < 1; i++)
-			_spawnParentTest({ 0.0, 100.0, 100.0 * i });
+			_spawnParentTest({ 0.0, 100.0, 100.0 * i + 200.0 });
 
 		// Skybox
 		uint64_t skybox = _engine.entities.create();
@@ -158,7 +171,7 @@ public:
 		uint64_t camera = _engine.entities.create();
 		{
 			Transform& transform = *_engine.entities.add<Transform>(camera);
-			transform.setPosition({ 0.0, -50.0, 50.0 });
+			transform.setPosition({ 0.0, -250.0, 50.0 });
 			transform.setRotation(glm::dquat({ glm::radians(90.0), 0.0, 0.0 }));
 
 			_engine.system<Physics>().addSphere(camera, 4.0, 100.0);
@@ -190,16 +203,21 @@ public:
 		}
 
 		// Axis
-		uint64_t axis = _engine.entities.create();
-		{
-			Transform& childTransform = *_engine.entities.add<Transform>(axis);
-			//childTransform.setParent(floor);
-			childTransform.setScale({ 5.0, 5.0, 5.0 });
+		_spawnAxis({ 0, 100, 0 });
+		_spawnAxis({ 0, 100, 50 });
+		_spawnAxis({ 0, 100, 100 });
+		_spawnAxis({ 0, 100, 150 });
+		_spawnAxis({ 0, 100, 200 });
+	}
 
-			_engine.system<Renderer>().addShader(axis, "vertexShader.glsl", "fragmentShader.glsl");
-			_engine.system<Renderer>().addMesh(axis, "axis.obj");
-			_engine.system<Renderer>().addTexture(axis, "rgb.png");
-		}
+	void update(double dt) {
+		//Transform* transform = _engine.entities.get<Transform>(_test1);
+		//
+		//if (transform) {
+		//	glm::dvec3 position = transform->worldPosition();
+		//
+		//	std::cout << position.x << ' ' << position.y << ' ' << position.z << '\n';
+		//}
 	}
 
 	void keypress(int key, int scancode, int action, int mods) {
@@ -219,14 +237,26 @@ public:
 			_junk.clear();
 		}
 		else if (key == GLFW_KEY_2) {
-			if (_engine.entities.has<Collider>(_camera)) {
+			/*if (_engine.entities.has<Collider>(_camera)) {
 				_engine.entities.remove<Collider>(_camera);
 			}
 			else {
 				_engine.system<Physics>().addSphere(_camera, 4.0, 50.0);
 				Collider& collider = *_engine.entities.get<Collider>(_camera);
 				collider.setGravity({ 0, 0, 0 });
+			}*/
+
+			static bool flip = true;
+
+			if (flip) {
+				_engine.system<Controller>().setPossessed(_test);
+				flip = false;
 			}
+			else {
+				_engine.system<Controller>().setPossessed(_camera);
+				flip = true;
+			}
+
 		}
 		else if (key == GLFW_KEY_4) {
 			Transform& transform = *_engine.entities.get<Transform>(_camera);
@@ -265,7 +295,7 @@ int main(int argc, char** argv) {
 		i -= dt;
 
 		if (i <= 0.0) {
-			std::cout << 1.0 / dt << " fps" << std::endl;
+			//std::cout << 1.0 / dt << " fps" << std::endl;
 			i = counter;
 		}
 

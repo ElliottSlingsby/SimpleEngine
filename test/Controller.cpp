@@ -178,7 +178,7 @@ void Controller::setPossessed(uint64_t id) {
 		return;
 
 	if (_possessed)
-		_engine.entities.dereference(id);
+		_engine.entities.dereference(_possessed);
 
 	if (id)
 		_engine.entities.reference(id);

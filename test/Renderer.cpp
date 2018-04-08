@@ -2,6 +2,7 @@
 
 #include "Transform.hpp"
 #include "Model.hpp"
+#include "Collider.hpp"
 
 #include <iostream>
 #include <iomanip>
@@ -353,7 +354,13 @@ void Renderer::update(double dt) {
 		glm::dmat4 modelMatrix;
 
 		if (program.uniformModelView != -1 || program.uniformView != -1) {
-			modelMatrix = glm::translate(modelMatrix, transform.worldPosition());
+			Collider* collider = _engine.entities.get<Collider>(id);
+
+			//if (collider)
+			//	modelMatrix = glm::translate(modelMatrix, transform.worldPosition() - transform.worldRotation() * collider->centerOfMass());
+			//else
+				modelMatrix = glm::translate(modelMatrix, transform.worldPosition());
+
 			modelMatrix *= glm::mat4_cast(transform.worldRotation());
 			modelMatrix = glm::scale(modelMatrix, transform.worldScale());
 

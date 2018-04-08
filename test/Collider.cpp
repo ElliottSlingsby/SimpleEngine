@@ -1,6 +1,5 @@
 #include "Collider.hpp"
 
-#include "Transform.hpp"
 #include "Physics.hpp"
 
 Collider::Collider(Engine::EntityManager& entities, uint64_t id, btCollisionShape* const collisionShape, float mass) : _engine(*static_cast<Engine*>(entities.enginePtr())), _id(id), _collisionShape(collisionShape), _mass(mass){}
@@ -47,4 +46,12 @@ void Collider::deactivate(){
 void Collider::alwaysActive(bool value){
 	if (_rigidBody)
 		_rigidBody->forceActivationState(DISABLE_DEACTIVATION);
+}
+
+glm::dvec3 Collider::centerOfMass() const {
+	return _engine.entities.get<Collider>(_engine.system<Physics>()._rootCollider(_id))->_centerOfMass;
+}
+
+void Collider::setCenterOfMass(const glm::dvec3 position) {
+	_engine.system<Physics>()._setCenterOfMass(_id, toBt(_centerOfMass));
 }

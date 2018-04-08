@@ -38,7 +38,7 @@ void Physics::_recursiveGetMasses(uint64_t id, std::vector<btScalar>* masses){
 	masses->push_back(collider->_mass);
 
 	for (uint32_t i = 0; i < transform->children(); i++)
-		_recursiveUpdateCompoundShape(transform->child(i), masses);
+		_recursiveGetMasses(transform->child(i), masses);
 }
 
 void Physics::_recursiveUpdateCompoundShape(uint64_t id, std::vector<btScalar>* masses) {
@@ -67,7 +67,10 @@ void Physics::_recursiveUpdateCompoundShape(uint64_t id, std::vector<btScalar>* 
 
 	collider->_compoundShape->addChildShape(identityTransform, collider->_collisionShape);
 
-	masses->push_back(collider->_mass);
+	if (collider->_mass == 0.0)
+		masses->push_back(1.0);
+	else
+		masses->push_back(collider->_mass);
 
 	for (uint32_t i = 0; i < transform->children(); i++)
 		_recursiveUpdateCompoundShape(transform->child(i), masses);
@@ -93,23 +96,56 @@ void Physics::_removeFromWorld(uint64_t id){
 }
 
 void Physics::_setCenterOfMass(uint64_t id, const btVector3& position) {
+	Transform* transform = _engine.entities.get<Transform>(id);
 	Collider* collider = _engine.entities.get<Collider>(id);
 
-	if (!collider)
+	if (!collider || transform->parent())
 		return;
 
-	for (uint32_t i = 0; i < collider->_compoundShape->getNumChildShapes(); i++) {
-		btCollisionShape* shape = collider->_compoundShape->getChildShape(i);
-		btTransform offset = collider->_compoundShape->getChildTransform(i);
+	std::cout << position.x() << ' ' << position.y() << ' ' << position.z() << '\n';
 
-		Transform* transform = static_cast<Transform*>(shape->getUserPointer());
-		offset.setOrigin(toBt(transform->position()) - position);
-		offset.setRotation(toBt(transform->rotation()));
+	glm::dvec3 difference = transform->rotation() * toGlm<double>(position) - transform->rotation() * collider->_centerOfMass;
+
+	for (uint32_t i = 0; i < collider->_compoundShape->getNumChildShapes(); i++) {
+		Transform* child = static_cast<Transform*>(collider->_compoundShape->getChildShape(i)->getUserPointer());
+
+		btTransform offset;
+
+		if (i) {
+			offset.setOrigin(toBt(child->position()) - position);
+			offset.setRotation(toBt(child->rotation()));
+		}
+		else {
+			offset.setIdentity();
+			offset.setOrigin(-position);
+		}
 
 		collider->_compoundShape->updateChildTransform(i, offset);
 	}
 
 	collider->_centerOfMass = toGlm<double>(position);
+
+	btTransform rootOffset = collider->_rigidBody->getWorldTransform();
+	rootOffset.setOrigin(rootOffset.getOrigin() + toBt(difference));
+
+	collider->_rigidBody->setWorldTransform(rootOffset);
+	collider->_rigidBody->setInterpolationWorldTransform(rootOffset);
+
+
+
+	
+	//btTransform centerOfMass;
+	//centerOfMass.setOrigin(toBt(transform->worldPosition()) + position);
+	//centerOfMass.setRotation(toBt(transform->worldRotation()));
+	//
+	//collider->_rigidBody->setCenterOfMassTransform(centerOfMass);
+
+	//transform->setPosition(transform->worldPosition() + collider->_centerOfMass);
+
+	//updateWorldTransform(id);
+
+	// collider should apply centerofmass during updateWorldTransform
+	// call it here instead of applying offset manually
 }
 
 uint64_t Physics::_rootCollider(uint64_t id) const {
@@ -168,25 +204,59 @@ void Physics::updateWorldTransform(uint64_t id) {
 	if (!collider)
 		return;
 
+	//std::cout << transform->position().x << ' ' << transform->position().y << ' ' << transform->position().z << '\n';
+
 	Collider* parentCollider = _engine.entities.get<Collider>(transform->parent());
 
 	if (parentCollider) {
+		uint64_t root = _rootCollider(id);
+		Collider* rootCollider = _engine.entities.get<Collider>(root);
+
 		btTransform localTransform;
-		localTransform.setOrigin(toBt(transform->position()));
+		localTransform.setOrigin(toBt(transform->position() - rootCollider->_centerOfMass));
 		localTransform.setRotation(toBt(transform->rotation()));
-
+		
 		parentCollider->_compoundShape->updateChildTransform(collider->_compoundIndex, localTransform);
+		
 
-		// recompute root collider's center of mass
+		for (uint32_t i = 0; i < parentCollider->_compoundShape->getNumChildShapes(); i++) {
+			btTransform childTransform = parentCollider->_compoundShape->getChildTransform(i);
+		
+			childTransform.setOrigin(childTransform.getOrigin() + toBt(rootCollider->centerOfMass()));
 
-		//uint64_t root = _rootCollider(id);
+			parentCollider->_compoundShape->updateChildTransform(i, childTransform);
+		}
 
-		//std::vector<btScalar> masses;
-		//_recursiveGetMasses(root, &masses);	
+		
+		std::vector<btScalar> masses;
+		_recursiveGetMasses(root, &masses);
+		
+		btTransform principal;
+		principal.setIdentity();
+		
+		btVector3 localInertia = rootCollider->_rigidBody->getLocalInertia();
+		
+		rootCollider->_compoundShape->calculatePrincipalAxisTransform(&*masses.begin(), principal, localInertia);
+		
+		_setCenterOfMass(root, principal.getOrigin());
+
+
+
+		//Transform* rootTransform = _engine.entities.get<Transform>(root);
+
+		//glm::dvec3 position = rootTransform->position();
+		//std::cout << position.x << ' ' << position.y << ' ' << position.z << '\n';
+		
+
+		//btTransform rootOffset = rootCollider->_rigidBody->getWorldTransform();
+		//
+		//rootOffset.setOrigin(rootOffset.getOrigin() + btVector3(0, 0, 100));
+		//
+		//rootCollider->_rigidBody->setInterpolationWorldTransform(rootOffset);
 	}
 	else {
 		btTransform worldTransform;
-		worldTransform.setOrigin(toBt(transform->worldPosition()));
+		worldTransform.setOrigin(toBt(transform->worldPosition() + transform->worldRotation() * collider->_centerOfMass));
 		worldTransform.setRotation(toBt(transform->worldRotation()));
 
 		collider->_rigidBody->setWorldTransform(worldTransform);
@@ -218,8 +288,10 @@ void Physics::updateCompoundShape(uint64_t id) {
 
 	btScalar mass = 0;
 
-	for (btScalar i : masses)
-		mass += i;
+	if (rootCollider->_mass != 0.0) {
+		for (btScalar i : masses)
+			mass += i;
+	}
 
 	if (rootTransform->children() && mass != 0)
 		rootCollider->_compoundShape->calculatePrincipalAxisTransform(&*masses.begin(), principal, localInertia);
@@ -228,24 +300,22 @@ void Physics::updateCompoundShape(uint64_t id) {
 
 	_createRigidBody(root, mass, localInertia);
 
-	updateWorldTransform(root);
+	if (rootTransform->children() && mass != 0) {
+		_setCenterOfMass(root, principal.getOrigin());
 
-	//_setCenterOfMass(root, principal.getOrigin());
+		//rootCollider->_compoundShape->calculatePrincipalAxisTransform(&*masses.begin(), principal, localInertia);
+		//_setCenterOfMass(root, principal.getOrigin());
 
-	
 
-	for (uint32_t i = 0; i < rootCollider->_compoundShape->getNumChildShapes(); i++) {
-		btTransform offset = rootCollider->_compoundShape->getChildTransform(i);
 
-		offset.setOrigin(offset.getOrigin() - principal.getOrigin());
-		offset.setRotation(offset.getRotation() * -principal.getRotation());
-
-		rootCollider->_compoundShape->updateChildTransform(i, offset);
 	}
 
-	rootCollider->_centerOfMass = toGlm<double>(principal.getOrigin());
+	//updateWorldTransform(root);
 
-	
+	//if (rootTransform->children() && mass != 0) {
+	//	glm::dvec3 position = rootTransform->position();
+	//	std::cout << position.x << ' ' << position.y << ' ' << position.z << '\n';
+	//}
 }
 
 void Physics::setGravity(const glm::dvec3& direction){

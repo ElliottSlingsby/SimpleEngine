@@ -9,6 +9,44 @@
 
 #include <vector>
 
+template <typename T>
+inline glm::tquat<T> toGlm(const btQuaternion& from) {
+	return glm::tquat<T>{
+		static_cast<T>(from.w()),
+		static_cast<T>(from.x()),
+		static_cast<T>(from.y()),
+		static_cast<T>(from.z())
+	};
+}
+
+template <typename T>
+inline glm::tvec3<T> toGlm(const btVector3& from) {
+	return glm::tvec3<T>{
+		static_cast<T>(from.x()),
+		static_cast<T>(from.y()),
+		static_cast<T>(from.z())
+	};
+}
+
+template <typename T>
+inline btQuaternion toBt(const glm::tquat<T>& from) {
+	return btQuaternion{
+		static_cast<btScalar>(from.x),
+		static_cast<btScalar>(from.y),
+		static_cast<btScalar>(from.z),
+		static_cast<btScalar>(from.w)
+	};
+}
+
+template <typename T>
+inline btVector3 toBt(const glm::tvec3<T>& from) {
+	return btVector3{
+		static_cast<btScalar>(from.x),
+		static_cast<btScalar>(from.y),
+		static_cast<btScalar>(from.z)
+	};
+}
+
 class Transform;
 
 class Collider{
@@ -24,9 +62,9 @@ class Collider{
 
 	double _mass = 0.0;
 
-public:
 	glm::dvec3 _centerOfMass;
 
+public:
 	Collider(Engine::EntityManager& entities, uint64_t id, btCollisionShape* const collisionShape, float mass);
 	~Collider();
 
@@ -40,6 +78,10 @@ public:
 	void deactivate();
 
 	void alwaysActive(bool value);
+
+	glm::dvec3 centerOfMass() const;
+
+	void setCenterOfMass(const glm::dvec3 position);
 
 	friend class Physics;
 };

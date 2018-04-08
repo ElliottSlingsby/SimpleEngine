@@ -31,12 +31,6 @@ class EntityManager {
 		uint32_t references = 0;
 	};
 
-	enum Warning {
-		Invalid,
-		References,
-		Component,
-	};
-
 	const size_t _chunkSize;
 
 	BasePool* _pools[typeWidth] = { nullptr };
