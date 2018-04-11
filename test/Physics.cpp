@@ -5,10 +5,12 @@
 
 #include <BulletCollision\NarrowPhaseCollision\btRaycastCallback.h>
 
-void Physics::_addCollider(uint64_t id, btScalar mass, btCollisionShape* shape) {
+Collider* Physics::_addCollider(uint64_t id, btScalar mass, btCollisionShape* shape) {
 	shape->setUserPointer(_engine.entities.add<Transform>(id));
-	_engine.entities.add<Collider>(id, shape, mass);
+	Collider* collider = _engine.entities.add<Collider>(id, shape, mass);
 	updateCompoundShape(id);
+
+	return collider;
 }
 
 void Physics::_createRigidBody(uint64_t id, btScalar mass, const btVector3& localInertia){
@@ -57,7 +59,7 @@ void Physics::_recursiveUpdateCompoundShape(uint64_t id, std::vector<btScalar>* 
 	if (collider->_compoundShape)
 		delete collider->_compoundShape;
 
-	collider->_centerOfMass = glm::dvec3();
+	collider->_centerOfMass = Vec3();
 	collider->_compoundShape = new btCompoundShape();
 
 	collider->_compoundShape->setUserPointer(transform);
@@ -102,7 +104,7 @@ void Physics::_setCenterOfMass(uint64_t id, const btVector3& position) {
 	if (!collider || transform->parent())
 		return;
 
-	glm::dvec3 difference = transform->rotation() * fromBt<double>(position) - transform->rotation() * collider->_centerOfMass;
+	Vec3 difference = transform->rotation() * fromBt(position) - transform->rotation() * collider->_centerOfMass;
 
 	for (uint32_t i = 0; i < collider->_compoundShape->getNumChildShapes(); i++) {
 		Transform* child = static_cast<Transform*>(collider->_compoundShape->getChildShape(i)->getUserPointer());
@@ -121,7 +123,7 @@ void Physics::_setCenterOfMass(uint64_t id, const btVector3& position) {
 		collider->_compoundShape->updateChildTransform(i, offset);
 	}
 
-	collider->_centerOfMass = fromBt<double>(position);
+	collider->_centerOfMass = fromBt(position);
 
 	btTransform rootOffset = collider->_rigidBody->getWorldTransform();
 	rootOffset.setOrigin(rootOffset.getOrigin() + toBt(difference));
@@ -205,7 +207,7 @@ void Physics::load(int argc, char ** argv){
 	_solver = new btSequentialImpulseConstraintSolver;
 	_dynamicsWorld = new btDiscreteDynamicsWorld(_dispatcher, _overlappingPairCache, _solver, _collisionConfiguration);
 
-	setGravity(glm::dvec3());
+	setGravity(Vec3());
 }
 
 void Physics::update(double dt){
@@ -284,49 +286,49 @@ void Physics::updateCompoundShape(uint64_t id) {
 		_setCenterOfMass(root, principal.getOrigin());
 }
 
-void Physics::setGravity(const glm::dvec3& direction){
+void Physics::setGravity(const Vec3& direction){
 	if (!_dynamicsWorld)
 		return;
 
 	_dynamicsWorld->setGravity(toBt(direction));
 }
 
-void Physics::addSphere(uint64_t id, float radius, float mass) {
+Collider* Physics::addSphere(uint64_t id, float radius, float mass) {
 	if (_engine.entities.has<Collider>(id))
 		_engine.entities.remove<Collider>(id);
 
-	_addCollider(id, mass, new btSphereShape(static_cast<btScalar>(radius)));
+	return _addCollider(id, mass, new btSphereShape(static_cast<btScalar>(radius)));
 }
 
-void Physics::addBox(uint64_t id, const glm::dvec3& dimensions, float mass) {
+Collider* Physics::addBox(uint64_t id, const Vec3& dimensions, float mass) {
 	if (_engine.entities.has<Collider>(id))
 		_engine.entities.remove<Collider>(id);
 
-	_addCollider(id, mass, new btBoxShape(btVector3(dimensions.x, dimensions.y, dimensions.z) * 2));
+	return _addCollider(id, mass, new btBoxShape(btVector3(dimensions.x, dimensions.y, dimensions.z) * 2));
 }
 
-void Physics::addCylinder(uint64_t id, float radius, float height, float mass) {
+Collider* Physics::addCylinder(uint64_t id, float radius, float height, float mass) {
 	if (_engine.entities.has<Collider>(id))
 		_engine.entities.remove<Collider>(id);
 
-	_addCollider(id, mass, new btCylinderShape(btVector3(radius * 2, radius * 2, height)));
+	return _addCollider(id, mass, new btCylinderShape(btVector3(radius * 2, radius * 2, height)));
 }
 
-void Physics::addCapsule(uint64_t id, float radius, float height, float mass) {
+Collider* Physics::addCapsule(uint64_t id, float radius, float height, float mass) {
 	if (_engine.entities.has<Collider>(id))
 		_engine.entities.remove<Collider>(id);
 
-	_addCollider(id, mass, new btCapsuleShape(radius, height));
+	return _addCollider(id, mass, new btCapsuleShape(radius, height));
 }
 
-void Physics::addStaticPlane(uint64_t id){
+Collider* Physics::addStaticPlane(uint64_t id){
 	if (_engine.entities.has<Collider>(id))
 		_engine.entities.remove<Collider>(id);
 
-	_addCollider(id, 0.f, new btStaticPlaneShape(btVector3(0, 0, 1), 0));
+	return _addCollider(id, 0.f, new btStaticPlaneShape(btVector3(0, 0, 1), 0));
 }
 
-void Physics::rayTest(const glm::dvec3 & from, const glm::dvec3 & to, std::vector<RayHit>& hits){
+void Physics::rayTest(const Vec3 & from, const Vec3 & to, std::vector<RayHit>& hits){
 	btVector3 bFrom(toBt(from));
 	btVector3 bTo(toBt(to));
 
@@ -342,11 +344,11 @@ void Physics::rayTest(const glm::dvec3 & from, const glm::dvec3 & to, std::vecto
 	for (uint32_t i = 0; i < results.m_collisionObjects.size(); i++) {
 		uint64_t id = static_cast<Transform*>(results.m_collisionObjects[i]->getUserPointer())->id();
 
-		hits.push_back({ id, fromBt<double>(results.m_hitPointWorld[i]), fromBt<double>(results.m_hitNormalWorld[i]) });
+		hits.push_back({ id, fromBt(results.m_hitPointWorld[i]), fromBt(results.m_hitNormalWorld[i]) });
 	}
 }
 
-Physics::RayHit Physics::rayTest(const glm::dvec3 & from, const glm::dvec3 & to){
+Physics::RayHit Physics::rayTest(const Vec3 & from, const Vec3 & to){
 	btVector3 bFrom(toBt(from));
 	btVector3 bTo(toBt(to));
 
@@ -362,13 +364,13 @@ Physics::RayHit Physics::rayTest(const glm::dvec3 & from, const glm::dvec3 & to)
 
 	uint64_t id = static_cast<Transform*>(results.m_collisionObject->getUserPointer())->id();
 
-	return { id, fromBt<double>(results.m_hitPointWorld), fromBt<double>(results.m_hitNormalWorld) };
+	return { id, fromBt(results.m_hitPointWorld), fromBt(results.m_hitNormalWorld) };
 }
 
-void Physics::sphereTest(float radius, const glm::dvec3 & position, const glm::dquat & rotation, std::vector<SweepHit>& hits){
+void Physics::sphereTest(float radius, const Vec3 & position, const Quat & rotation, std::vector<SweepHit>& hits){
 
 }
 
-void Physics::sphereSweep(uint64_t id, float radius, const glm::dvec3 & fromPos, const glm::dquat & fromRot, const glm::dvec3 & toPos, const glm::dvec3 & toRot, std::vector<SweepHit>& hits){
+void Physics::sphereSweep(uint64_t id, float radius, const Vec3 & fromPos, const Quat & fromRot, const Vec3 & toPos, const Vec3 & toRot, std::vector<SweepHit>& hits){
 
 }

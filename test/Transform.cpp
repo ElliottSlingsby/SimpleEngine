@@ -17,36 +17,36 @@ void Transform::setWorldTransform(const btTransform& transform) {
 		Collider* collider = _engine.entities.get<Collider>(_id);
 
 		if (collider)
-			_position = fromBt<double>(transform.getOrigin()) - _rotation * collider->centerOfMass();
+			_position = fromBt(transform.getOrigin()) - _rotation * collider->centerOfMass();
 		else
-			_position = fromBt<double>(transform.getOrigin());
+			_position = fromBt(transform.getOrigin());
 
-		_rotation = fromBt<double>(transform.getRotation());
+		_rotation = fromBt(transform.getRotation());
 	}
 	else {
 		Transform* parent = _engine.entities.get<Transform>(_parent);
-		glm::dquat parentRotation = parent->worldRotation();
+		Quat parentRotation = parent->worldRotation();
 
-		_position = (fromBt<double>(transform.getOrigin()) - parent->worldPosition()) * parentRotation;
-		_rotation = glm::inverse(parentRotation) * fromBt<double>(transform.getRotation());
+		_position = (fromBt(transform.getOrigin()) - parent->worldPosition()) * parentRotation;
+		_rotation = glm::inverse(parentRotation) * fromBt(transform.getRotation());
 	}
 }
 
-void Transform::_setPosition(const glm::dvec3& position) {
+void Transform::_setPosition(const Vec3& position) {
 	_position = position;
 	
 	if (_engine.entities.has<Collider>(_id)) 
 		_engine.system<Physics>().updateWorldTransform(_id);
 }
 
-void Transform::_setRotation(const glm::dquat& rotation) {
+void Transform::_setRotation(const Quat& rotation) {
 	_rotation = rotation;
 	
 	if (_engine.entities.has<Collider>(_id))
 		_engine.system<Physics>().updateWorldTransform(_id);
 }
 
-void Transform::_setScale(const glm::dvec3 & scale){
+void Transform::_setScale(const Vec3 & scale){
 	_scale = scale;
 
 	if (_engine.entities.has<Collider>(_id))
@@ -204,19 +204,19 @@ uint32_t Transform::children() const {
 	return static_cast<uint32_t>(_children.size());
 }
 
-void Transform::setPosition(const glm::dvec3& position) {
+void Transform::setPosition(const Vec3& position) {
 	_setPosition(position);
 }
 
-void Transform::setRotation(const glm::dquat& rotation) {
+void Transform::setRotation(const Quat& rotation) {
 	_setRotation(rotation);
 }
 
-void Transform::setScale(const glm::dvec3& scale) {
+void Transform::setScale(const Vec3& scale) {
 	_scale = scale;
 }
 
-void Transform::setWorldPosition(const glm::dvec3 & position){
+void Transform::setWorldPosition(const Vec3 & position){
 	Transform* parent = _engine.entities.get<Transform>(_parent);
 
 	if (!parent)
@@ -225,7 +225,7 @@ void Transform::setWorldPosition(const glm::dvec3 & position){
 		_setPosition(glm::inverse(parent->worldRotation()) * (position - parent->worldPosition()));
 }
 
-void Transform::setWorldRotation(const glm::dquat & rotation){
+void Transform::setWorldRotation(const Quat & rotation){
 	Transform* parent = _engine.entities.get<Transform>(_parent);
 
 	if (!parent)
@@ -234,7 +234,7 @@ void Transform::setWorldRotation(const glm::dquat & rotation){
 		_setRotation(glm::inverse(parent->worldRotation()) * rotation);
 }
 
-void Transform::setWorldScale(const glm::dvec3 & scale){
+void Transform::setWorldScale(const Vec3 & scale){
 	Transform* parent = _engine.entities.get<Transform>(_parent);
 
 	if (!parent)
@@ -243,20 +243,20 @@ void Transform::setWorldScale(const glm::dvec3 & scale){
 		_setScale(scale / parent->worldScale());
 }
 
-glm::dvec3 Transform::position() const {
+Vec3 Transform::position() const {
 	return _position;
 }
 
-glm::dquat Transform::rotation() const {
+Quat Transform::rotation() const {
 	return _rotation;
 }
 
-glm::dvec3 Transform::scale() const {
+Vec3 Transform::scale() const {
 	return _scale;
 }
 
-glm::dvec3 Transform::worldPosition() const {
-	glm::dvec3 position = _position;
+Vec3 Transform::worldPosition() const {
+	Vec3 position = _position;
 	Transform* parent = _engine.entities.get<Transform>(_parent);
 
 	while (parent != nullptr && parent->id()) {
@@ -267,8 +267,8 @@ glm::dvec3 Transform::worldPosition() const {
 	return position;
 }
 
-glm::dquat Transform::worldRotation() const {
-	glm::dquat rotation = _rotation;
+Quat Transform::worldRotation() const {
+	Quat rotation = _rotation;
 	Transform* parent = _engine.entities.get<Transform>(_parent);
 
 	while (parent != nullptr && parent->id()) {
@@ -279,8 +279,8 @@ glm::dquat Transform::worldRotation() const {
 	return rotation;
 }
 
-glm::dvec3 Transform::worldScale() const {
-	glm::dvec3 scale = _scale;
+Vec3 Transform::worldScale() const {
+	Vec3 scale = _scale;
 	Transform* parent = _engine.entities.get<Transform>(_parent);
 
 	while (parent != nullptr && parent->id()) {
@@ -291,8 +291,8 @@ glm::dvec3 Transform::worldScale() const {
 	return scale;
 }
 
-glm::dmat4 Transform::matrix() const {
-	glm::dmat4 matrix;
+Mat4 Transform::matrix() const {
+	Mat4 matrix;
 	matrix = glm::translate(matrix, worldPosition());
 	matrix *= glm::mat4_cast(worldRotation());
 	matrix = glm::scale(matrix, worldScale());
@@ -300,19 +300,19 @@ glm::dmat4 Transform::matrix() const {
 	return matrix;
 }
 
-void Transform::rotate(const glm::dquat& rotation) {
+void Transform::rotate(const Quat& rotation) {
 	_setRotation(_rotation * rotation);
 }
 
-void Transform::translate(const glm::dvec3& translation) {
+void Transform::translate(const Vec3& translation) {
 	_setPosition(_position + _rotation * translation);
 }
 
-void Transform::scale(const glm::dvec3 & scaling){
+void Transform::scale(const Vec3 & scaling){
 	_setScale(_scale * scaling);
 }
 
-void Transform::worldRotate(const glm::dquat& rotation) {
+void Transform::worldRotate(const Quat& rotation) {
 	Transform* parent = _engine.entities.get<Transform>(_parent);
 
 	if (!parent)
@@ -321,7 +321,7 @@ void Transform::worldRotate(const glm::dquat& rotation) {
 		_setRotation(glm::inverse(parent->worldRotation()) * (rotation * worldRotation()));
 }
 
-void Transform::worldTranslate(const glm::dvec3& translation) {
+void Transform::worldTranslate(const Vec3& translation) {
 	Transform* parent = _engine.entities.get<Transform>(_parent);
 
 	if (!parent)
@@ -330,7 +330,7 @@ void Transform::worldTranslate(const glm::dvec3& translation) {
 		_setPosition(_position + glm::inverse(parent->worldRotation()) * translation);
 }
 
-void Transform::worldScale(const glm::dvec3 & scaling){
+void Transform::worldScale(const Vec3 & scaling){
 	Transform* parent = _engine.entities.get<Transform>(_parent);
 
 	if (!parent)
@@ -339,6 +339,6 @@ void Transform::worldScale(const glm::dvec3 & scaling){
 		_setScale(scaling / parent->worldScale());
 }
 
-void Transform::lookAt(glm::dvec3& position, glm::dvec3 up){
+void Transform::lookAt(Vec3& position, Vec3 up){
 	setWorldRotation(glm::inverse(glm::quat_cast(glm::lookAt(worldPosition(), position, up))));
 }

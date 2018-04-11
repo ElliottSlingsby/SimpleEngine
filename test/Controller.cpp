@@ -10,7 +10,6 @@ uint64_t _test = 0;
 
 Controller::Controller(Engine& engine) : _engine(engine) {
 	_engine.events.subscribe(this, Events::Update, &Controller::update);
-	_engine.events.subscribe(this, Events::Load, &Controller::load);
 	_engine.events.subscribe(this, Events::Reset, &Controller::reset);
 
 	_engine.events.subscribe(this, Events::Mousemove, &Controller::mousemove);
@@ -38,10 +37,10 @@ void Controller::update(double dt) {
 	Transform& transform = *_engine.entities.get<Transform>(_possessed);
 
 	if (_locked) {
-		transform.worldRotate(glm::dquat({ 0.0, 0.0, -_dMousePos.x * dt }));
-		transform.rotate(glm::dquat({ -_dMousePos.y * dt, 0.0, 0.0 }));
+		transform.worldRotate(Quat({ 0.0, 0.0, -_dMousePos.x * dt }));
+		transform.rotate(Quat({ -_dMousePos.y * dt, 0.0, 0.0 }));
 
-		//transform.lookAt(glm::dvec3(0.0, 0.0, 0.0));
+		//transform.lookAt(Vec3(0.0, 0.0, 0.0));
 
 		_dMousePos = { 0.0, 0.0 };
 
@@ -53,24 +52,24 @@ void Controller::update(double dt) {
 			moveSpeed = 100.0 * dt;
 
 		if (_forward)
-			transform.translate(LocalDVec3::forward * moveSpeed);
+			transform.translate(LocalVec3::forward * moveSpeed);
 		if (_back)
-			transform.translate(LocalDVec3::back * moveSpeed);
+			transform.translate(LocalVec3::back * moveSpeed);
 		if (_left)
-			transform.translate(LocalDVec3::left * moveSpeed);
+			transform.translate(LocalVec3::left * moveSpeed);
 		if (_right)
-			transform.translate(LocalDVec3::right * moveSpeed);
+			transform.translate(LocalVec3::right * moveSpeed);
 		if (_up)
-			transform.worldTranslate(GlobalDVec3::up * moveSpeed);
+			transform.worldTranslate(WorldVec3::up * moveSpeed);
 		if (_down)
-			transform.worldTranslate(GlobalDVec3::down * moveSpeed);
+			transform.worldTranslate(WorldVec3::down * moveSpeed);
 	}
 
 	Collider* collider = _engine.entities.get<Collider>(_possessed);
 
 	if (collider) {
-		glm::dvec3 angles = glm::eulerAngles(transform.worldRotation());
-		transform.setWorldRotation(glm::dquat({ angles.x, 0.f, angles.z }));
+		Vec3 angles = glm::eulerAngles(transform.worldRotation());
+		transform.setWorldRotation(Quat({ angles.x, 0.f, angles.z }));
 
 		collider->setAngularVelocity({ 0, 0, 0 });
 		collider->setLinearVelocity({ 0, 0, 0 });
@@ -79,7 +78,7 @@ void Controller::update(double dt) {
 	}
 	
 	if (_cursor && _engine.entities.has<Transform>(_cursor)) {
-		glm::dvec3 target;
+		Vec3 target;
 
 		if (_action0) {
 			Renderer& renderer = _engine.system<Renderer>();
@@ -87,15 +86,15 @@ void Controller::update(double dt) {
 			Transform& transform = *_engine.entities.get<Transform>(_possessed);
 
 			if (!_locked) {
-				glm::dvec2 mousePos = ((_mousePos / static_cast<glm::dvec2>(renderer.windowSize())) * 2.0) - 1.0;
+				Vec2 mousePos = ((_mousePos / static_cast<Vec2>(renderer.windowSize())) * 2.0) - 1.0;
 
-				glm::dvec4 mouseToWorld = glm::inverse(renderer.projectionMatrix() * renderer.viewMatrix()) * glm::dvec4(mousePos.x, -mousePos.y, 0.0, 1.0);
-				glm::dvec3 cursorPosition = glm::dvec3(mouseToWorld.x, mouseToWorld.y, mouseToWorld.z) / mouseToWorld.w;
+				Vec4 mouseToWorld = glm::inverse(renderer.projectionMatrix() * renderer.viewMatrix()) * Vec4(mousePos.x, -mousePos.y, 0.0, 1.0);
+				Vec3 cursorPosition = Vec3(mouseToWorld.x, mouseToWorld.y, mouseToWorld.z) / mouseToWorld.w;
 
 				target = transform.position() + glm::normalize(cursorPosition - transform.position()) * 10000.0;
 			}
 			else {
-				target = transform.position() + transform.rotation() * LocalDVec3::forward * 10000.0;
+				target = transform.position() + transform.rotation() * LocalVec3::forward * 10000.0;
 			}
 
 			auto hit = _engine.system<Physics>().rayTest(transform.position(), target);
@@ -106,8 +105,8 @@ void Controller::update(double dt) {
 			_cursorPosition = target;
 		}
 
-		_engine.entities.get<Transform>(_cursor)->setRotation(glm::dquat({ 0.0, 0.0, glm::radians(_cursorI) }));
-		_engine.entities.get<Transform>(_cursor)->setPosition(_cursorPosition + glm::dvec3(0.0, 0.0, ((glm::cos(glm::radians(_cursorI)) + 1.0) / 2.0) * 8.0));
+		_engine.entities.get<Transform>(_cursor)->setRotation(Quat({ 0.0, 0.0, glm::radians(_cursorI) }));
+		_engine.entities.get<Transform>(_cursor)->setPosition(_cursorPosition + Vec3(0.0, 0.0, ((glm::cos(glm::radians(_cursorI)) + 1.0) / 2.0) * 8.0));
 
 		_cursorI += 360.0 * dt;
 
@@ -117,9 +116,9 @@ void Controller::update(double dt) {
 }
 
 void Controller::mousemove(double x, double y){
-	glm::dvec2 newMousePos = { x, y };
+	Vec2 newMousePos = { x, y };
 
-	if (_mousePos == glm::dvec2(0.0, 0.0))
+	if (_mousePos == Vec2(0.0, 0.0))
 		_mousePos = newMousePos;
 
 	_dMousePos = newMousePos - _mousePos;
@@ -188,6 +187,15 @@ void Controller::setPossessed(uint64_t id) {
 	_possessed = id;
 }
 
-glm::dvec3 Controller::cursorPosition() const{
-	return _cursorPosition;
+void Controller::setCursor(uint64_t id){
+	if (id && !_engine.entities.valid(id))
+		return;
+
+	if (_cursor)
+		_engine.entities.dereference(_cursor);
+
+	if (id)
+		_engine.entities.reference(id);
+
+	_cursor = id;
 }

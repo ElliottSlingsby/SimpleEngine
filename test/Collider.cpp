@@ -36,7 +36,7 @@ Collider::~Collider(){
 	delete _collisionShape;
 }
 
-void Collider::setGravity(const glm::dvec3& direction) {
+void Collider::setGravity(const Vec3& direction) {
 	if (_rigidBody)
 		_rigidBody->setGravity(toBt(direction));
 }
@@ -50,7 +50,7 @@ void Collider::setMass(double mass) {
 
 }
 
-void Collider::setDamping(const glm::dvec3 & damping) {
+void Collider::setDamping(const Vec3 & damping) {
 
 }
 
@@ -58,12 +58,12 @@ void Collider::setRestitution(double restitution){
 
 }
 
-void Collider::setAngularVelocity(const glm::dvec3& velocity) {
+void Collider::setAngularVelocity(const Vec3& velocity) {
 	if (_rigidBody)
 		_rigidBody->setAngularVelocity(toBt(velocity));
 }
 
-void Collider::setLinearVelocity(const glm::dvec3& velocity) {
+void Collider::setLinearVelocity(const Vec3& velocity) {
 	if (_rigidBody)
 		_rigidBody->setLinearVelocity(toBt(velocity));
 }
@@ -83,10 +83,10 @@ void Collider::alwaysActive(bool value){
 		_rigidBody->forceActivationState(DISABLE_DEACTIVATION);
 }
 
-glm::dvec3 Collider::centerOfMass() const {
+Vec3 Collider::centerOfMass() const {
 	return _engine.entities.get<Collider>(_engine.system<Physics>()._rootCollider(_id))->_centerOfMass;
 }
 
-void Collider::setCenterOfMass(const glm::dvec3 position) {
+void Collider::setCenterOfMass(const Vec3 position) {
 	_engine.system<Physics>()._setCenterOfMass(_id, toBt(_centerOfMass));
 }

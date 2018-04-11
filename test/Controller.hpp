@@ -9,6 +9,7 @@ class Controller {
 	Engine& _engine;
 
 	uint64_t _possessed = 0;
+	uint64_t _cursor = 0;
 
 	bool _forward = false;
 	bool _back = false;
@@ -22,14 +23,12 @@ class Controller {
 
 	bool _action0 = false;
 
-	glm::dvec2 _mousePos;
-	glm::dvec2 _dMousePos;
+	Vec2 _mousePos;
+	Vec2 _dMousePos;
 
 	bool _locked = true;
-
-	uint64_t _cursor = 0;
-
-	glm::dvec3 _cursorPosition;
+	
+	Vec3 _cursorPosition;
 	double _cursorI = 180.0;
 
 public:
@@ -43,6 +42,7 @@ public:
 	void reset();
 
 	void setPossessed(uint64_t id);
+	void setCursor(uint64_t id);
 
-	glm::dvec3 cursorPosition() const;
+	friend class EventManager;
 };

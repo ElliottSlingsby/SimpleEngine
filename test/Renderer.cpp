@@ -144,7 +144,7 @@ void Renderer::_reshape(int height, int width) {
 }
 
 inline void applyTransform(Transform& transform, const aiMatrix4x4& aiMatrix) {
-	glm::mat4 matrix(
+	Mat4 matrix(
 		aiMatrix.a1, aiMatrix.a2, aiMatrix.a3, aiMatrix.a4,
 		aiMatrix.b1, aiMatrix.b2, aiMatrix.b3, aiMatrix.b4,
 		aiMatrix.c1, aiMatrix.c2, aiMatrix.c3, aiMatrix.c4,
@@ -345,13 +345,13 @@ void Renderer::update(double dt) {
 			glUniformMatrix4fv(program.uniformProjection, 1, GL_FALSE, &(static_cast<glm::mat4>(_projectionMatrix))[0][0]);
 
 		// view matrix
-		glm::dmat4 viewMatrix = Renderer::viewMatrix();
+		Mat4 viewMatrix = Renderer::viewMatrix();
 
 		if (program.uniformView != -1) 
 			glUniformMatrix4fv(program.uniformView, 1, GL_FALSE, &(static_cast<glm::mat4>(viewMatrix))[0][0]);
 
 		// model matrix
-		glm::dmat4 modelMatrix;
+		Mat4 modelMatrix;
 
 		if (program.uniformModelView != -1 || program.uniformView != -1) {
 			modelMatrix = transform.matrix();
@@ -578,6 +578,8 @@ bool Renderer::addTexture(uint64_t id, const std::string& textureFile) {
 
 	_textures[textureFile] = model.texture;
 
+	model.hasProgram = _hasDefualtProgram;
+
 	if (_hasDefualtProgram)
 		model.program = _defaultProgram;
 
@@ -627,12 +629,12 @@ void Renderer::lockCursor(bool lock){
 		glfwSetInputMode(_window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
 }
 
-glm::dmat4 Renderer::projectionMatrix() const{
+Mat4 Renderer::projectionMatrix() const{
 	return _projectionMatrix;
 }
 
-glm::dmat4 Renderer::viewMatrix() const {
-	glm::dmat4 matrix;
+Mat4 Renderer::viewMatrix() const {
+	Mat4 matrix;
 
 	if (_camera && _engine.entities.has<Transform>(_camera)) {
 		Transform& cameraTransform = *_engine.entities.get<Transform>(_camera);

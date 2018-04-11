@@ -1,7 +1,6 @@
 #pragma once
 
 #include "Config.hpp"
-#include "RenderCoords.hpp"
 
 #include <string>
 #include <unordered_map>
@@ -55,7 +54,7 @@ class Renderer {
 
 	std::vector<Program> _programs;
 
-	glm::dmat4 _projectionMatrix;
+	Mat4 _projectionMatrix;
 
 	std::string _path;
 	glm::uvec2 _windowSize;
@@ -97,8 +96,8 @@ public:
 
 	void lockCursor(bool lock);
 
-	glm::dmat4 projectionMatrix() const;
-	glm::dmat4 viewMatrix() const;
+	Mat4 projectionMatrix() const;
+	Mat4 viewMatrix() const;
 
 	glm::uvec2 windowSize() const;
 

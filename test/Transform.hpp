@@ -10,17 +10,16 @@
 
 #include "Config.hpp"
 #include "Collider.hpp"
-#include "RenderCoords.hpp"
 
 class Transform : public btMotionState{
 	Engine& _engine;
 	const uint64_t _id;
 
-	glm::dvec3 _position;
-	glm::dquat _rotation;
-	glm::dvec3 _scale = { 1.f, 1.f, 1.f };
+	Vec3 _position;
+	Quat _rotation;
+	Vec3 _scale = { 1.f, 1.f, 1.f };
 
-	glm::dvec3 _offsetPosition;
+	Vec3 _offsetPosition;
 
 	uint64_t _parent = 0;
 	std::vector<uint64_t> _children;
@@ -28,9 +27,9 @@ class Transform : public btMotionState{
 	void getWorldTransform(btTransform& transform) const override;
 	void setWorldTransform(const btTransform& transform) override;
 
-	void _setPosition(const glm::dvec3& position);
-	void _setRotation(const glm::dquat& rotation);
-	void _setScale(const glm::dvec3& scale);
+	void _setPosition(const Vec3& position);
+	void _setRotation(const Quat& rotation);
+	void _setScale(const Vec3& scale);
 
 	void _makeGlobal();
 	void _makeLocal(Transform* transform);
@@ -54,31 +53,31 @@ public:
 	uint64_t child(uint32_t i) const;
 	uint32_t children() const;
 
-	void setPosition(const glm::dvec3& position);
-	void setRotation(const glm::dquat& rotation);
-	void setScale(const glm::dvec3& scale);
+	void setPosition(const Vec3& position);
+	void setRotation(const Quat& rotation);
+	void setScale(const Vec3& scale);
 
-	void setWorldPosition(const glm::dvec3& position);
-	void setWorldRotation(const glm::dquat& rotation);
-	void setWorldScale(const glm::dvec3& scale);
+	void setWorldPosition(const Vec3& position);
+	void setWorldRotation(const Quat& rotation);
+	void setWorldScale(const Vec3& scale);
 
-	glm::dvec3 position() const;
-	glm::dquat rotation() const;
-	glm::dvec3 scale() const;
+	Vec3 position() const;
+	Quat rotation() const;
+	Vec3 scale() const;
 
-	glm::dvec3 worldPosition() const;
-	glm::dquat worldRotation() const;
-	glm::dvec3 worldScale() const;
+	Vec3 worldPosition() const;
+	Quat worldRotation() const;
+	Vec3 worldScale() const;
 
-	glm::dmat4 matrix() const;
+	Mat4 matrix() const;
 
-	void rotate(const glm::dquat& rotation);
-	void translate(const glm::dvec3& translation);
-	void scale(const glm::dvec3& scaling);
+	void rotate(const Quat& rotation);
+	void translate(const Vec3& translation);
+	void scale(const Vec3& scaling);
 
-	void worldRotate(const glm::dquat& rotation);
-	void worldTranslate(const glm::dvec3& translation);
-	void worldScale(const glm::dvec3& scaling);
+	void worldRotate(const Quat& rotation);
+	void worldTranslate(const Vec3& translation);
+	void worldScale(const Vec3& scaling);
 
-	void lookAt(glm::dvec3& position, glm::dvec3 up = GlobalDVec3::up);
+	void lookAt(Vec3& position, Vec3 up = WorldVec3::up);
 };
