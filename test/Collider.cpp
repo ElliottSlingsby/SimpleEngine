@@ -1,6 +1,29 @@
 #include "Collider.hpp"
 
 #include "Physics.hpp"
+#include "Transform.hpp"
+
+void Collider::_createRigidBody(){
+	if (_rigidBody) {
+		_engine.system<Physics>()._removeFromWorld(_id);
+		delete _rigidBody;
+	}
+
+	_rigidBody = new btRigidBody(toBt(_mass), _engine.entities.get<Transform>(_id), _compoundShape, toBt(_localInertia));
+
+	_rigidBody->setFriction(toBt(_friction));
+	_rigidBody->setRestitution(toBt(_restitution));
+	_rigidBody->setSleepingThresholds(toBt(_linearThreshold), toBt(_angularThreshold));
+	
+	if (hasFlags(_colliderFlags, OverrideGravity))
+		_rigidBody->setGravity(toBt(_gravity));
+
+	if (hasFlags(_colliderFlags, OverrideCenterOfMass))
+		setCenterOfMass(_centerOfMass);
+
+	if (hasFlags(_colliderFlags, AlwaysActive))
+		alwaysActive(true);
+}
 
 Collider::Collider(Engine::EntityManager& entities, uint64_t id, btCollisionShape* const collisionShape, float mass) : _engine(*static_cast<Engine*>(entities.enginePtr())), _id(id), _collisionShape(collisionShape), _mass(mass){}
 
@@ -21,6 +44,18 @@ void Collider::setGravity(const glm::dvec3& direction) {
 void Collider::setFriction(double friction) {
 	if (_rigidBody)
 		_rigidBody->setFriction(friction);
+}
+
+void Collider::setMass(double mass) {
+
+}
+
+void Collider::setDamping(const glm::dvec3 & damping) {
+
+}
+
+void Collider::setRestitution(double restitution){
+
 }
 
 void Collider::setAngularVelocity(const glm::dvec3& velocity) {

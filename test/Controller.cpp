@@ -22,7 +22,7 @@ void Controller::load(int argc, char ** argv){
 	_cursor = _engine.entities.create();
 
 	Transform& transform = *_engine.entities.add<Transform>(_cursor);
-	//transform.setScale({ 2, 2, 2 });
+	transform.setScale({ .25, .25, .25 });
 
 	_engine.system<Renderer>().addShader(_cursor, "vertexShader.glsl", "fragmentShader.glsl");
 	_engine.system<Renderer>().addMesh(_cursor, "arrow.obj");
@@ -38,8 +38,10 @@ void Controller::update(double dt) {
 	Transform& transform = *_engine.entities.get<Transform>(_possessed);
 
 	if (_locked) {
-		transform.globalRotate(glm::dquat({ 0.0, 0.0, -_dMousePos.x * dt }));
+		transform.worldRotate(glm::dquat({ 0.0, 0.0, -_dMousePos.x * dt }));
 		transform.rotate(glm::dquat({ -_dMousePos.y * dt, 0.0, 0.0 }));
+
+		//transform.lookAt(glm::dvec3(0.0, 0.0, 0.0));
 
 		_dMousePos = { 0.0, 0.0 };
 
@@ -59,16 +61,16 @@ void Controller::update(double dt) {
 		if (_right)
 			transform.translate(LocalDVec3::right * moveSpeed);
 		if (_up)
-			transform.globalTranslate(GlobalDVec3::up * moveSpeed);
+			transform.worldTranslate(GlobalDVec3::up * moveSpeed);
 		if (_down)
-			transform.globalTranslate(GlobalDVec3::down * moveSpeed);
+			transform.worldTranslate(GlobalDVec3::down * moveSpeed);
 	}
 
 	Collider* collider = _engine.entities.get<Collider>(_possessed);
 
 	if (collider) {
-		glm::dvec3 angles = glm::eulerAngles(transform.rotation());
-		transform.setRotation(glm::dquat({ angles.x, 0.f, angles.z }));
+		glm::dvec3 angles = glm::eulerAngles(transform.worldRotation());
+		transform.setWorldRotation(glm::dquat({ angles.x, 0.f, angles.z }));
 
 		collider->setAngularVelocity({ 0, 0, 0 });
 		collider->setLinearVelocity({ 0, 0, 0 });
@@ -105,12 +107,12 @@ void Controller::update(double dt) {
 		}
 
 		_engine.entities.get<Transform>(_cursor)->setRotation(glm::dquat({ 0.0, 0.0, glm::radians(_cursorI) }));
-		_engine.entities.get<Transform>(_cursor)->setPosition(_cursorPosition + glm::dvec3(0.0, 0.0, ((glm::cos(glm::radians(_cursorI)) + 1.0) / 2.0) * 16.0));
+		_engine.entities.get<Transform>(_cursor)->setPosition(_cursorPosition + glm::dvec3(0.0, 0.0, ((glm::cos(glm::radians(_cursorI)) + 1.0) / 2.0) * 8.0));
 
-		//_cursorI += 360.0 * dt;
+		_cursorI += 360.0 * dt;
 
-		//if (_cursorI >= 360.0)
-		//	_cursorI = 0;
+		if (_cursorI >= 360.0)
+			_cursorI = 0;
 	}
 }
 

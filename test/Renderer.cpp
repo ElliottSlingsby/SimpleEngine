@@ -354,15 +354,7 @@ void Renderer::update(double dt) {
 		glm::dmat4 modelMatrix;
 
 		if (program.uniformModelView != -1 || program.uniformView != -1) {
-			Collider* collider = _engine.entities.get<Collider>(id);
-
-			//if (collider)
-			//	modelMatrix = glm::translate(modelMatrix, transform.worldPosition() - transform.worldRotation() * collider->centerOfMass());
-			//else
-				modelMatrix = glm::translate(modelMatrix, transform.worldPosition());
-
-			modelMatrix *= glm::mat4_cast(transform.worldRotation());
-			modelMatrix = glm::scale(modelMatrix, transform.worldScale());
+			modelMatrix = transform.matrix();
 
 			if (program.uniformView != -1)
 				glUniformMatrix4fv(program.uniformModel, 1, GL_FALSE, &(static_cast<glm::mat4>(modelMatrix))[0][0]);
@@ -645,8 +637,7 @@ glm::dmat4 Renderer::viewMatrix() const {
 	if (_camera && _engine.entities.has<Transform>(_camera)) {
 		Transform& cameraTransform = *_engine.entities.get<Transform>(_camera);
 
-		matrix *= glm::transpose(glm::mat4_cast(cameraTransform.worldRotation()));
-		matrix = glm::translate(matrix, -cameraTransform.worldPosition());
+		matrix = glm::inverse(cameraTransform.matrix());
 	}
 
 	return matrix;

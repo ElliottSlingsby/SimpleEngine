@@ -33,6 +33,10 @@ class Physics {
 
 	void _setCenterOfMass(uint64_t id, const btVector3& position);
 
+	void _recalculateCenterOfMass(uint64_t id);
+
+	void _recalculateMass(uint64_t id);
+
 	uint64_t _rootCollider(uint64_t id) const;
 
 public:

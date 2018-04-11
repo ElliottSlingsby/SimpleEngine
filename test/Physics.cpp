@@ -102,9 +102,7 @@ void Physics::_setCenterOfMass(uint64_t id, const btVector3& position) {
 	if (!collider || transform->parent())
 		return;
 
-	std::cout << position.x() << ' ' << position.y() << ' ' << position.z() << '\n';
-
-	glm::dvec3 difference = transform->rotation() * toGlm<double>(position) - transform->rotation() * collider->_centerOfMass;
+	glm::dvec3 difference = transform->rotation() * fromBt<double>(position) - transform->rotation() * collider->_centerOfMass;
 
 	for (uint32_t i = 0; i < collider->_compoundShape->getNumChildShapes(); i++) {
 		Transform* child = static_cast<Transform*>(collider->_compoundShape->getChildShape(i)->getUserPointer());
@@ -123,29 +121,47 @@ void Physics::_setCenterOfMass(uint64_t id, const btVector3& position) {
 		collider->_compoundShape->updateChildTransform(i, offset);
 	}
 
-	collider->_centerOfMass = toGlm<double>(position);
+	collider->_centerOfMass = fromBt<double>(position);
 
 	btTransform rootOffset = collider->_rigidBody->getWorldTransform();
 	rootOffset.setOrigin(rootOffset.getOrigin() + toBt(difference));
 
-	collider->_rigidBody->setWorldTransform(rootOffset);
-	collider->_rigidBody->setInterpolationWorldTransform(rootOffset);
+	collider->_rigidBody->setCenterOfMassTransform(rootOffset);
+}
 
+void Physics::_recalculateCenterOfMass(uint64_t id){
+	uint64_t root = _rootCollider(id);
+	Collider* rootCollider = _engine.entities.get<Collider>(root);
 
+	if (!rootCollider)
+		return;
 
+	for (uint32_t i = 0; i < rootCollider->_compoundShape->getNumChildShapes(); i++) {
+		btTransform childTransform = rootCollider->_compoundShape->getChildTransform(i);
+		childTransform.setOrigin(childTransform.getOrigin() + toBt(rootCollider->centerOfMass()));
+
+		rootCollider->_compoundShape->updateChildTransform(i, childTransform);
+	}
+
+	std::vector<btScalar> masses;
+	_recursiveGetMasses(root, &masses);
+
+	btTransform principal;
+	principal.setIdentity();
+
+	btVector3 localInertia = rootCollider->_rigidBody->getLocalInertia();
+
+	rootCollider->_compoundShape->calculatePrincipalAxisTransform(&*masses.begin(), principal, localInertia);
+
+	_dynamicsWorld->removeRigidBody(rootCollider->_rigidBody);
+	rootCollider->_rigidBody->setMassProps(rootCollider->_mass, localInertia);
+	_dynamicsWorld->addRigidBody(rootCollider->_rigidBody);
 	
-	//btTransform centerOfMass;
-	//centerOfMass.setOrigin(toBt(transform->worldPosition()) + position);
-	//centerOfMass.setRotation(toBt(transform->worldRotation()));
-	//
-	//collider->_rigidBody->setCenterOfMassTransform(centerOfMass);
+	_setCenterOfMass(root, principal.getOrigin());
+}
 
-	//transform->setPosition(transform->worldPosition() + collider->_centerOfMass);
-
-	//updateWorldTransform(id);
-
-	// collider should apply centerofmass during updateWorldTransform
-	// call it here instead of applying offset manually
+void Physics::_recalculateMass(uint64_t id) {
+	
 }
 
 uint64_t Physics::_rootCollider(uint64_t id) const {
@@ -204,8 +220,6 @@ void Physics::updateWorldTransform(uint64_t id) {
 	if (!collider)
 		return;
 
-	//std::cout << transform->position().x << ' ' << transform->position().y << ' ' << transform->position().z << '\n';
-
 	Collider* parentCollider = _engine.entities.get<Collider>(transform->parent());
 
 	if (parentCollider) {
@@ -217,42 +231,8 @@ void Physics::updateWorldTransform(uint64_t id) {
 		localTransform.setRotation(toBt(transform->rotation()));
 		
 		parentCollider->_compoundShape->updateChildTransform(collider->_compoundIndex, localTransform);
-		
 
-		for (uint32_t i = 0; i < parentCollider->_compoundShape->getNumChildShapes(); i++) {
-			btTransform childTransform = parentCollider->_compoundShape->getChildTransform(i);
-		
-			childTransform.setOrigin(childTransform.getOrigin() + toBt(rootCollider->centerOfMass()));
-
-			parentCollider->_compoundShape->updateChildTransform(i, childTransform);
-		}
-
-		
-		std::vector<btScalar> masses;
-		_recursiveGetMasses(root, &masses);
-		
-		btTransform principal;
-		principal.setIdentity();
-		
-		btVector3 localInertia = rootCollider->_rigidBody->getLocalInertia();
-		
-		rootCollider->_compoundShape->calculatePrincipalAxisTransform(&*masses.begin(), principal, localInertia);
-		
-		_setCenterOfMass(root, principal.getOrigin());
-
-
-
-		//Transform* rootTransform = _engine.entities.get<Transform>(root);
-
-		//glm::dvec3 position = rootTransform->position();
-		//std::cout << position.x << ' ' << position.y << ' ' << position.z << '\n';
-		
-
-		//btTransform rootOffset = rootCollider->_rigidBody->getWorldTransform();
-		//
-		//rootOffset.setOrigin(rootOffset.getOrigin() + btVector3(0, 0, 100));
-		//
-		//rootCollider->_rigidBody->setInterpolationWorldTransform(rootOffset);
+		_recalculateCenterOfMass(root);
 	}
 	else {
 		btTransform worldTransform;
@@ -300,22 +280,8 @@ void Physics::updateCompoundShape(uint64_t id) {
 
 	_createRigidBody(root, mass, localInertia);
 
-	if (rootTransform->children() && mass != 0) {
+	if (rootTransform->children() && mass != 0) 
 		_setCenterOfMass(root, principal.getOrigin());
-
-		//rootCollider->_compoundShape->calculatePrincipalAxisTransform(&*masses.begin(), principal, localInertia);
-		//_setCenterOfMass(root, principal.getOrigin());
-
-
-
-	}
-
-	//updateWorldTransform(root);
-
-	//if (rootTransform->children() && mass != 0) {
-	//	glm::dvec3 position = rootTransform->position();
-	//	std::cout << position.x << ' ' << position.y << ' ' << position.z << '\n';
-	//}
 }
 
 void Physics::setGravity(const glm::dvec3& direction){
@@ -376,7 +342,7 @@ void Physics::rayTest(const glm::dvec3 & from, const glm::dvec3 & to, std::vecto
 	for (uint32_t i = 0; i < results.m_collisionObjects.size(); i++) {
 		uint64_t id = static_cast<Transform*>(results.m_collisionObjects[i]->getUserPointer())->id();
 
-		hits.push_back({ id, toGlm<double>(results.m_hitPointWorld[i]), toGlm<double>(results.m_hitNormalWorld[i]) });
+		hits.push_back({ id, fromBt<double>(results.m_hitPointWorld[i]), fromBt<double>(results.m_hitNormalWorld[i]) });
 	}
 }
 
@@ -396,7 +362,7 @@ Physics::RayHit Physics::rayTest(const glm::dvec3 & from, const glm::dvec3 & to)
 
 	uint64_t id = static_cast<Transform*>(results.m_collisionObject->getUserPointer())->id();
 
-	return { id, toGlm<double>(results.m_hitPointWorld), toGlm<double>(results.m_hitNormalWorld) };
+	return { id, fromBt<double>(results.m_hitPointWorld), fromBt<double>(results.m_hitNormalWorld) };
 }
 
 void Physics::sphereTest(float radius, const glm::dvec3 & position, const glm::dquat & rotation, std::vector<SweepHit>& hits){

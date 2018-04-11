@@ -10,22 +10,20 @@
 
 /*
 
-- Recursive compound shapes to avoid having to change positions of all children, also to implement local scaling, and center of mass
-- (store principal transform, and apply it during _recursiveUpdateWorldTransform and _recursiveUpdateCompoundShape)
+- Collider features like mass, center of mass, friction, etc
+- Collider shape scaling
+- Collider callbacks
 
-- Allow for noncompound rigidbodys
-- Convert rigidbody compound shape to pod
-- Center of mass offset
+- Seperate Assets system for loading image and mesh data
+- Triangle mesh and convex hull Colliders
 
-- Collision callbacks
-
-- Concave hulls and triangle meshes
-
-- Physics update event and timing
+- Dynamic components during iterate with system to hookup events
+- Dynamic component Controller to replace system
 
 - User defined component erase order
-- Dynamic components during iterate
-- Implement referenced entity object
+- Referenced entity object
+
+- Rendering stuff
 
 */
 
@@ -80,6 +78,7 @@ class MyState {
 			Transform& parentTransform = *_engine.entities.add<Transform>(parent);
 			parentTransform.setPosition(position);
 			parentTransform.setScale({ 30, 30, 10 });
+			parentTransform.setRotation({ { 0.0, glm::radians(45.0), glm::radians(45.0) } });
 
 			_engine.system<Renderer>().addShader(parent, "vertexShader.glsl", "fragmentShader.glsl");
 			_engine.system<Renderer>().addMesh(parent, "cube.obj");
@@ -93,32 +92,40 @@ class MyState {
 		uint64_t child0 = _engine.entities.create();
 		{
 			Transform& childTransform = *_engine.entities.add<Transform>(child0);
-			childTransform.setPosition({ 0, 0, 500 });
+			childTransform.setPosition({ 0, 0, 100 });
 			childTransform.setScale({ 15, 15, 15 });
+			childTransform.setRotation({ { 0.0, 0.0, glm::radians(45.0) } });
 
 			childTransform.setParent(parent);
 
 			_engine.system<Renderer>().addShader(child0, "vertexShader.glsl", "fragmentShader.glsl");
-			_engine.system<Renderer>().addMesh(child0, "sphere.obj");
+			_engine.system<Renderer>().addMesh(child0, "cube.obj");
 			_engine.system<Renderer>().addTexture(child0, "rgb.png");
 
-			_engine.system<Physics>().addSphere(child0, 15, 100.f);
+			//_engine.system<Physics>().addSphere(child0, 15, 100.f);
+
+			_engine.system<Physics>().addBox(child0, { 15 / 2, 15 / 2, 15 / 2 }, 10.f);
 		}
+
+		//_engine.entities.get<Transform>(child0)->removeParent();
 
 		//uint64_t child1 = _engine.entities.create();
 		//{
 		//	Transform& childTransform = *_engine.entities.add<Transform>(child1);
-		//	childTransform.setPosition({ 0, 0, 100 });
+		//	childTransform.setPosition({ 0, 0, 200 });
 		//	childTransform.setScale({ 15, 15, 15 });
+		//	//childTransform.setRotation({ { 0.0, 0.0, 45.0 } });
 		//
 		//	childTransform.setParent(child0);
 		//
 		//	_engine.system<Renderer>().addShader(child1, "vertexShader.glsl", "fragmentShader.glsl");
-		//	_engine.system<Renderer>().addMesh(child1, "sphere.obj");
+		//	_engine.system<Renderer>().addMesh(child1, "cube.obj");
 		//	_engine.system<Renderer>().addTexture(child1, "rgb.png");
 		//
-		//	_engine.system<Physics>().addSphere(child1, 15, 10.f);
+		//	_engine.system<Physics>().addSphere(child1, 15, 100.f);
 		//}
+
+		//_engine.system<Controller>().setPossessed(child0);
 
 		_engine.entities.get<Collider>(parent)->alwaysActive(true);
 
@@ -149,7 +156,7 @@ public:
 	}
 
 	void load(int argc, char** argv) {
-		_engine.system<Physics>().setGravity(GlobalVec3::down * 400.f);
+		//_engine.system<Physics>().setGravity(GlobalVec3::down * 400.f);
 		
 		// Spawn test compound entities
 		for (uint32_t i = 0; i < 1; i++)
@@ -218,6 +225,11 @@ public:
 		//
 		//	std::cout << position.x << ' ' << position.y << ' ' << position.z << '\n';
 		//}
+
+		//Transform* transform = _engine.entities.get<Transform>(_camera);
+		//
+		//if (transform) 
+		//	transform->lookAt(_test);
 	}
 
 	void keypress(int key, int scancode, int action, int mods) {
