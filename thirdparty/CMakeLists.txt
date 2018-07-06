@@ -24,13 +24,6 @@ add_external_tar("glm-0.9.8.5" "https://github.com/g-truc/glm/archive/0.9.8.5.ta
 
 set_target_properties("glm_static" PROPERTIES FOLDER "Thirdparty")
 
-# TinyObjLoader obj loader
-#option(TINYOBJLOADER_USE_DOUBLE "" ON)
-
-add_external_tar("tinyobjloader-1.0.6" "https://github.com/syoyo/tinyobjloader/archive/v1.0.6.tar.gz" "")
-
-set_target_properties("tinyobjloader" PROPERTIES FOLDER "Thirdparty")
-
 # stb_image and stb_truetype image and font loader
 add_subdirectory("stb")
 
