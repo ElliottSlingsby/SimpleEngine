@@ -11,24 +11,6 @@
 using Clock = std::chrono::high_resolution_clock;
 using TimePoint = Clock::time_point;
 
-struct BasePtr {
-	void* const ptr;
-
-	inline BasePtr(void* pointer) : ptr(pointer) {}
-
-	virtual inline ~BasePtr() {}
-};
-
-template <typename T>
-struct VirtualPtr : public BasePtr {
-	template <typename ...Ts>
-	inline VirtualPtr(Ts&&... args) : BasePtr(new T(std::forward<Ts>(args)...)){}
-
-	inline ~VirtualPtr() {
-		delete static_cast<T*>(ptr);
-	}
-};
-
 inline uint32_t back64(uint64_t i) {
 	return static_cast<uint32_t>(i);
 }
