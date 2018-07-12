@@ -12,23 +12,27 @@ class Window : public SystemInterface {
 public:
 	struct Config {
 		enum Modes : uint8_t{
-			Resizable = 1,
-			Maximised = 2,
-			Decorated = 4,
+			WindowResizable = 1,
+			WindowMaximised = 2,
+			WindowDecorated = 4,
+
+			CoreContext = 8,
+			DebugContext = 16,
+
+			VerticalSync = 32,
 		};
 
-		std::string title;
-		uint32_t width;
-		uint32_t height;
-		uint8_t mode;
+		std::string windowTitle = "";
+		uint32_t windowWidth = 0;
+		uint32_t windowHeight = 0;
 
-		uint32_t glContextVersionMajor;
-		uint32_t glContextVersionMinor;
-		bool glCoreContext;
-		bool glDebugContext;
+		uint32_t contextVersionMajor = 1;
+		uint32_t contextVersionMinor = 0;
 
-		uint32_t superSampling;
-		bool vSync;
+		uint32_t superSampling = 0;
+
+		uint8_t flags = 0;
+
 	};
 
 	Window(Engine& engine);

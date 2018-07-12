@@ -68,27 +68,26 @@ void Window::update(double dt){
 void Window::open(const Config& config){
 	close();
 
-	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, (int)config.glContextVersionMajor);
-	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, (int)config.glContextVersionMinor);
+	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, (int)config.contextVersionMajor);
+	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, (int)config.contextVersionMinor);
 
-	if (config.glCoreContext)
+	if (hasFlags(config.flags, Config::CoreContext))
 		glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
-	if (config.glDebugContext)
-		glfwWindowHint(GLFW_OPENGL_DEBUG_CONTEXT, GLFW_TRUE);
+	glfwWindowHint(GLFW_OPENGL_DEBUG_CONTEXT, (int)hasFlags(config.flags, Config::DebugContext));
 	
-	glfwWindowHint(GLFW_RESIZABLE, (int)hasFlags(config.mode, Config::Resizable));
-	glfwWindowHint(GLFW_MAXIMIZED, (int)hasFlags(config.mode, Config::Maximised));
-	glfwWindowHint(GLFW_DECORATED, (int)hasFlags(config.mode, Config::Decorated));
+	glfwWindowHint(GLFW_RESIZABLE, (int)hasFlags(config.flags, Config::WindowResizable));
+	glfwWindowHint(GLFW_MAXIMIZED, (int)hasFlags(config.flags, Config::WindowMaximised));
+	glfwWindowHint(GLFW_DECORATED, (int)hasFlags(config.flags, Config::WindowDecorated));
 
 	glfwWindowHint(GLFW_SAMPLES, (int)config.superSampling);
 
-	_window = glfwCreateWindow((int)config.width, (int)config.height, config.title.c_str(), nullptr, nullptr);
+	_window = glfwCreateWindow((int)config.windowWidth, (int)config.windowHeight, config.windowTitle.c_str(), nullptr, nullptr);
 
 	glfwMakeContextCurrent(_window);
 	gladLoadGLLoader((GLADloadproc)glfwGetProcAddress);
 
-	if (config.vSync)
+	if (hasFlags(config.flags, Config::VerticalSync))
 		glfwSwapInterval(1);
 
 	glfwSetWindowUserPointer(_window, &_engine);
@@ -107,6 +106,7 @@ void Window::open(const Config& config){
 	glfwSetWindowSizeCallback(_window, windowSizeCallback);
 	glfwSetWindowCloseCallback(_window, windowCloseCallback);
 
+	SYSFUNC_CALL(SystemInterface, windowOpen, _engine)();
 	SYSFUNC_ENABLE(SystemInterface, update, -1);
 }
 

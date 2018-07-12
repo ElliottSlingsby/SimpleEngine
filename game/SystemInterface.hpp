@@ -21,5 +21,9 @@ public:
 	virtual void windowPosition(int xpos, int ypos) {}
 	virtual void framebufferSize(int width, int height) {}
 	virtual void windowSize(int width, int height) {}
+	virtual void windowOpen() {}
 	virtual void windowClose() {}
+
+	virtual void loadedTexture(uint64_t id, const std::string& file) {}
+	virtual void loadedMesh(uint64_t id, const std::string& file) {}
 };

@@ -200,6 +200,8 @@ template <typename SystemInterface, uint32_t maxComponents>
 template <typename T, typename ...Ts, void(T::*func)(Ts...)>
 template <typename SystemT>
 void SimpleEngine<SystemInterface, maxComponents>::BaseSystem::FunctionSpecialization<void(T::*)(Ts...), func>::enable(int32_t priority) {
+	static_assert(std::is_base_of<BaseSystem, SystemInterface>::value);
+
 	IndexPriorityPair indexPriority = { typeIndex<SimpleEngine, SystemT>(), priority };
 
 	auto iter = std::find(_systemIndexes.begin(), _systemIndexes.end(), indexPriority);
@@ -210,14 +212,14 @@ void SimpleEngine<SystemInterface, maxComponents>::BaseSystem::FunctionSpecializ
 		_systemIndexes.push_back(indexPriority);
 
 	std::sort(_systemIndexes.begin(), _systemIndexes.end());
-
-	static_assert(std::is_base_of<BaseSystem, SystemInterface>::value);
 }
 
 template <typename SystemInterface, uint32_t maxComponents>
 template <typename T, typename ...Ts, void(T::*func)(Ts...)>
 template <typename SystemT>
 void SimpleEngine<SystemInterface, maxComponents>::BaseSystem::FunctionSpecialization<void(T::*)(Ts...), func>::disable(){
+	static_assert(std::is_base_of<BaseSystem, SystemInterface>::value);
+
 	auto iter = std::find(_systemIndexes.begin(), _systemIndexes.end(), IndexPriorityPair{ typeIndex<SimpleEngine, SystemT>() });
 
 	if (iter == _systemIndexes.end())
@@ -226,8 +228,6 @@ void SimpleEngine<SystemInterface, maxComponents>::BaseSystem::FunctionSpecializ
 	_systemIndexes.erase(iter);
 
 	std::sort(_systemIndexes.begin(), _systemIndexes.end());
-
-	static_assert(std::is_base_of<BaseSystem, SystemInterface>::value);
 }
 
 template <typename SystemInterface, uint32_t maxComponents>
@@ -263,7 +263,7 @@ void SimpleEngine<SystemInterface, maxComponents>::_destroy(uint32_t index) {
 	}
 
 	// remove maxComponents from each pool
-	for (uint32_t i = 0; i < typeWidth; i++) {
+	for (uint32_t i = 0; i < maxComponents; i++) {
 		if (_indexIdentities[index].mask.has(i)) {
 			assert(_componentPools[i]); // sanity
 			_componentPools[i]->erase(index);
@@ -281,6 +281,9 @@ void SimpleEngine<SystemInterface, maxComponents>::_destroy(uint32_t index) {
 template <typename SystemInterface, uint32_t maxComponents>
 template<typename T, typename ...Ts>
 void SimpleEngine<SystemInterface, maxComponents>::registerSystem(Ts&&... args){
+	static_assert(std::is_base_of<BaseSystem, SystemInterface>::value);
+	static_assert(std::is_base_of<SystemInterface, T>::value);
+
 	uint32_t index = typeIndex<SimpleEngine, T>();
 
 	if (_systems.size() <= index)
@@ -289,9 +292,6 @@ void SimpleEngine<SystemInterface, maxComponents>::registerSystem(Ts&&... args){
 	assert(_systems[index] == nullptr);
 
 	_systems[index] = new T(std::forward<Ts>(args)...);
-
-	static_assert(std::is_base_of<BaseSystem, SystemInterface>::value);
-	static_assert(std::is_base_of<SystemInterface, T>::value);
 }
 
 template <typename SystemInterface, uint32_t maxComponents>
@@ -382,6 +382,8 @@ void SimpleEngine<SystemInterface, maxComponents>::destroyEntity(uint64_t id) {
 template <typename SystemInterface, uint32_t maxComponents>
 template <typename T, typename ...Ts>
 T* SimpleEngine<SystemInterface, maxComponents>::addComponent(uint64_t id, Ts&&... args) {
+	static_assert(std::is_constructible<T, Ts...>::value);
+
 	uint32_t index = front64(id);
 	uint32_t version = back64(id);
 
