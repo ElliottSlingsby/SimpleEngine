@@ -1,12 +1,14 @@
 #include "Renderer.hpp"
 
-Renderer::Renderer(Engine& engine) : _engine(engine){
+Renderer::Renderer(Engine& engine, const ShaderVariables& shaderVariables) : _engine(engine), _shaderVariables(shaderVariables){
 	SYSFUNC_ENABLE(SystemInterface, initiate, -1);
 	SYSFUNC_ENABLE(SystemInterface, update, -1);
 	SYSFUNC_ENABLE(SystemInterface, framebufferSize, 0);
+	SYSFUNC_ENABLE(SystemInterface, textureLoaded, 0);
+	SYSFUNC_ENABLE(SystemInterface, meshLoaded, 0);
 }
 
-void Renderer::initiate(int argc, char ** argv){
+void Renderer::initiate(const std::vector<std::string>& args){
 	//glEnable(GL_CULL_FACE);
 	//glEnable(GL_DEPTH_TEST);
 	//glEnable(GL_MULTISAMPLE);
@@ -19,10 +21,9 @@ void Renderer::initiate(int argc, char ** argv){
 }
 
 void Renderer::update(double dt){
+	/*
 	glClearColor(0.f, 0.f, 0.f, 1.f);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-	/*
 
 	_engine.iterateEntities([&](Engine::Entity& entity) {
 		if (!entity.has<Transform, Model>())
@@ -31,12 +32,6 @@ void Renderer::update(double dt){
 		const Transform& transform = *entity.get<Transform>();
 		const Model& model = *entity.get<Model>();
 		const Material& material = *entity.get<Material>();
-
-		
-
-
-
-
 
 		glUseProgram(model.program);
 
@@ -93,20 +88,31 @@ void Renderer::update(double dt){
 		// clean up
 		glBindBuffer(GL_ARRAY_BUFFER, 0);
 		glBindVertexArray(0);
-
-
-	
 	});
 	*/
 
-	_engine.system<Window>().swapBuffer();
+	SYSFUNC_CALL(SystemInterface, rendered, _engine)();
 }
 
-void Renderer::framebufferSize(int width, int height){
+void Renderer::framebufferSize(glm::uvec3 size){
 
 }
 
-void Renderer::addProgram(uint64_t id, const std::vector<std::tuple<GLuint, std::string>> shaders){
+void Renderer::textureLoaded(uint64_t id, const std::string & file, const TextureData* textureData){
+
+}
+
+void Renderer::meshLoaded(uint64_t id, const std::string & file, const MeshData* meshData){
+
+}
+
+void Renderer::setShape(const ShapeConfig& config){
+	_verticalFov = config.verticalFov;
+	_zDepth = config.zDepth;
+	_size = config.resolution;
+}
+
+void Renderer::loadProgram(const std::vector<std::tuple<GLuint, std::string>>& shaders, uint64_t id, bool reload){
 	std::vector<GLuint> shaderIds;
 
 	for (auto tuple : shaders) {
@@ -133,5 +139,4 @@ void Renderer::addProgram(uint64_t id, const std::vector<std::tuple<GLuint, std:
 	//	return i->second;
 
 	// create new program
-
 }

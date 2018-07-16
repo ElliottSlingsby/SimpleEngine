@@ -3,27 +3,58 @@
 #include "Window.hpp"
 #include "Renderer.hpp"
 
-class Game : public SystemInterface{
+#include "AssetLoader.hpp"
+
+class MyGame : public SystemInterface{
 	Engine& _engine;
 
 public:
-	Game(Engine& engine) : _engine(engine){
+	MyGame(Engine& engine) : _engine(engine){
 		SYSFUNC_ENABLE(SystemInterface, initiate, 0);
 	}
 
-	void initiate(int argc, char** argv) {
-		Window::Config config;
+	void initiate(const std::vector<std::string>& args) override{
+		{
+			// Window setup
+			Window::WindowConfig windowConfig;
 
-		config.windowTitle = "GLFW Window";
-		config.windowWidth = 512;
-		config.windowHeight = 512;
-		config.flags |= Window::Config::WindowDecorated | Window::Config::WindowResizable;
+			windowConfig.windowTitle = "GLFW Window";
+			windowConfig.windowSize = { 512, 512 };
+			windowConfig.flags |= Window::WindowConfig::WindowDecorated | Window::WindowConfig::WindowResizable;
 
-		config.contextVersionMajor = 4;
-		config.contextVersionMinor = 6;
-		config.flags |= Window::Config::CoreContext | Window::Config::DebugContext;
+			windowConfig.contextVersionMajor = 4;
+			windowConfig.contextVersionMinor = 6;
+			windowConfig.flags |= Window::WindowConfig::CoreContext | Window::WindowConfig::DebugContext;
 
-		_engine.system<Window>().open(config);
+			_engine.system<Window>().openWindow(windowConfig);
+
+			// Renderer setup
+			Renderer::ShapeConfig shapeConfig;
+
+			shapeConfig.resolution = windowConfig.windowSize;
+			shapeConfig.verticalFov = 90;
+			shapeConfig.zDepth = 10000;
+
+			_engine.system<Renderer>().setShape(shapeConfig);
+
+			// AssetLoader setup
+			_engine.system<AssetLoader>().setFolder("data");
+		}
+		
+		// Load test
+		{
+			uint64_t entity0 = _engine.createEntity();
+
+			_engine.system<Renderer>().loadProgram({
+					{ GL_VERTEX_SHADER, "vertexShader.glsl" },
+					{ GL_FRAGMENT_SHADER, "fragmentShader.glsl" }
+				},
+				entity0
+			);
+
+			_engine.system<AssetLoader>().loadMesh("dcube.obj", entity0);
+			_engine.system<AssetLoader>().loadTexture("rgb.png", entity0);
+		}
 	}
 };
 
@@ -32,10 +63,11 @@ int main(int argc, char** argv) {
 
 	engine.registerSystem<Window>(engine);
 	engine.registerSystem<Renderer>(engine);
+	engine.registerSystem<AssetLoader>(engine);
 
-	engine.registerSystem<Game>(engine);
+	engine.registerSystem<MyGame>(engine);
 
-	SYSFUNC_CALL(SystemInterface, initiate, engine)(argc, argv);
+	SYSFUNC_CALL(SystemInterface, initiate, engine)(std::vector<std::string>(argv, argv + argc));
 	
 	TimePoint timer;
 	double dt = 0.0;

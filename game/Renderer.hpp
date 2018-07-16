@@ -1,7 +1,8 @@
 #pragma once
 
 #include "SystemInterface.hpp"
-#include "Window.hpp"
+
+#include <glad\glad.h>
 
 #include <glm\vec3.hpp>
 #include <glm\gtc\quaternion.hpp>
@@ -21,29 +22,40 @@ struct Material {
 
 class Renderer : public SystemInterface {
 public:
-	struct Config {
-		uint32_t vertexAttribute = 0;
-		uint32_t normalAttribute = 1;
-		uint32_t texcoordAttribute = 2;
-		uint32_t tangentAttribute = 3;
-		uint32_t bitangentAttribute = 4;
+	struct ShaderVariables {
+		uint32_t vertexAttrLoc = 0;
+		uint32_t normalAttrLoc = 1;
+		uint32_t texcoordAttrLoc = 2;
+		uint32_t tangentAttrLoc = 3;
+		uint32_t bitangentAttrLoc = 4;
+		uint32_t colourAttrLoc = 5;
+		uint32_t boneWeightsAttrLoc = 6;
+		uint32_t boneIndexesAttrLoc = 7;
 
-		std::string modelUniform = "model";
-		std::string viewUniform = "view";
-		std::string projectionUniform = "projection";
-		std::string modelViewUniform = "modelView";
-		std::string textureUniform = "texture";
+		std::string modelUnifName = "model";
+		std::string viewUnifName = "view";
+		std::string projectionUnifName = "projection";
+		std::string modelViewUnifName = "modelView";
+		std::string textureUnifName = "texture";
+		std::string bonesUnifName = "bones";
+	};
+
+	struct ShapeConfig {
+		float verticalFov;
+		float zDepth;
+		glm::uvec2 resolution;
 	};
 
 	struct Program {
 		GLuint fragmentShader = 0;
 		GLuint vertexShader = 0;
 
-		GLint uniformModel = -1;
-		GLint uniformView = -1;
-		GLint uniformProjection = -1;
-		GLint uniformModelView = -1;
-		GLint uniformTexture = -1;
+		GLint modelUnifLoc = -1;
+		GLint viewUnifLoc = -1;
+		GLint projectionUnifLoc = -1;
+		GLint modelViewUnifLoc = -1;
+		GLint textureUnifLoc = -1;
+		GLint bonesUnifLoc = -1;
 	};
 
 	struct Mesh {
@@ -55,29 +67,32 @@ public:
 private:
 	Engine& _engine;
 
+	const ShaderVariables _shaderVariables;
+
 	//std::unordered_map<std::string, GLuint> _shaders; // filepath -> shader id
 	//std::unordered_map<std::vector<GLuint>, GLuint> _shaderPrograms; // list of compiled shader ids -> program id
 
 	//std::unordered_map<std::string, GLuint> _textures; // filepath -> texture id
 	//std::unordered_map<std::string, Mesh> _meshes; // filepath -> vertex array ids
 
-	glm::dmat4 _projectionMatrix;
-	double _fov;
-	double _zDepth;
-	double _width;
-	double _height;
+	glm::mat4 _projectionMatrix;
+	float _verticalFov;
+	float _zDepth;
+	glm::vec2 _size;
 
 	//GLuint _compileShader(const std::string& file);
 	//GLuint _createProgram(const std::vector<std::tuple<GLuint, GLuint>>& shaders);
 
 public:
-	Renderer(Engine& engine);
+	Renderer(Engine& engine, const ShaderVariables& shaderVariables = ShaderVariables());
 
-	void initiate(int argc, char** argv) override;
+	void initiate(const std::vector<std::string>& args) override;
 	void update(double dt) override;
-	void framebufferSize(int width, int height) override;
+	void framebufferSize(glm::uvec3 size) override;
+	void textureLoaded(uint64_t id, const std::string& file, const TextureData* textureData) override;
+	void meshLoaded(uint64_t id, const std::string& file, const MeshData* meshData) override;
 
-	void addProgram(uint64_t id, const std::vector<std::tuple<GLuint, std::string>> shaders);
-	//void addModel(uint64_t id, const std::string& file);
-	//void addTexture(uint64_t id, const std::string& file);
+	void setShape(const ShapeConfig& config);
+
+	void loadProgram(const std::vector<std::tuple<GLuint, std::string>>& shaders, uint64_t id = 0, bool reload = false);
 };

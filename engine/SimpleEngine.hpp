@@ -96,7 +96,6 @@ public:
 	public:
 		inline Entity(SimpleEngine& engine) : _engine(engine) {}
 
-		
 		inline uint64_t id() const;
 		
 		inline void create();
@@ -118,7 +117,6 @@ public:
 
 		template <typename ...Ts>
 		inline bool has() const;
-		
 	};
 
 private:

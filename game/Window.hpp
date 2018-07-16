@@ -10,7 +10,7 @@ class Window : public SystemInterface {
 	GLFWwindow* _window = nullptr;
 
 public:
-	struct Config {
+	struct WindowConfig {
 		enum Modes : uint8_t{
 			WindowResizable = 1,
 			WindowMaximised = 2,
@@ -23,8 +23,7 @@ public:
 		};
 
 		std::string windowTitle = "";
-		uint32_t windowWidth = 0;
-		uint32_t windowHeight = 0;
+		glm::uvec2 windowSize;
 
 		uint32_t contextVersionMajor = 1;
 		uint32_t contextVersionMinor = 0;
@@ -38,11 +37,10 @@ public:
 	Window(Engine& engine);
 	~Window();
 
-	void initiate(int argc, char** argv) override;
+	void initiate(const std::vector<std::string>& args) override;
 	void update(double dt) override;
+	void rendered() override;
 
-	void open(const Config& config);
-	void close();
-
-	void swapBuffer();
+	void openWindow(const WindowConfig& config);
+	void closeWindow();
 };
