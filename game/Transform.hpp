@@ -8,46 +8,38 @@
 #include <glm\gtc\quaternion.hpp>
 #include <glm\mat4x4.hpp>
 
-using Number = double;
-
-using Vec2 = glm::tvec2<Number>;
-using Vec3 = glm::tvec3<Number>;
-using Vec4 = glm::tvec4<Number>;
-using Mat4 = glm::tmat4x4<Number>;
-using Quat = glm::tquat<Number>;
-
 namespace WorldVec3 {
-	const Vec3 up(0, 0, 1);
-	const Vec3 down(0, 0, -1);
-	const Vec3 left(-1, 0, 0);
-	const Vec3 right(1, 0, 0);
-	const Vec3 forward(0, 1, 0);
-	const Vec3 back(0, -1, 0);
+	const glm::vec3 up(0, 0, 1);
+	const glm::vec3 down(0, 0, -1);
+	const glm::vec3 left(-1, 0, 0);
+	const glm::vec3 right(1, 0, 0);
+	const glm::vec3 forward(0, 1, 0);
+	const glm::vec3 back(0, -1, 0);
 }
 
 namespace LocalVec3 {
-	const Vec3 up(0, 1, 0);
-	const Vec3 down(0, -1, 0);
-	const Vec3 left(-1, 0, 0);
-	const Vec3 right(1, 0, 0);
-	const Vec3 forward(0, 0, -1);
-	const Vec3 back(0, 0, 1);
+	const glm::vec3 up(0, 1, 0);
+	const glm::vec3 down(0, -1, 0);
+	const glm::vec3 left(-1, 0, 0);
+	const glm::vec3 right(1, 0, 0);
+	const glm::vec3 forward(0, 0, -1);
+	const glm::vec3 back(0, 0, 1);
 }
 
 class Transform{
 	SystemInterface::Engine& _engine;
 	const uint64_t _id;
 
-	Vec3 _position;
-	Quat _rotation;
-	Vec3 _scale = { 1, 1, 1 };
+	glm::vec3 _position;
+	glm::quat _rotation;
+	glm::vec3 _scale = { 1, 1, 1 };
 
 	uint64_t _parent = 0;
-	std::vector<uint64_t> _children;
+	std::vector<uint64_t> _children; // maybe uint64_t _children[maxChildren]; ???
 
-	void _setPosition(const Vec3& position);
-	void _setRotation(const Quat& rotation);
-	void _setScale(const Vec3& scale);
+	void _setPosition(const glm::vec3& position);
+	void _setRotation(const glm::quat& rotation);
+	void _setScale(const glm::vec3& scale);
 
 	void _makeGlobal();
 	void _makeLocal(Transform* transform);
@@ -71,31 +63,31 @@ public:
 	uint64_t child(uint32_t i) const;
 	uint32_t children() const;
 
-	void setPosition(const Vec3& position);
-	void setRotation(const Quat& rotation);
-	void setScale(const Vec3& scale);
+	void setPosition(const glm::vec3& position);
+	void setRotation(const glm::quat& rotation);
+	void setScale(const glm::vec3& scale);
 
-	void setWorldPosition(const Vec3& position);
-	void setWorldRotation(const Quat& rotation);
-	void setWorldScale(const Vec3& scale);
+	void setWorldPosition(const glm::vec3& position);
+	void setWorldRotation(const glm::quat& rotation);
+	void setWorldScale(const glm::vec3& scale);
 
-	Vec3 position() const;
-	Quat rotation() const;
-	Vec3 scale() const;
+	glm::vec3 position() const;
+	glm::quat rotation() const;
+	glm::vec3 scale() const;
 
-	Vec3 worldPosition() const;
-	Quat worldRotation() const;
-	Vec3 worldScale() const;
+	glm::vec3 worldPosition() const;
+	glm::quat worldRotation() const;
+	glm::vec3 worldScale() const;
 
-	Mat4 matrix() const;
+	glm::mat4 matrix() const;
 
-	void rotate(const Quat& rotation);
-	void translate(const Vec3& translation);
-	void scale(const Vec3& scaling);
+	void rotate(const glm::quat& rotation);
+	void translate(const glm::vec3& translation);
+	void scale(const glm::vec3& scaling);
 
-	void worldRotate(const Quat& rotation);
-	void worldTranslate(const Vec3& translation);
-	void worldScale(const Vec3& scaling);
+	void worldRotate(const glm::quat& rotation);
+	void worldTranslate(const glm::vec3& translation);
+	void worldScale(const glm::vec3& scaling);
 
-	void lookAt(Vec3& position, Vec3 up = WorldVec3::up);
+	void lookAt(glm::vec3& position, glm::vec3 up = WorldVec3::up);
 };

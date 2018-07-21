@@ -16,9 +16,6 @@
 #define SYSFUNC_ENABLE(systemInterface, systemFunction, priority) \
 	SYSFUNC(systemInterface, systemFunction)::enable<std::remove_reference<decltype(*this)>::type>(priority)
 
-#define SYSFUNC_DISABLE(systemInterface, systemFunction) \
-	SYSFUNC(systemInterface, systemFunction)::disable<std::remove_reference<decltype(*this)>::type>()
-
 #define SYSFUNC_CALL(systemInterface, systemFunction, engine) \
 	engine.callSystems<SYSFUNC(systemInterface, systemFunction)>
 
@@ -36,7 +33,7 @@ class SimpleEngine {
 		enum Flags : uint8_t{
 			None = 0,
 			Active = 1,
-			Erased = 2,
+			Destroyed = 2,
 			Buffered = 4
 		};
 	};
@@ -78,9 +75,6 @@ public:
 			template <typename SystemT>
 			inline static void enable(int32_t priority = 0);
 
-			template <typename SystemT>
-			inline static void disable();
-
 			inline static uint32_t systemCount();
 
 			inline static uint32_t systemIndex(uint32_t i);
@@ -117,6 +111,8 @@ public:
 
 		template <typename ...Ts>
 		inline bool has() const;
+
+		inline void set(uint64_t id);
 	};
 
 private:
@@ -138,11 +134,17 @@ private:
 
 	inline void _destroy(uint32_t index);
 
+	template <typename T>
+	inline void _iterate(uint32_t index, const T& lambda);
+
 public:
 	SimpleEngine(size_t chunkSize) : _chunkSize(chunkSize) {}
 
 	template <typename T, typename ...Ts>
 	inline void registerSystem(Ts&&... args);
+
+	template <typename T>
+	inline bool hasSystem();
 
 	template <typename T>
 	inline T& system();
@@ -176,11 +178,7 @@ public:
 
 	inline void dereferenceEntity(uint64_t id);
 
-	inline void reserveEntities(uint32_t count);
-
 	inline uint32_t entityCount() const;
-
-	inline void clearEntities();
 	
 	template <typename T>
 	inline void iterateEntities(const T& lambda);
@@ -214,22 +212,6 @@ void SimpleEngine<SystemInterface, maxComponents>::BaseSystem::FunctionSpecializ
 
 template <typename SystemInterface, uint32_t maxComponents>
 template <typename T, typename ...Ts, void(T::*func)(Ts...)>
-template <typename SystemT>
-void SimpleEngine<SystemInterface, maxComponents>::BaseSystem::FunctionSpecialization<void(T::*)(Ts...), func>::disable(){
-	static_assert(std::is_base_of<BaseSystem, SystemInterface>::value);
-
-	auto iter = std::find(_systemIndexes.begin(), _systemIndexes.end(), IndexPriorityPair{ typeIndex<SimpleEngine, SystemT>() });
-
-	if (iter == _systemIndexes.end())
-		return;
-
-	_systemIndexes.erase(iter);
-
-	std::sort(_systemIndexes.begin(), _systemIndexes.end());
-}
-
-template <typename SystemInterface, uint32_t maxComponents>
-template <typename T, typename ...Ts, void(T::*func)(Ts...)>
 uint32_t SimpleEngine<SystemInterface, maxComponents>::BaseSystem::FunctionSpecialization<void(T::*)(Ts...), func>::systemCount(){
 	assert(_systemIndexes.size() <= UINT32_MAX);
 	return static_cast<uint32_t>(_systemIndexes.size());
@@ -256,7 +238,7 @@ void SimpleEngine<SystemInterface, maxComponents>::_destroy(uint32_t index) {
 
 	// if references still exist, mark as erased for later, and return
 	if (_indexIdentities[index].references) {
-		_indexIdentities[index].flags |= Identity::Erased;
+		_indexIdentities[index].flags |= Identity::Destroyed;
 		return;
 	}
 
@@ -277,6 +259,20 @@ void SimpleEngine<SystemInterface, maxComponents>::_destroy(uint32_t index) {
 }
 
 template <typename SystemInterface, uint32_t maxComponents>
+template <typename T>
+void SimpleEngine<SystemInterface, maxComponents>::_iterate(uint32_t index, const T& lambda) {
+	Identity& identity = _indexIdentities[index];
+
+	if (!hasFlags(identity.flags, Identity::Active) || hasFlags(identity.flags, Identity::Buffered) || hasFlags(identity.flags, Identity::Destroyed))
+		return;
+
+	Entity entity(*this);
+	entity.set(combine32(identity.index, identity.version));
+
+	lambda(entity);
+}
+
+template <typename SystemInterface, uint32_t maxComponents>
 template<typename T, typename ...Ts>
 void SimpleEngine<SystemInterface, maxComponents>::registerSystem(Ts&&... args){
 	static_assert(std::is_base_of<BaseSystem, SystemInterface>::value);
@@ -290,6 +286,17 @@ void SimpleEngine<SystemInterface, maxComponents>::registerSystem(Ts&&... args){
 	assert(_systems[index] == nullptr);
 
 	_systems[index] = new T(std::forward<Ts>(args)...);
+}
+
+template<typename SystemInterface, uint32_t maxComponents>
+template<typename T>
+bool SimpleEngine<SystemInterface, maxComponents>::hasSystem(){
+	uint32_t index = typeIndex<SimpleEngine, T>();
+
+	if (_systems.size() <= index)
+		return false;
+
+	return _systems[index] != nullptr;
 }
 
 template <typename SystemInterface, uint32_t maxComponents>
@@ -506,76 +513,125 @@ void SimpleEngine<SystemInterface, maxComponents>::dereferenceEntity(uint64_t id
 
 	_indexIdentities[index].references--;
 
-	if (_indexIdentities[index].references == 0 && hasFlags(_indexIdentities[index].flags, Identity::Erased))
+	if (_indexIdentities[index].references == 0 && hasFlags(_indexIdentities[index].flags, Identity::Destroyed))
 		_destroy(index);
 }
 
 template <typename SystemInterface, uint32_t maxComponents>
-void SimpleEngine<SystemInterface, maxComponents>::reserveEntities(uint32_t count) {
-
-}
-
-template <typename SystemInterface, uint32_t maxComponents>
 uint32_t SimpleEngine<SystemInterface, maxComponents>::entityCount() const {
-	return 0;
-}
-
-template <typename SystemInterface, uint32_t maxComponents>
-void SimpleEngine<SystemInterface, maxComponents>::clearEntities() {
-
+	return (_indexIdentities.size() + _bufferedIndexes.size()) - _freeIndexes.size();
 }
 
 template <typename SystemInterface, uint32_t maxComponents>
 template <typename T>
 void SimpleEngine<SystemInterface, maxComponents>::iterateEntities(const T& lambda) {
+	_iterating = true;
 
+	for (uint32_t i = 0; i < _indexIdentities.size(); i++) 
+		_iterate(i, lambda);
+
+	while (_bufferedIndexes.size()) {
+		_iterate(_bufferedIndexes[0], lambda);
+		_bufferedIndexes.erase(_bufferedIndexes.begin());
+	}
+
+	_iterating = false;
 }
 
 template <typename SystemInterface, uint32_t maxComponents>
 uint64_t SimpleEngine<SystemInterface, maxComponents>::Entity::id() const {
-	return 0;
+	return _id;
 }
 
 template <typename SystemInterface, uint32_t maxComponents>
 void SimpleEngine<SystemInterface, maxComponents>::Entity::create() {
+	if (_id)
+		invalidate();
 
+	_id = _engine.createEntity();
+	_engine.referenceEntity(_id);
 }
 
 template <typename SystemInterface, uint32_t maxComponents>
 void SimpleEngine<SystemInterface, maxComponents>::Entity::destroy() {
+	assert(_id);
 
+	if (!_id)
+		return;
+
+	_engine.dereferenceEntity(_id);
+	_engine.destroyEntity(_id);
+	_id = 0;
 }
 
 template <typename SystemInterface, uint32_t maxComponents>
 bool SimpleEngine<SystemInterface, maxComponents>::Entity::valid() const {
-	return false;
+	return _id;
 }
 
 template <typename SystemInterface, uint32_t maxComponents>
 void SimpleEngine<SystemInterface, maxComponents>::Entity::invalidate() {
+	assert(_id);
 
+	if (!_id)
+		return;
+
+	_engine.dereferenceEntity(_id);
+	_id = 0;
+}
+
+template<typename SystemInterface, uint32_t maxComponents>
+inline void SimpleEngine<SystemInterface, maxComponents>::Entity::set(uint64_t id){
+	if (_id)
+		invalidate();
+
+	if (!_engine.validEntity(id))
+		return;
+	
+	_id = id;
+	_engine.referenceEntity(_id);
 }
 
 template <typename SystemInterface, uint32_t maxComponents>
 template <typename T, typename ...Ts>
 T* SimpleEngine<SystemInterface, maxComponents>::Entity::add(Ts&&... args) {
-	return nullptr;
+	assert(_id);
+
+	if (!_id)
+		return nullptr;
+
+	return _engine.addComponent<T>(_id, std::forward<Ts>(args)...);
 }
 
 template <typename SystemInterface, uint32_t maxComponents>
 template <typename T>
 T* SimpleEngine<SystemInterface, maxComponents>::Entity::get() {
-	return nullptr;
+	assert(_id);
+
+	if (!_id)
+		return nullptr;
+
+	return _engine.getComponent<T>(_id);
 }
 
 template <typename SystemInterface, uint32_t maxComponents>
 template <typename T>
 void SimpleEngine<SystemInterface, maxComponents>::Entity::remove() {
+	assert(_id);
 
+	if (!_id)
+		return;
+
+	_engine.removeComponent<T>(_id);
 }
 
 template <typename SystemInterface, uint32_t maxComponents>
 template <typename ...Ts>
 bool SimpleEngine<SystemInterface, maxComponents>::Entity::has() const {
+	assert(_id);
 
+	if (!_id)
+		return false;
+
+	return _engine.hasComponents<Ts...>(_id);
 }

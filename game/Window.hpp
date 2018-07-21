@@ -11,7 +11,7 @@ class Window : public SystemInterface {
 
 public:
 	struct WindowConfig {
-		enum Modes : uint8_t{
+		enum Modes : uint8_t {
 			WindowResizable = 1,
 			WindowMaximised = 2,
 			WindowDecorated = 4,
@@ -20,6 +20,8 @@ public:
 			DebugContext = 16,
 
 			VerticalSync = 32,
+
+			LockedCursor = 64,
 		};
 
 		std::string windowTitle = "";
@@ -43,4 +45,6 @@ public:
 
 	void openWindow(const WindowConfig& config);
 	void closeWindow();
+
+	void lockCursor(bool locked);
 };

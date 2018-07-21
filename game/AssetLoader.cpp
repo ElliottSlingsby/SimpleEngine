@@ -8,8 +8,6 @@
 #include <stb_rect_pack.h>
 #include <stb_truetype.h>
 
-#include "Transform.hpp"
-
 inline void fromAssimp(const aiVector3D* const from, glm::vec2* to) {
 	to->x = from->x;
 	to->y = from->y;
@@ -28,30 +26,47 @@ inline void fromAssimp(const aiColor4D* const from, glm::vec4* to) {
 	to->a = from->a;
 }
 
+/*void AssetLoader::_loadShader(const std::string & file, ShaderData::Type type, uint64_t id, bool reload) {
+	if (_loaded.find(file) != _loaded.end()) {
+		SYSFUNC_CALL(SystemInterface, shaderLoaded, _engine)(id, file, nullptr);
+		return;
+	}
+
+	std::ifstream stream;
+
+	stream.open(file, std::ios::in);
+
+	if (!stream.is_open())
+		return;
+
+	ShaderData shaderData;
+	shaderData.source = std::string(std::istreambuf_iterator<char>(stream), std::istreambuf_iterator<char>());
+	shaderData.type = type;
+
+	stream.close();
+
+	_loaded[file] = 1;
+
+	SYSFUNC_CALL(SystemInterface, shaderLoaded, _engine)(id, file, &shaderData);
+}*/
+
 AssetLoader::AssetLoader(Engine& engine) : _engine(engine){
 	SYSFUNC_ENABLE(SystemInterface, initiate, -1);
 }
 
 void AssetLoader::initiate(const std::vector<std::string>& args){
-	assert(args.size());
-	_path = upperPath(replace('\\', '/', args[0]));
-}
-
-void AssetLoader::setFolder(const std::string & folder){
-	_folder = folder + '/';
+	stbi_set_flip_vertically_on_load(true);
 }
 
 void AssetLoader::loadMesh(const std::string& file, uint64_t id, bool reload){
-	std::string filePath = _path + _folder + file;
-
-	if (_loaded.find(filePath) != _loaded.end()) {
-		SYSFUNC_CALL(SystemInterface, meshLoaded, _engine)(id, filePath, nullptr);
+	if (_loaded.find(file) != _loaded.end()) {
+		SYSFUNC_CALL(SystemInterface, meshLoaded, _engine)(id, file, nullptr);
 		return;
 	}
 	
 	Assimp::Importer importer;
 
-	const aiScene* scene = importer.ReadFile(filePath,
+	const aiScene* scene = importer.ReadFile(file,
 		aiProcess_CalcTangentSpace |
 		aiProcess_Triangulate |
 		aiProcess_JoinIdenticalVertices |
@@ -96,19 +111,19 @@ void AssetLoader::loadMesh(const std::string& file, uint64_t id, bool reload){
 		}
 	}
 
-	SYSFUNC_CALL(SystemInterface, meshLoaded, _engine)(id, filePath, &meshData);
+	_loaded[file] = 1;
+
+	SYSFUNC_CALL(SystemInterface, meshLoaded, _engine)(id, file, &meshData);
 }
 
 void AssetLoader::loadTexture(const std::string& file, uint64_t id, bool reload){
-	std::string filePath = _path + _folder + file;
-
-	if (_loaded.find(filePath) != _loaded.end()) {
-		SYSFUNC_CALL(SystemInterface, textureLoaded, _engine)(id, filePath, nullptr);
+	if (_loaded.find(file) != _loaded.end()) {
+		SYSFUNC_CALL(SystemInterface, textureLoaded, _engine)(id, file, nullptr);
 		return;
 	}
 
 	int width, height, channels;
-	uint8_t* data = stbi_load(filePath.c_str(), &width, &height, &channels, 0);
+	uint8_t* data = stbi_load(file.c_str(), &width, &height, &channels, 0);
 
 	if (!data)
 		return;
@@ -119,5 +134,14 @@ void AssetLoader::loadTexture(const std::string& file, uint64_t id, bool reload)
 	textureData.size = { glm::clamp(width, 0, INT32_MAX), glm::clamp(height, 0, INT32_MAX) };
 	textureData.colours = std::vector<uint8_t>(data, data + (textureData.size.x * textureData.size.y));
 
-	SYSFUNC_CALL(SystemInterface, textureLoaded, _engine)(id, filePath, &textureData);
+	stbi_image_free(data);
+
+	_loaded[file] = 1;
+
+	SYSFUNC_CALL(SystemInterface, textureLoaded, _engine)(id, file, &textureData);
 }
+
+/*void AssetLoader::loadShaders(const std::string & vertexFile, const std::string & fragmentFile, uint64_t id, bool reload){
+	_loadShader(vertexFile, ShaderData::VertexShader, id, reload);
+	_loadShader(fragmentFile, ShaderData::FragmentShader, id, reload);
+}*/

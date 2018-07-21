@@ -1,27 +1,79 @@
 #include "Renderer.hpp"
 
-Renderer::Renderer(Engine& engine, const ShaderVariables& shaderVariables) : _engine(engine), _shaderVariables(shaderVariables){
-	SYSFUNC_ENABLE(SystemInterface, initiate, -1);
-	SYSFUNC_ENABLE(SystemInterface, update, -1);
+#include <glad\glad.h>
+#include <glm\gtc\matrix_transform.hpp>
+#include <fstream>
+
+#include "Transform.hpp"
+
+void errorCallback(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, const GLchar* message, const void* userParam) {
+	std::string errorMessage(message, message + length);
+	std::cerr << source << ',' << type << ',' << id << ',' << severity << std::endl << errorMessage << std::endl << std::endl;
+}
+
+void Renderer::_reshape(){
+	if (_verticalFov && _size.x && _size.y && _zDepth)
+		_projectionMatrix = glm::perspectiveFov(glm::radians(_verticalFov), _size.x, _size.y, 1.f, _zDepth);
+
+	glViewport(0, 0, _size.x, _size.y);
+}
+
+bool Renderer::_compileShader(GLuint type, GLuint* shader, const std::string & file){
+	if (*shader == 0)
+		*shader = glCreateShader(type);
+
+	std::ifstream stream;
+
+	stream.open(file, std::ios::in);
+
+	if (!stream.is_open())
+		return false;
+
+	const std::string source = std::string(std::istreambuf_iterator<char>(stream), std::istreambuf_iterator<char>());
+
+	stream.close();
+
+	const GLchar* sourcePtr = (const GLchar*)(source.c_str());
+
+	glShaderSource(*shader, 1, &sourcePtr, 0);
+	glCompileShader(*shader);
+
+	GLint compiled;
+	glGetShaderiv(*shader, GL_COMPILE_STATUS, &compiled);
+
+	if (compiled == GL_TRUE)
+		return true;
+
+	GLint length = 0;
+	glGetShaderiv(*shader, GL_INFO_LOG_LENGTH, &length);
+
+	std::vector<GLchar> message(length);
+	glGetShaderInfoLog(*shader, length, &length, &message[0]);
+
+	//glDeleteShader(*shader);
+
+	std::cerr << (char*)(&message[0]) << std::endl << std::endl;
+	return false;
+}
+
+/*bool Renderer::_createProgram(GLuint vertexShader, GLuint fragmentShader, ShaderProgram* shaderProgram){
+	return false;
+}*/
+
+Renderer::Renderer(Engine& engine, const ShaderVariables& shaderVariables) : _engine(engine), _shaderVariables(shaderVariables), _camera(engine){
+	SYSFUNC_ENABLE(SystemInterface, update, 1);
+
 	SYSFUNC_ENABLE(SystemInterface, framebufferSize, 0);
 	SYSFUNC_ENABLE(SystemInterface, textureLoaded, 0);
 	SYSFUNC_ENABLE(SystemInterface, meshLoaded, 0);
-}
-
-void Renderer::initiate(const std::vector<std::string>& args){
-	//glEnable(GL_CULL_FACE);
-	//glEnable(GL_DEPTH_TEST);
-	//glEnable(GL_MULTISAMPLE);
-	//glEnable(GL_DITHER);
-
-	//_windowSize = { height, width };
-	//_projectionMatrix = glm::perspectiveFov(glm::radians(_fov), static_cast<double>(height), static_cast<double>(width), 1.0, _zDepth);
-
-	//glViewport(0, 0, height, width);
+	//SYSFUNC_ENABLE(SystemInterface, shaderLoaded, 0);
+	SYSFUNC_ENABLE(SystemInterface, windowOpen, 0);
 }
 
 void Renderer::update(double dt){
-	/*
+	if (!_rendering)
+		return;
+
 	glClearColor(0.f, 0.f, 0.f, 1.f);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
@@ -31,112 +83,310 @@ void Renderer::update(double dt){
 
 		const Transform& transform = *entity.get<Transform>();
 		const Model& model = *entity.get<Model>();
-		const Material& material = *entity.get<Material>();
 
-		glUseProgram(model.program);
+		if (!model.arrayObject || !model.indexBuffer || !model.vertexBuffer || !model.program || !model.textureBuffer)
+			return;
 
-		if (program.uniformTexture != -1)
-			glUniform1i(program.uniformTexture, 0);
+		const ShaderProgram& program = _programs[model.program - 1];
+
+		glUseProgram(program.program);
+
+		// texture
+		if (program.textureUnifLoc != -1){
+			glActiveTexture(GL_TEXTURE0);
+			glBindTexture(GL_TEXTURE_2D, model.textureBuffer);
+
+			glUniform1i(program.textureUnifLoc, 0);
+		}
 
 		// projection matrix
-		if (program.uniformProjection != -1)
-			glUniformMatrix4fv(program.uniformProjection, 1, GL_FALSE, &(static_cast<glm::mat4>(_projectionMatrix))[0][0]);
+		if (program.projectionUnifLoc != -1)
+			glUniformMatrix4fv(program.projectionUnifLoc, 1, GL_FALSE, &_projectionMatrix[0][0]);
 
 		// view matrix
-		Mat4 viewMatrix = Renderer::viewMatrix();
+		glm::dmat4 viewMatrix = Renderer::viewMatrix();
 
-		if (program.uniformView != -1)
-			glUniformMatrix4fv(program.uniformView, 1, GL_FALSE, &(static_cast<glm::mat4>(viewMatrix))[0][0]);
+		if (program.viewUnifLoc != -1)
+			glUniformMatrix4fv(program.viewUnifLoc, 1, GL_FALSE, &((glm::mat4)viewMatrix)[0][0]);
 
 		// model matrix
-		Mat4 modelMatrix;
+		glm::dmat4 modelMatrix;
 
-		if (program.uniformModelView != -1 || program.uniformView != -1) {
+		if (program.modelViewUnifLoc != -1 || program.viewUnifLoc != -1) {
 			modelMatrix = transform.matrix();
 
-			if (program.uniformView != -1)
-				glUniformMatrix4fv(program.uniformModel, 1, GL_FALSE, &(static_cast<glm::mat4>(modelMatrix))[0][0]);
+			if (program.viewUnifLoc != -1)
+				glUniformMatrix4fv(program.modelUnifLoc, 1, GL_FALSE, &((glm::mat4)modelMatrix)[0][0]);
 		}
 
 		// model view matrix
-		if (program.uniformModelView != -1)
-			glUniformMatrix4fv(program.uniformModelView, 1, GL_FALSE, &(static_cast<glm::mat4>(viewMatrix * modelMatrix))[0][0]);
+		if (program.modelViewUnifLoc != -1)
+			glUniformMatrix4fv(program.modelViewUnifLoc, 1, GL_FALSE, &((glm::mat4)(viewMatrix * modelMatrix))[0][0]);
 
-		// set texture
-		if (program.uniformTexture != -1 && model.texture) {
-			glActiveTexture(GL_TEXTURE0);
-			glBindTexture(GL_TEXTURE_2D, model.texture);
+		glBindVertexArray(model.arrayObject);
 
-			if (model.linearTexture) {
-				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-			}
-			else {
-				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST_MIPMAP_NEAREST);
-				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-			}
-		}
+		glBindBuffer(GL_ARRAY_BUFFER, model.vertexBuffer);
+		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, model.indexBuffer);
 
-		// draw buffer
-		if (model.arrayObject && model.attribBuffer && model.indexCount) {
-			glBindVertexArray(model.arrayObject);
-			glBindBuffer(GL_ARRAY_BUFFER, model.attribBuffer);
+		glDrawElements(GL_TRIANGLES, model.indexCount, GL_UNSIGNED_INT, (void*)0);
 
-			glDrawArrays(GL_TRIANGLES, 0, model.indexCount);
-		}
-
-		// clean up
+		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 		glBindBuffer(GL_ARRAY_BUFFER, 0);
+
 		glBindVertexArray(0);
+
+		glBindTexture(GL_TEXTURE_2D, 0);
 	});
-	*/
 
 	SYSFUNC_CALL(SystemInterface, rendered, _engine)();
 }
 
-void Renderer::framebufferSize(glm::uvec3 size){
+void Renderer::windowOpen(bool opened){
+	_rendering = opened;
 
+	if (!opened)
+		return;
+
+	glDebugMessageCallback(errorCallback, nullptr);
+
+	//glEnable(GL_CULL_FACE);
+	glEnable(GL_DEPTH_TEST);
+	glEnable(GL_MULTISAMPLE);
+	glEnable(GL_DITHER);
+
+	_reshape();
 }
 
-void Renderer::textureLoaded(uint64_t id, const std::string & file, const TextureData* textureData){
+void Renderer::framebufferSize(glm::uvec2 size){
+	_size.x = size.x;
+	_size.y = size.y;
 
+	if (_rendering)
+		_reshape();
 }
 
-void Renderer::meshLoaded(uint64_t id, const std::string & file, const MeshData* meshData){
+void Renderer::textureLoaded(uint64_t id, const std::string& file, const TextureData* textureData){
+	GLuint textureBuffer;
 
+	bool exists = false;
+
+	if (_textures.find(file) != _textures.end()) {
+		textureBuffer = _textures[file];
+		exists = true;
+	}
+
+	if (textureData) {
+		if (!exists)
+			glGenTextures(1, &textureBuffer);
+		
+		glBindTexture(GL_TEXTURE_2D, textureBuffer);
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, textureData->size.x, textureData->size.y, 0, GL_RGBA, GL_UNSIGNED_BYTE, &textureData->colours[0]);
+		
+		glGenerateMipmap(GL_TEXTURE_2D);
+		glGenerateTextureMipmap(textureBuffer);
+		
+		glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+		glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+		
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST_MIPMAP_NEAREST);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+		
+		glBindTexture(GL_TEXTURE_2D, 0);
+		
+		_textures[file] = textureBuffer;
+	}
+
+	if (_engine.validEntity(id)) {
+		Model& model = *_engine.addComponent<Model>(id);
+		model.textureBuffer = textureBuffer;
+	}
 }
+
+#define SetAttribPointer(attribute, vertex, member) \
+	glEnableVertexAttribArray(attribute); \
+	glVertexAttribPointer(attribute, sizeof(vertex::member) / sizeof(float), GL_FLOAT, GL_FALSE, sizeof(vertex), (void*)offsetof(vertex, member))
+
+void Renderer::meshLoaded(uint64_t id, const std::string& file, const MeshData* meshData){
+	GLuint arrayObject;
+	GLuint indexBuffer;
+	GLuint vertexBuffer;
+	GLuint indexCount;
+
+	bool exists = false;
+
+	if (_meshes.find(file) != _meshes.end()) {
+		arrayObject = std::get<0>(_meshes[file]);
+		indexBuffer = std::get<1>(_meshes[file]);
+		vertexBuffer = std::get<2>(_meshes[file]);
+		indexCount = std::get<3>(_meshes[file]);
+		exists = true;
+	}
+
+	if (meshData){
+		if (!exists) {
+			glGenVertexArrays(1, &arrayObject);
+			glGenBuffers(1, &vertexBuffer);
+			glGenBuffers(1, &indexBuffer);
+		}
+		
+		glBindVertexArray(arrayObject);
+		
+		glBindBuffer(GL_ARRAY_BUFFER, vertexBuffer);
+		glBufferData(GL_ARRAY_BUFFER, meshData->vertices.size() * sizeof(MeshData::Vertex), &meshData->vertices[0], GL_STATIC_DRAW);
+		
+		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, indexBuffer);
+		glBufferData(GL_ELEMENT_ARRAY_BUFFER, meshData->indexes.size(), &meshData->indexes[0], GL_STATIC_DRAW);
+		
+		SetAttribPointer(_shaderVariables.positionAttrLoc, MeshData::Vertex, position);
+		SetAttribPointer(_shaderVariables.normalAttrLoc, MeshData::Vertex, normal);
+		SetAttribPointer(_shaderVariables.texcoordAttrLoc, MeshData::Vertex, texcoord);
+		SetAttribPointer(_shaderVariables.colourAttrLoc, MeshData::Vertex, colour);
+		SetAttribPointer(_shaderVariables.tangentAttrLoc, MeshData::Vertex, tangent);
+		SetAttribPointer(_shaderVariables.bitangentAttrLoc, MeshData::Vertex, bitangent);
+		
+		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+		glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+		glBindVertexArray(0);
+
+		indexCount = meshData->indexes.size();
+		_meshes[file] = { arrayObject, indexBuffer, vertexBuffer, indexCount };
+	}
+
+	if (_engine.validEntity(id)) {
+		Model& model = *_engine.addComponent<Model>(id);
+		model.arrayObject = arrayObject;
+		model.indexBuffer = indexBuffer;
+		model.vertexBuffer = vertexBuffer;
+		model.indexCount = indexCount;
+	}
+}
+
+/*void Renderer::shaderLoaded(uint64_t id, const std::string & file, const ShaderData* shaderData){
+	//GLuint shader = 0;
+	//GLuint type;
+	//
+	//if (_shaders.find(file) != _shaders.end()) {
+	//	shader = std::get<0>(_shaders[file]);
+	//	type = std::get<1>(_shaders[file]);
+	//}
+	//
+	//if (shaderData) {
+	//	if (shaderData->type, ShaderData::VertexShader)
+	//		type = GL_VERTEX_SHADER;
+	//	else if (shaderData->type, ShaderData::FragmentShader)
+	//		type = GL_FRAGMENT_SHADER;
+	//	
+	//	_compileShader(type, &shader, shaderData->source);
+	//}
+	//
+	//if (_engine.validEntity(id)) {
+	//	Model& model = *_engine.addComponent<Model>(id);
+	//	
+	//	if (type == GL_VERTEX_SHADER)
+	//		model.vertexShader = shader;
+	//	else if (type == GL_FRAGMENT_SHADER)
+	//		model.fragmentShader = shader;
+	//}
+
+	//GLuint type;
+	//
+	//if (shaderData->type
+	//
+	//if (!shader || shaderData)
+	//	_compileShader(GL_VERTEX_SHADER, &vertexShader, shaderData->source);
+}*/
 
 void Renderer::setShape(const ShapeConfig& config){
 	_verticalFov = config.verticalFov;
 	_zDepth = config.zDepth;
-	_size = config.resolution;
+
+	if (_rendering)
+		_reshape();
 }
 
-void Renderer::loadProgram(const std::vector<std::tuple<GLuint, std::string>>& shaders, uint64_t id, bool reload){
-	std::vector<GLuint> shaderIds;
-
-	for (auto tuple : shaders) {
-		GLuint shaderType = std::get<0>(tuple);
-		const std::string& file = std::get<1>(tuple);
-
-		//auto i = _shaders.find(file);
-
-		//if (i != _shaders.end()) {
-		//	shaderIds.push_back(i->second);
-		//	break;
-		//}
-
-		// compile shader
-		file;
-		shaderType;
-
-		shaderIds.push_back(0);
+void Renderer::loadProgram(const std::string& vertexFile, const std::string& fragmentFile, uint64_t id, bool reload) {
+	GLuint vertexShader = 0;
+	GLuint fragmentShader = 0;
+	
+	if (_shaders.find(vertexFile) != _shaders.end())
+		vertexShader = _shaders[vertexFile];
+	
+	if (_shaders.find(fragmentFile) != _shaders.end())
+		fragmentShader = _shaders[fragmentFile];
+	
+	bool newProgram = !vertexShader || !fragmentShader;
+	
+	if (!vertexShader || reload)
+		_compileShader(GL_VERTEX_SHADER, &vertexShader, vertexFile);
+	
+	if (!fragmentShader || reload)
+		_compileShader(GL_FRAGMENT_SHADER, &fragmentShader, fragmentFile);
+	
+	std::string programFiles = vertexFile + '/' + fragmentFile;
+	uint32_t programIndex;
+	
+	if (_shadersToProgram.find(programFiles) != _shadersToProgram.end()) {
+		programIndex = _shadersToProgram[programFiles];
 	}
+	else {
+		programIndex = _programs.size();
+		_programs.resize(_programs.size() + 1);
+	
+		_shadersToProgram[programFiles] = programIndex;
+	}
+	
+	if (newProgram || reload) {
+		ShaderProgram& program = _programs[programIndex];
+	
+		if (!program.program) {
+			program.program = glCreateProgram();
+	
+			glAttachShader(program.program, vertexShader);
+			glAttachShader(program.program, fragmentShader);
+	
+			glLinkProgram(program.program);
+		}
+	
+		GLint success;
+		glGetProgramiv(program.program, GL_LINK_STATUS, &success);
+	
+		if (!success) {
+			GLint length = 0;
+			glGetProgramiv(program.program, GL_INFO_LOG_LENGTH, &length);
+	
+			std::vector<GLchar> message(length);
+			glGetProgramInfoLog(program.program, length, &length, &message[0]);
+	
+			std::cerr << (char*)(&message[0]) << std::endl << std::endl;
+			return;
+		}
+	
+		program.modelUnifLoc = glGetUniformLocation(program.program, _shaderVariables.modelUnifName.c_str());
+		program.viewUnifLoc = glGetUniformLocation(program.program, _shaderVariables.viewUnifName.c_str());
+		program.projectionUnifLoc = glGetUniformLocation(program.program, _shaderVariables.projectionUnifName.c_str());
+		program.modelViewUnifLoc = glGetUniformLocation(program.program, _shaderVariables.modelViewUnifName.c_str());
+		program.textureUnifLoc = glGetUniformLocation(program.program, _shaderVariables.textureUnifName.c_str());
+	}
+	
+	if (_engine.validEntity(id)) {
+		Model& model = *_engine.addComponent<Model>(id);
+		model.program = programIndex + 1;
+	}
+}
 
-	//auto i = _shaderPrograms.find(shaderIds);
+void Renderer::setCamera(uint64_t id){
+	if (!_engine.validEntity(id))
+		return;
 
-	//if (i == _shaderPrograms.end())
-	//	return i->second;
+	_camera.set(id);
+}
 
-	// create new program
+glm::mat4 Renderer::viewMatrix(){
+	glm::mat4 matrix;
+
+	if (_camera.valid() && _camera.has<Transform>())
+		matrix = glm::inverse(_camera.get<Transform>()->matrix());;
+
+	return matrix;
 }

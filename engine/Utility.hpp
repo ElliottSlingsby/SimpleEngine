@@ -36,23 +36,6 @@ inline T deltaTime(const TimePoint& point) {
 	return std::chrono::duration_cast<std::chrono::duration<T>>(Clock::now() - point).count();
 }
 
-template <typename T = double>
-inline void sleepFor(T seconds) {
-	if (seconds < 0)
-		return;
-
-	std::this_thread::sleep_for(std::chrono::microseconds(static_cast<uint32_t>(seconds * 1000000)));
-}
-
-inline void clearTerminal() {
-#ifdef _WIN32
-	std::system("cls");
-#endif
-#ifdef __linux__
-	std::system("clear");
-#endif
-}
-
 template <typename Namespace>
 inline uint32_t typeIndexCount(bool add = false) {
 	static uint32_t count = 0;
@@ -86,22 +69,7 @@ inline std::string upperPath(std::string filePath) {
 	return filePath.substr(0, filePath.find_last_of('/') + 1);
 }
 
-inline std::string readFile(const std::string& path) {
-	std::ifstream file;
-
-	file.open(path, std::ios::in);
-
-	if (!file.is_open())
-		return "";
-
-	std::string contents = std::string(std::istreambuf_iterator<char>(file), std::istreambuf_iterator<char>());
-
-	file.close();
-
-	return contents;
-}
-
-inline bool strcmpSuffix(const char* check, const char* suffix) {
+inline bool compareEnd(const char* check, const char* suffix) {
 	size_t checkLen = strlen(check);
 	size_t suffixLen = strlen(suffix);
 

@@ -2,15 +2,15 @@
 
 #include <glm\gtc\matrix_transform.hpp>
 
-void Transform::_setPosition(const Vec3& position) {
+void Transform::_setPosition(const glm::vec3& position) {
 	_position = position;
 }
 
-void Transform::_setRotation(const Quat& rotation) {
+void Transform::_setRotation(const glm::quat& rotation) {
 	_rotation = rotation;
 }
 
-void Transform::_setScale(const Vec3 & scale){
+void Transform::_setScale(const glm::vec3 & scale){
 	_scale = scale;
 }
 
@@ -145,19 +145,19 @@ uint32_t Transform::children() const {
 	return static_cast<uint32_t>(_children.size());
 }
 
-void Transform::setPosition(const Vec3& position) {
+void Transform::setPosition(const glm::vec3& position) {
 	_setPosition(position);
 }
 
-void Transform::setRotation(const Quat& rotation) {
+void Transform::setRotation(const glm::quat& rotation) {
 	_setRotation(rotation);
 }
 
-void Transform::setScale(const Vec3& scale) {
+void Transform::setScale(const glm::vec3& scale) {
 	_setScale(scale);
 }
 
-void Transform::setWorldPosition(const Vec3 & position){
+void Transform::setWorldPosition(const glm::vec3 & position){
 	Transform* parent = _engine.getComponent<Transform>(_parent);
 
 	if (!parent)
@@ -166,7 +166,7 @@ void Transform::setWorldPosition(const Vec3 & position){
 		_setPosition(glm::inverse(parent->worldRotation()) * (position - parent->worldPosition()));
 }
 
-void Transform::setWorldRotation(const Quat & rotation){
+void Transform::setWorldRotation(const glm::quat & rotation){
 	Transform* parent = _engine.getComponent<Transform>(_parent);
 
 	if (!parent)
@@ -175,7 +175,7 @@ void Transform::setWorldRotation(const Quat & rotation){
 		_setRotation(glm::inverse(parent->worldRotation()) * rotation);
 }
 
-void Transform::setWorldScale(const Vec3 & scale){
+void Transform::setWorldScale(const glm::vec3 & scale){
 	Transform* parent = _engine.getComponent<Transform>(_parent);
 
 	if (!parent)
@@ -184,20 +184,20 @@ void Transform::setWorldScale(const Vec3 & scale){
 		_setScale(scale / parent->worldScale());
 }
 
-Vec3 Transform::position() const {
+glm::vec3 Transform::position() const {
 	return _position;
 }
 
-Quat Transform::rotation() const {
+glm::quat Transform::rotation() const {
 	return _rotation;
 }
 
-Vec3 Transform::scale() const {
+glm::vec3 Transform::scale() const {
 	return _scale;
 }
 
-Vec3 Transform::worldPosition() const {
-	Vec3 position = _position;
+glm::vec3 Transform::worldPosition() const {
+	glm::vec3 position = _position;
 	Transform* parent = _engine.getComponent<Transform>(_parent);
 
 	while (parent != nullptr && parent->id()) {
@@ -208,8 +208,8 @@ Vec3 Transform::worldPosition() const {
 	return position;
 }
 
-Quat Transform::worldRotation() const {
-	Quat rotation = _rotation;
+glm::quat Transform::worldRotation() const {
+	glm::quat rotation = _rotation;
 	Transform* parent = _engine.getComponent<Transform>(_parent);
 
 	while (parent != nullptr && parent->id()) {
@@ -220,8 +220,8 @@ Quat Transform::worldRotation() const {
 	return rotation;
 }
 
-Vec3 Transform::worldScale() const {
-	Vec3 scale = _scale;
+glm::vec3 Transform::worldScale() const {
+	glm::vec3 scale = _scale;
 	Transform* parent = _engine.getComponent<Transform>(_parent);
 
 	while (parent != nullptr && parent->id()) {
@@ -232,8 +232,8 @@ Vec3 Transform::worldScale() const {
 	return scale;
 }
 
-Mat4 Transform::matrix() const {
-	Mat4 matrix;
+glm::mat4 Transform::matrix() const {
+	glm::mat4 matrix;
 	matrix = glm::translate(matrix, worldPosition());
 	matrix *= glm::mat4_cast(worldRotation());
 	matrix = glm::scale(matrix, worldScale());
@@ -241,19 +241,19 @@ Mat4 Transform::matrix() const {
 	return matrix;
 }
 
-void Transform::rotate(const Quat& rotation) {
+void Transform::rotate(const glm::quat& rotation) {
 	_setRotation(_rotation * rotation);
 }
 
-void Transform::translate(const Vec3& translation) {
+void Transform::translate(const glm::vec3& translation) {
 	_setPosition(_position + _rotation * translation);
 }
 
-void Transform::scale(const Vec3 & scaling){
+void Transform::scale(const glm::vec3 & scaling){
 	_setScale(_scale * scaling);
 }
 
-void Transform::worldRotate(const Quat& rotation) {
+void Transform::worldRotate(const glm::quat& rotation) {
 	Transform* parent = _engine.getComponent<Transform>(_parent);
 
 	if (!parent)
@@ -262,7 +262,7 @@ void Transform::worldRotate(const Quat& rotation) {
 		_setRotation(glm::inverse(parent->worldRotation()) * (rotation * worldRotation()));
 }
 
-void Transform::worldTranslate(const Vec3& translation) {
+void Transform::worldTranslate(const glm::vec3& translation) {
 	Transform* parent = _engine.getComponent<Transform>(_parent);
 
 	if (!parent)
@@ -271,7 +271,7 @@ void Transform::worldTranslate(const Vec3& translation) {
 		_setPosition(_position + glm::inverse(parent->worldRotation()) * translation);
 }
 
-void Transform::worldScale(const Vec3 & scaling){
+void Transform::worldScale(const glm::vec3 & scaling){
 	Transform* parent = _engine.getComponent<Transform>(_parent);
 
 	if (!parent)
@@ -280,6 +280,6 @@ void Transform::worldScale(const Vec3 & scaling){
 		_setScale(scaling / parent->worldScale());
 }
 
-void Transform::lookAt(Vec3& position, Vec3 up){
+void Transform::lookAt(glm::vec3& position, glm::vec3 up){
 	setWorldRotation(glm::inverse(glm::quat_cast(glm::lookAt(worldPosition(), position, up))));
 }
