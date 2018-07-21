@@ -62,7 +62,7 @@ public:
 		/*
 			Storing an entity id in an Entity container. Creates a reference and can't be invalidated until object is relinquished.
 		*/
-		_myEntity.set(id);
+		_myEntity.set(_engine.createEntity());
 		_myEntity.add<Transform>(1, 2, 3);
 
 		/*
@@ -71,7 +71,8 @@ public:
 		_myEntities.resize(10, _engine);
 
 		for (Engine::Entity& entity : _myEntities) {
-			_myEntity.add<Transform>(1, 2, 3);
+			entity.set(_engine.createEntity());
+			entity.add<Transform>(1, 2, 3);
 		}
 	}
 
