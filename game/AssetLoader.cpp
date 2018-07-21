@@ -26,30 +26,6 @@ inline void fromAssimp(const aiColor4D* const from, glm::vec4* to) {
 	to->a = from->a;
 }
 
-/*void AssetLoader::_loadShader(const std::string & file, ShaderData::Type type, uint64_t id, bool reload) {
-	if (_loaded.find(file) != _loaded.end()) {
-		SYSFUNC_CALL(SystemInterface, shaderLoaded, _engine)(id, file, nullptr);
-		return;
-	}
-
-	std::ifstream stream;
-
-	stream.open(file, std::ios::in);
-
-	if (!stream.is_open())
-		return;
-
-	ShaderData shaderData;
-	shaderData.source = std::string(std::istreambuf_iterator<char>(stream), std::istreambuf_iterator<char>());
-	shaderData.type = type;
-
-	stream.close();
-
-	_loaded[file] = 1;
-
-	SYSFUNC_CALL(SystemInterface, shaderLoaded, _engine)(id, file, &shaderData);
-}*/
-
 AssetLoader::AssetLoader(Engine& engine) : _engine(engine){
 	SYSFUNC_ENABLE(SystemInterface, initiate, -1);
 }
@@ -140,8 +116,3 @@ void AssetLoader::loadTexture(const std::string& file, uint64_t id, bool reload)
 
 	SYSFUNC_CALL(SystemInterface, textureLoaded, _engine)(id, file, &textureData);
 }
-
-/*void AssetLoader::loadShaders(const std::string & vertexFile, const std::string & fragmentFile, uint64_t id, bool reload){
-	_loadShader(vertexFile, ShaderData::VertexShader, id, reload);
-	_loadShader(fragmentFile, ShaderData::FragmentShader, id, reload);
-}*/

@@ -16,7 +16,6 @@ class MyGame : public SystemInterface{
 public:
 	MyGame(Engine& engine) : _engine(engine), _camera(engine), _test(engine){
 		SYSFUNC_ENABLE(SystemInterface, initiate, 0);
-		SYSFUNC_ENABLE(SystemInterface, windowOpen, 0);
 	}
 
 	void initiate(const std::vector<std::string>& args) override{
@@ -67,11 +66,6 @@ public:
 			_engine.system<AssetLoader>().loadTexture(path + "rgb.png", _test.id());
 			_engine.system<Renderer>().loadProgram(path + "vertexShader.glsl", path + "fragmentShader.glsl", _test.id());
 		}
-	}
-
-	void windowOpen(bool opened) override {
-		if (!opened)
-			_engine.quit();
 	}
 };
 

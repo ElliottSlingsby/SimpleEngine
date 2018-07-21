@@ -113,23 +113,6 @@ public:
 		std::vector<Vertex> vertices;
 	};
 
-	struct ShaderData {
-		enum Type {
-			GeometryShader,
-			VertexShader,
-			FragmentShader
-		};
-
-		std::string source;
-		Type type;
-	};
-
-	struct ProgramData {
-		std::string geometryShader;
-		std::string vertexShader;
-		std::string fragmentShader;
-	};
-
 	struct AnimationData {
 
 	};
@@ -157,7 +140,4 @@ public:
 	virtual void textureLoaded(uint64_t id, const std::string& file, const TextureData* textureData) {}
 	virtual void meshLoaded(uint64_t id, const std::string& file, const MeshData* meshData) {}
 	//virtual void animationLoaded(uint64_t id, const std::string& file, const AnimationData* animationData) {}
-
-	//virtual void shaderLoaded(uint64_t id, const std::string& file, const ShaderData* shaderData) {}
-	//virtual void programLoaded(uint64_t id, const std::string& file, const ProgramData* programData) {}
 };

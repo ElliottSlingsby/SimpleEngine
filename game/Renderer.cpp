@@ -50,15 +50,9 @@ bool Renderer::_compileShader(GLuint type, GLuint* shader, const std::string & f
 	std::vector<GLchar> message(length);
 	glGetShaderInfoLog(*shader, length, &length, &message[0]);
 
-	//glDeleteShader(*shader);
-
 	std::cerr << (char*)(&message[0]) << std::endl << std::endl;
 	return false;
 }
-
-/*bool Renderer::_createProgram(GLuint vertexShader, GLuint fragmentShader, ShaderProgram* shaderProgram){
-	return false;
-}*/
 
 Renderer::Renderer(Engine& engine, const ShaderVariables& shaderVariables) : _engine(engine), _shaderVariables(shaderVariables), _camera(engine){
 	SYSFUNC_ENABLE(SystemInterface, update, 1);
@@ -66,7 +60,6 @@ Renderer::Renderer(Engine& engine, const ShaderVariables& shaderVariables) : _en
 	SYSFUNC_ENABLE(SystemInterface, framebufferSize, 0);
 	SYSFUNC_ENABLE(SystemInterface, textureLoaded, 0);
 	SYSFUNC_ENABLE(SystemInterface, meshLoaded, 0);
-	//SYSFUNC_ENABLE(SystemInterface, shaderLoaded, 0);
 	SYSFUNC_ENABLE(SystemInterface, windowOpen, 0);
 }
 
@@ -261,41 +254,6 @@ void Renderer::meshLoaded(uint64_t id, const std::string& file, const MeshData* 
 		model.indexCount = indexCount;
 	}
 }
-
-/*void Renderer::shaderLoaded(uint64_t id, const std::string & file, const ShaderData* shaderData){
-	//GLuint shader = 0;
-	//GLuint type;
-	//
-	//if (_shaders.find(file) != _shaders.end()) {
-	//	shader = std::get<0>(_shaders[file]);
-	//	type = std::get<1>(_shaders[file]);
-	//}
-	//
-	//if (shaderData) {
-	//	if (shaderData->type, ShaderData::VertexShader)
-	//		type = GL_VERTEX_SHADER;
-	//	else if (shaderData->type, ShaderData::FragmentShader)
-	//		type = GL_FRAGMENT_SHADER;
-	//	
-	//	_compileShader(type, &shader, shaderData->source);
-	//}
-	//
-	//if (_engine.validEntity(id)) {
-	//	Model& model = *_engine.addComponent<Model>(id);
-	//	
-	//	if (type == GL_VERTEX_SHADER)
-	//		model.vertexShader = shader;
-	//	else if (type == GL_FRAGMENT_SHADER)
-	//		model.fragmentShader = shader;
-	//}
-
-	//GLuint type;
-	//
-	//if (shaderData->type
-	//
-	//if (!shader || shaderData)
-	//	_compileShader(GL_VERTEX_SHADER, &vertexShader, shaderData->source);
-}*/
 
 void Renderer::setShape(const ShapeConfig& config){
 	_verticalFov = config.verticalFov;

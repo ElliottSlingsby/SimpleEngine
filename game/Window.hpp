@@ -20,8 +20,6 @@ public:
 			DebugContext = 16,
 
 			VerticalSync = 32,
-
-			LockedCursor = 64,
 		};
 
 		std::string windowTitle = "";

@@ -3,13 +3,14 @@
 #include "Transform.hpp"
 #include "Window.hpp"
 
-Controller::Controller(Engine& engine) : _engine(engine), _possessed(engine), _cursor(engine){
+Controller::Controller(Engine& engine) : _engine(engine), _possessed(engine) {
 	SYSFUNC_ENABLE(SystemInterface, update, 0);
 
 	SYSFUNC_ENABLE(SystemInterface, cursorPosition, 0);
 	SYSFUNC_ENABLE(SystemInterface, keyInput, 0);
 	SYSFUNC_ENABLE(SystemInterface, cursorEnter, 0);
 	SYSFUNC_ENABLE(SystemInterface, mousePress, 0);
+	SYSFUNC_ENABLE(SystemInterface, windowOpen, 0);
 
 	assert(_engine.hasSystem<Window>());
 }
@@ -105,7 +106,7 @@ void Controller::keyInput(uint32_t key, Action action, Modifier mods){
 	case Key::LeftControl:
 		_down = value;
 		break;
-	case Key::RightControl:
+	case Key::LeftShift:
 		_boost = value;
 		break;
 	}
@@ -120,6 +121,11 @@ void Controller::mousePress(uint32_t button, Action action, Modifier mods) {
 		_engine.system<Window>().lockCursor(true);
 		_locked = true;
 	}
+}
+
+void Controller::windowOpen(bool opened){
+	if (!opened)
+		_engine.quit();
 }
 
 void Controller::setPossessed(uint64_t id) {

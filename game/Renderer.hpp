@@ -21,9 +21,6 @@ struct Model {
 	GLuint textureBuffer = 0;
 
 	uint32_t program = 0;
-
-	//GLuint vertexShader = 0;
-	//GLuint fragmentShader = 0;
 };
 
 class Renderer : public SystemInterface {
@@ -88,7 +85,6 @@ private:
 	void _reshape();
 
 	bool _compileShader(GLuint type, GLuint* shader, const std::string & file);
-	//bool _createProgram(GLuint vertexShader, GLuint fragmentShader, ShaderProgram* shaderProgram);
 
 public:
 	Renderer(Engine& engine, const ShaderVariables& shaderVariables = ShaderVariables());
@@ -99,7 +95,6 @@ public:
 
 	void textureLoaded(uint64_t id, const std::string& file, const TextureData* textureData) override;
 	void meshLoaded(uint64_t id, const std::string& file, const MeshData* meshData) override;
-	//void shaderLoaded(uint64_t id, const std::string& file, const ShaderData* shaderData) override;
 
 	void setShape(const ShapeConfig& config);
 
