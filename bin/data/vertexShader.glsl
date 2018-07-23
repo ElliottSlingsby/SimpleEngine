@@ -21,7 +21,7 @@ uniform mat4 projection;
 
 uniform mat4 modelView;
 
-uniform mat4 bones[256];
+//uniform mat4 bones[256];
 
 void main(){
 	gl_Position = projection * modelView * vec4(inVertex, 1);

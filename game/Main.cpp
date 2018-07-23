@@ -60,10 +60,12 @@ public:
 		{
 			_test.set(_engine.createEntity());
 
-			_test.add<Transform>(_engine, _test.id());
+			Transform& transform = *_test.add<Transform>(_engine, _test.id());
+			//transform.setPosition({ 0.f, 0.f, -100.f });
+			//transform.setScale({ 100.f, 100.f, 100.f });
 
-			_engine.system<AssetLoader>().loadMesh(path + "dcube.obj", _test.id());
-			_engine.system<AssetLoader>().loadTexture(path + "rgb.png", _test.id());
+			_engine.system<AssetLoader>().loadMesh(path + "arrow.obj", _test.id());
+			_engine.system<AssetLoader>().loadTexture(path + "arrow.png", _test.id());
 			_engine.system<Renderer>().loadProgram(path + "vertexShader.glsl", path + "fragmentShader.glsl", _test.id());
 		}
 	}

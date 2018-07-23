@@ -8,9 +8,9 @@
 #include <stb_rect_pack.h>
 #include <stb_truetype.h>
 
-inline void fromAssimp(const aiVector3D* const from, glm::vec2* to) {
-	to->x = from->x;
-	to->y = from->y;
+inline void fromAssimp(const aiVector3D& const from, glm::vec2* to) {
+	to->x = from.x;
+	to->y = from.y;
 }
 
 inline void fromAssimp(const aiVector3D& from, glm::vec3* to) {
@@ -19,11 +19,11 @@ inline void fromAssimp(const aiVector3D& from, glm::vec3* to) {
 	to->z = from.z;
 }
 
-inline void fromAssimp(const aiColor4D* const from, glm::vec4* to) {
-	to->r = from->r;
-	to->g = from->g;
-	to->b = from->b;
-	to->a = from->a;
+inline void fromAssimp(const aiColor4D& const from, glm::vec4* to) {
+	to->r = from.r;
+	to->g = from.g;
+	to->b = from.b;
+	to->a = from.a;
 }
 
 AssetLoader::AssetLoader(Engine& engine) : _engine(engine){
@@ -46,7 +46,8 @@ void AssetLoader::loadMesh(const std::string& file, uint64_t id, bool reload){
 		aiProcess_CalcTangentSpace |
 		aiProcess_Triangulate |
 		aiProcess_JoinIdenticalVertices |
-		aiProcess_SortByPType
+		aiProcess_SortByPType |
+		aiProcess_GenUVCoords
 	);
 
 	if (!scene || !scene->mNumMeshes)
@@ -74,12 +75,12 @@ void AssetLoader::loadMesh(const std::string& file, uint64_t id, bool reload){
 
 		if (mesh.HasNormals())
 			fromAssimp(mesh.mNormals[i], &vertex.normal);
-
-		if (mesh.HasTextureCoords(i)) 
-			fromAssimp(mesh.mTextureCoords[i], &vertex.texcoord);
-
-		if (mesh.HasVertexColors(i))
-			fromAssimp(mesh.mColors[i], &vertex.colour);
+		
+		if (mesh.HasTextureCoords(0))
+			fromAssimp(mesh.mTextureCoords[0][i], &vertex.texcoord);
+		
+		if (mesh.HasVertexColors(0))
+			fromAssimp(mesh.mColors[0][i], &vertex.colour);
 
 		if (mesh.HasTangentsAndBitangents()) {
 			fromAssimp(mesh.mTangents[i], &vertex.tangent);
@@ -99,7 +100,7 @@ void AssetLoader::loadTexture(const std::string& file, uint64_t id, bool reload)
 	}
 
 	int width, height, channels;
-	uint8_t* data = stbi_load(file.c_str(), &width, &height, &channels, 0);
+	uint8_t* data = stbi_load(file.c_str(), &width, &height, &channels, 4);
 
 	if (!data)
 		return;
@@ -108,7 +109,9 @@ void AssetLoader::loadTexture(const std::string& file, uint64_t id, bool reload)
 
 	textureData.channels = glm::clamp(channels, 0, 4);
 	textureData.size = { glm::clamp(width, 0, INT32_MAX), glm::clamp(height, 0, INT32_MAX) };
-	textureData.colours = std::vector<uint8_t>(data, data + (textureData.size.x * textureData.size.y));
+	
+	textureData.colours.resize(textureData.size.x * textureData.size.y);
+	memcpy(&textureData.colours[0], data, textureData.size.x * textureData.size.y * 4);
 
 	stbi_image_free(data);
 

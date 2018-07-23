@@ -96,7 +96,7 @@ public:
 	struct TextureData {
 		uint32_t channels;
 		glm::uvec2 size;
-		std::vector<uint8_t> colours;
+		std::vector<glm::tvec4<uint8_t>> colours;
 	};
 
 	struct MeshData {

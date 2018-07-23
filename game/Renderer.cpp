@@ -77,20 +77,12 @@ void Renderer::update(double dt){
 		const Transform& transform = *entity.get<Transform>();
 		const Model& model = *entity.get<Model>();
 
-		if (!model.arrayObject || !model.indexBuffer || !model.vertexBuffer || !model.program || !model.textureBuffer)
+		if (!model.arrayObject || !model.indexBuffer || !model.vertexBuffer || !model.program || !model.textureBuffer || !model.indexCount)
 			return;
 
 		const ShaderProgram& program = _programs[model.program - 1];
 
 		glUseProgram(program.program);
-
-		// texture
-		if (program.textureUnifLoc != -1){
-			glActiveTexture(GL_TEXTURE0);
-			glBindTexture(GL_TEXTURE_2D, model.textureBuffer);
-
-			glUniform1i(program.textureUnifLoc, 0);
-		}
 
 		// projection matrix
 		if (program.projectionUnifLoc != -1)
@@ -116,18 +108,29 @@ void Renderer::update(double dt){
 		if (program.modelViewUnifLoc != -1)
 			glUniformMatrix4fv(program.modelViewUnifLoc, 1, GL_FALSE, &((glm::mat4)(viewMatrix * modelMatrix))[0][0]);
 
+		// texture
+		if (program.textureUnifLoc != -1) {
+			glActiveTexture(GL_TEXTURE0);
+			glBindTexture(GL_TEXTURE_2D, model.textureBuffer);
+
+			glUniform1i(program.textureUnifLoc, 0);
+		}
+
+		// mesh
 		glBindVertexArray(model.arrayObject);
 
 		glBindBuffer(GL_ARRAY_BUFFER, model.vertexBuffer);
 		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, model.indexBuffer);
 
-		glDrawElements(GL_TRIANGLES, model.indexCount, GL_UNSIGNED_INT, (void*)0);
+		glDrawElements(GL_TRIANGLES, model.indexCount, GL_UNSIGNED_INT, 0);
 
+		// clean up
 		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 		glBindBuffer(GL_ARRAY_BUFFER, 0);
 
 		glBindVertexArray(0);
 
+		glActiveTexture(GL_TEXTURE0);
 		glBindTexture(GL_TEXTURE_2D, 0);
 	});
 
@@ -142,7 +145,7 @@ void Renderer::windowOpen(bool opened){
 
 	glDebugMessageCallback(errorCallback, nullptr);
 
-	//glEnable(GL_CULL_FACE);
+	glEnable(GL_CULL_FACE);
 	glEnable(GL_DEPTH_TEST);
 	glEnable(GL_MULTISAMPLE);
 	glEnable(GL_DITHER);
@@ -175,13 +178,13 @@ void Renderer::textureLoaded(uint64_t id, const std::string& file, const Texture
 		glBindTexture(GL_TEXTURE_2D, textureBuffer);
 		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, textureData->size.x, textureData->size.y, 0, GL_RGBA, GL_UNSIGNED_BYTE, &textureData->colours[0]);
 		
-		glGenerateMipmap(GL_TEXTURE_2D);
-		glGenerateTextureMipmap(textureBuffer);
-		
+		//glGenerateMipmap(GL_TEXTURE_2D);
+		//glGenerateTextureMipmap(textureBuffer);
+
 		glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
 		glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-		
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST_MIPMAP_NEAREST);
+
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 		
 		glBindTexture(GL_TEXTURE_2D, 0);
@@ -228,7 +231,7 @@ void Renderer::meshLoaded(uint64_t id, const std::string& file, const MeshData* 
 		glBufferData(GL_ARRAY_BUFFER, meshData->vertices.size() * sizeof(MeshData::Vertex), &meshData->vertices[0], GL_STATIC_DRAW);
 		
 		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, indexBuffer);
-		glBufferData(GL_ELEMENT_ARRAY_BUFFER, meshData->indexes.size(), &meshData->indexes[0], GL_STATIC_DRAW);
+		glBufferData(GL_ELEMENT_ARRAY_BUFFER, meshData->indexes.size() * sizeof(uint32_t), &meshData->indexes[0], GL_STATIC_DRAW);
 		
 		SetAttribPointer(_shaderVariables.positionAttrLoc, MeshData::Vertex, position);
 		SetAttribPointer(_shaderVariables.normalAttrLoc, MeshData::Vertex, normal);

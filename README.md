@@ -21,13 +21,7 @@ struct Transform {
 	float y = 0.f;
 	float z = 0.f;
 
-	Transform() {	}
-
-	Transform(float x, float y, float z) {
-		Transform::x = x;
-		Transform::y = y;
-		Transform::z = z;
-	}
+	Transform(float x, float y, float z) : x(x), y(y), z(z) {	}
 };
 
 /*
@@ -64,6 +58,8 @@ public:
 		*/
 		_myEntity.set(_engine.createEntity());
 		_myEntity.add<Transform>(1, 2, 3);
+
+		_myEntity.destroy();
 
 		/*
 			Storing entities in vector.
@@ -104,7 +100,7 @@ int main(int argc, char** argv) {
 	engine.registerSystem<MySystem>(engine);
 
 	/*
-		SYSFUNC_CALL calls a  function from the interface class for all systems, using their given priorities
+		SYSFUNC_CALL calls a given system interface function on all registered systems.
 	*/
 	SYSFUNC_CALL(SystemInterface, initiate, engine)(argc, argv);
 
