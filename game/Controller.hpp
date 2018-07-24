@@ -17,6 +17,8 @@ class Controller : public SystemInterface{
 
 	bool _boost = false;
 
+	float _flash = 0;
+
 	glm::vec2 _mousePos;
 	glm::vec2 _dMousePos;
 
@@ -32,7 +34,8 @@ public:
 	void keyInput(uint32_t key, Action action, Modifier mods) override;
 	void cursorEnter(bool enterered) override;
 	void mousePress(uint32_t button, Action action, Modifier mods) override;
-	void windowOpen(bool opened) override;
+	//void windowOpen(bool opened) override;
+	void scrollWheel(glm::dvec2 offset) override;
 
 	void setPossessed(uint64_t id);
 

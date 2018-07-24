@@ -135,7 +135,7 @@ public:
 	virtual void windowPosition(glm::uvec2 position) {}
 	virtual void framebufferSize(glm::uvec2 size) {}
 	virtual void windowSize(glm::uvec2 size) {}
-	virtual void windowOpen(bool opened) {}
+	//virtual void windowOpen(bool opened) {}
 
 	virtual void textureLoaded(uint64_t id, const std::string& file, const TextureData* textureData) {}
 	virtual void meshLoaded(uint64_t id, const std::string& file, const MeshData* meshData) {}

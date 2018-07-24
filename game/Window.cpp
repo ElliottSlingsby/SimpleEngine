@@ -42,15 +42,17 @@ void windowSizeCallback(GLFWwindow* window, int width, int height) {
 	SYSFUNC_CALL(SystemInterface, windowSize, ENGINE_REF)(glm::uvec2(width, height));
 }
 
+/*
 void windowCloseCallback(GLFWwindow* window) {
-	SYSFUNC_CALL(SystemInterface, windowOpen, ENGINE_REF)(false);
+	//SYSFUNC_CALL(SystemInterface, windowOpen, ENGINE_REF)(false);
 }
+*/
 
 void errorCallback(int error, const char* description) {
 	std::cerr << error << std::endl << description << std::endl << std::endl;
 }
 
-Window::Window(Engine& engine) : _engine(engine){
+Window::Window(Engine& engine, const ConstructorInfo& constructorInfo) : _engine(engine), _constructorInfo(constructorInfo){
 	SYSFUNC_ENABLE(SystemInterface, initiate, -1);
 	SYSFUNC_ENABLE(SystemInterface, update, -1);
 
@@ -65,6 +67,52 @@ void Window::initiate(const std::vector<std::string>& args){
 	glfwSetErrorCallback(errorCallback);
 
 	glfwInit();
+
+	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, (int)_constructorInfo.contextVersionMajor);
+	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, (int)_constructorInfo.contextVersionMinor);
+
+	if (_constructorInfo.coreContex)
+		glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+
+	glfwWindowHint(GLFW_OPENGL_DEBUG_CONTEXT, (int)_constructorInfo.debugContext);
+
+	glfwWindowHint(GLFW_RESIZABLE, (int)hasFlags(_constructorInfo.defualtModes, Mode::Resizable));
+	glfwWindowHint(GLFW_MAXIMIZED, (int)hasFlags(_constructorInfo.defualtModes, Mode::Maximised));
+	glfwWindowHint(GLFW_DECORATED, (int)hasFlags(_constructorInfo.defualtModes, Mode::Decorated));
+
+	glfwWindowHint(GLFW_SAMPLES, (int)_constructorInfo.defaultSuperSampling);
+
+	//glfwWindowHint(GLFW_CONTEXT_RELEASE_BEHAVIOR, GLFW_RELEASE_BEHAVIOR_NONE);
+
+	_window = glfwCreateWindow((int)_constructorInfo.defualtSize.x, (int)_constructorInfo.defualtSize.y, _constructorInfo.defualtTitle.c_str(), nullptr, nullptr);
+
+	glfwMakeContextCurrent(_window);
+	gladLoadGLLoader((GLADloadproc)glfwGetProcAddress);
+
+	if (hasFlags(_constructorInfo.defualtModes, Mode::VerticalSync))
+		glfwSwapInterval(1);
+
+	glfwSetWindowUserPointer(_window, &_engine);
+
+	glfwSetMouseButtonCallback(_window, mousePressCallback);
+	glfwSetScrollCallback(_window, scrollWheelCallback);
+	glfwSetDropCallback(_window, fileDropCallback);
+	glfwSetCursorEnterCallback(_window, cursorEnterCallback);
+	glfwSetCursorPosCallback(_window, cursorPositionCallback);
+	glfwSetCharModsCallback(_window, textInputCallback);
+	glfwSetKeyCallback(_window, keyInputCallback);
+	glfwSetWindowPosCallback(_window, windowPositionCallback);
+	glfwSetFramebufferSizeCallback(_window, framebufferSizeCallback);
+	glfwSetWindowSizeCallback(_window, windowSizeCallback);
+	//glfwSetWindowCloseCallback(_window, windowCloseCallback);
+
+	SYSFUNC_CALL(SystemInterface, windowSize, _engine)(_constructorInfo.defualtSize);
+	
+	int x, y;
+	glfwGetFramebufferSize(_window, &x, &y);
+
+	SYSFUNC_CALL(SystemInterface, framebufferSize, _engine)(glm::uvec2(x, y));
+	//SYSFUNC_CALL(SystemInterface, windowOpen, _engine)(true);
 }
 
 void Window::update(double dt){
@@ -73,8 +121,15 @@ void Window::update(double dt){
 
 	glfwPollEvents();
 
-	if (glfwWindowShouldClose(_window))
-		closeWindow();
+	if (glfwWindowShouldClose(_window)) {
+		//_engine.quit();
+
+		glfwDestroyWindow(_window);
+
+		initiate({});
+
+
+	}
 }
 
 void Window::rendered(){
@@ -84,6 +139,28 @@ void Window::rendered(){
 	glfwSwapBuffers(_window);
 }
 
+void Window::enableModes(uint8_t modes){
+	assert(_window);
+
+	if (hasFlags(modes, Mode::LockedCursor))
+		glfwSetInputMode(_window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+
+	if (hasFlags(modes, Mode::VerticalSync))
+		glfwSwapInterval(1);
+
+}
+
+void Window::disableModes(uint8_t modes){
+	assert(_window);
+
+	if (hasFlags(modes, Mode::LockedCursor))
+		glfwSetInputMode(_window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+
+	if (hasFlags(modes, Mode::VerticalSync))
+		glfwSwapInterval(0);
+}
+
+/*
 void Window::openWindow(const WindowConfig& config){
 	closeWindow();
 
@@ -146,3 +223,4 @@ void Window::lockCursor(bool locked){
 	else
 		glfwSetInputMode(_window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
 }
+*/

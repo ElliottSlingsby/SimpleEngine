@@ -10,25 +10,21 @@ Controller::Controller(Engine& engine) : _engine(engine), _possessed(engine) {
 	SYSFUNC_ENABLE(SystemInterface, keyInput, 0);
 	SYSFUNC_ENABLE(SystemInterface, cursorEnter, 0);
 	SYSFUNC_ENABLE(SystemInterface, mousePress, 0);
-	SYSFUNC_ENABLE(SystemInterface, windowOpen, 0);
+	//SYSFUNC_ENABLE(SystemInterface, windowOpen, 0);
+	SYSFUNC_ENABLE(SystemInterface, scrollWheel, 0);
 
 	assert(_engine.hasSystem<Window>());
 }
 
 void Controller::update(double dt) {
-	if (!_possessed.valid())
-		return;
+	Transform* possessedTransform = nullptr;
+	
+	if (_possessed.valid())
+		possessedTransform = _possessed.get<Transform>();
 
-	Transform* possessedTransform = _possessed.get<Transform>();
-
-	if (!possessedTransform)
-		return;
-
-	if (_locked) {
+	if (possessedTransform && _locked) {
 		possessedTransform->worldRotate(glm::quat({ 0.0, 0.0, -_dMousePos.x * dt }));
 		possessedTransform->rotate(glm::quat({ -_dMousePos.y * dt, 0.0, 0.0 }));
-
-		_dMousePos = { 0.0, 0.0 };
 
 		double moveSpeed;
 
@@ -36,6 +32,8 @@ void Controller::update(double dt) {
 			moveSpeed = 500.0 * dt;
 		else
 			moveSpeed = 100.0 * dt;
+
+		possessedTransform->translate(glm::vec3(0.f, 0.f, -_flash * 100.f));
 
 		if (_forward)
 			possessedTransform->translate(LocalVec3::forward * (float)moveSpeed);
@@ -50,6 +48,9 @@ void Controller::update(double dt) {
 		if (_down)
 			possessedTransform->worldTranslate(WorldVec3::down * (float)moveSpeed);
 	}
+
+	_flash = 0;
+	_dMousePos = { 0.0, 0.0 };
 }
 
 void Controller::cursorPosition(glm::dvec2 position){
@@ -65,7 +66,7 @@ void Controller::cursorPosition(glm::dvec2 position){
 void Controller::keyInput(uint32_t key, Action action, Modifier mods){
 	if (action == Action::Release && key == Escape) {
 		if (_locked) {
-			_engine.system<Window>().lockCursor(false);
+			_engine.system<Window>().disableModes(Window::LockedCursor);
 			_locked = false;
 		}
 		else if (!_locked) {
@@ -118,14 +119,20 @@ void Controller::cursorEnter(bool enterered) {
 
 void Controller::mousePress(uint32_t button, Action action, Modifier mods) {
 	if (action == Action::Release && !_locked && _cursorInside) {
-		_engine.system<Window>().lockCursor(true);
+		_engine.system<Window>().enableModes(Window::LockedCursor);
 		_locked = true;
 	}
 }
 
+/*
 void Controller::windowOpen(bool opened){
 	if (!opened)
 		_engine.quit();
+}
+*/
+
+void Controller::scrollWheel(glm::dvec2 offset){
+	_flash += (float)offset.y;
 }
 
 void Controller::setPossessed(uint64_t id) {

@@ -25,7 +25,7 @@ struct Model {
 
 class Renderer : public SystemInterface {
 public:
-	struct ShaderVariables {
+	struct ConstructorInfo {
 		uint32_t positionAttrLoc = 0;
 		uint32_t normalAttrLoc = 1;
 		uint32_t texcoordAttrLoc = 2;
@@ -62,13 +62,12 @@ public:
 private:
 	Engine& _engine;
 
-	const ShaderVariables _shaderVariables;
-
-	std::unordered_map<std::string, GLuint> _textures;
-	std::unordered_map<std::string, std::tuple<GLuint, GLuint, GLuint, GLuint>> _meshes;
+	const ConstructorInfo _constructionInfo;
 
 	std::vector<ShaderProgram> _programs;
 
+	std::unordered_map<std::string, GLuint> _textures;
+	std::unordered_map<std::string, std::tuple<GLuint, GLuint, GLuint, GLuint>> _meshes;
 	std::unordered_map<std::string, GLuint> _shaders;
 	std::unordered_map<std::string, uint32_t> _shadersToProgram;
 
@@ -87,10 +86,11 @@ private:
 	bool _compileShader(GLuint type, GLuint* shader, const std::string & file);
 
 public:
-	Renderer(Engine& engine, const ShaderVariables& shaderVariables = ShaderVariables());
+	Renderer(Engine& engine, const ConstructorInfo& constructionInfo = ConstructorInfo());
 
+	void initiate(const std::vector<std::string>& args) override;
 	void update(double dt) override;
-	void windowOpen(bool opened) override;
+	//void windowOpen(bool opened) override;
 	void framebufferSize(glm::uvec2 size) override;
 
 	void textureLoaded(uint64_t id, const std::string& file, const TextureData* textureData) override;

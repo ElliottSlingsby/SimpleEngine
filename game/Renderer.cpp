@@ -54,13 +54,26 @@ bool Renderer::_compileShader(GLuint type, GLuint* shader, const std::string & f
 	return false;
 }
 
-Renderer::Renderer(Engine& engine, const ShaderVariables& shaderVariables) : _engine(engine), _shaderVariables(shaderVariables), _camera(engine){
+Renderer::Renderer(Engine& engine, const ConstructorInfo& constructionInfo) : _engine(engine), _constructionInfo(constructionInfo), _camera(engine){
+	SYSFUNC_ENABLE(SystemInterface, initiate, 0);
 	SYSFUNC_ENABLE(SystemInterface, update, 1);
 
 	SYSFUNC_ENABLE(SystemInterface, framebufferSize, 0);
 	SYSFUNC_ENABLE(SystemInterface, textureLoaded, 0);
 	SYSFUNC_ENABLE(SystemInterface, meshLoaded, 0);
-	SYSFUNC_ENABLE(SystemInterface, windowOpen, 0);
+}
+
+void Renderer::initiate(const std::vector<std::string>& args){
+	_rendering = true;
+
+	glDebugMessageCallback(errorCallback, nullptr);
+
+	glEnable(GL_CULL_FACE);
+	glEnable(GL_DEPTH_TEST);
+	glEnable(GL_MULTISAMPLE);
+	glEnable(GL_DITHER);
+
+	_reshape();
 }
 
 void Renderer::update(double dt){
@@ -136,7 +149,7 @@ void Renderer::update(double dt){
 
 	SYSFUNC_CALL(SystemInterface, rendered, _engine)();
 }
-
+/*
 void Renderer::windowOpen(bool opened){
 	_rendering = opened;
 
@@ -152,6 +165,7 @@ void Renderer::windowOpen(bool opened){
 
 	_reshape();
 }
+*/
 
 void Renderer::framebufferSize(glm::uvec2 size){
 	_size.x = size.x;
@@ -233,12 +247,12 @@ void Renderer::meshLoaded(uint64_t id, const std::string& file, const MeshData* 
 		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, indexBuffer);
 		glBufferData(GL_ELEMENT_ARRAY_BUFFER, meshData->indexes.size() * sizeof(uint32_t), &meshData->indexes[0], GL_STATIC_DRAW);
 		
-		SetAttribPointer(_shaderVariables.positionAttrLoc, MeshData::Vertex, position);
-		SetAttribPointer(_shaderVariables.normalAttrLoc, MeshData::Vertex, normal);
-		SetAttribPointer(_shaderVariables.texcoordAttrLoc, MeshData::Vertex, texcoord);
-		SetAttribPointer(_shaderVariables.colourAttrLoc, MeshData::Vertex, colour);
-		SetAttribPointer(_shaderVariables.tangentAttrLoc, MeshData::Vertex, tangent);
-		SetAttribPointer(_shaderVariables.bitangentAttrLoc, MeshData::Vertex, bitangent);
+		SetAttribPointer(_constructionInfo.positionAttrLoc, MeshData::Vertex, position);
+		SetAttribPointer(_constructionInfo.normalAttrLoc, MeshData::Vertex, normal);
+		SetAttribPointer(_constructionInfo.texcoordAttrLoc, MeshData::Vertex, texcoord);
+		SetAttribPointer(_constructionInfo.colourAttrLoc, MeshData::Vertex, colour);
+		SetAttribPointer(_constructionInfo.tangentAttrLoc, MeshData::Vertex, tangent);
+		SetAttribPointer(_constructionInfo.bitangentAttrLoc, MeshData::Vertex, bitangent);
 		
 		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 		glBindBuffer(GL_ARRAY_BUFFER, 0);
@@ -269,20 +283,24 @@ void Renderer::setShape(const ShapeConfig& config){
 void Renderer::loadProgram(const std::string& vertexFile, const std::string& fragmentFile, uint64_t id, bool reload) {
 	GLuint vertexShader = 0;
 	GLuint fragmentShader = 0;
-	
+
 	if (_shaders.find(vertexFile) != _shaders.end())
 		vertexShader = _shaders[vertexFile];
-	
+
 	if (_shaders.find(fragmentFile) != _shaders.end())
 		fragmentShader = _shaders[fragmentFile];
-	
+
 	bool newProgram = !vertexShader || !fragmentShader;
 	
-	if (!vertexShader || reload)
+	if (!vertexShader || reload) {
 		_compileShader(GL_VERTEX_SHADER, &vertexShader, vertexFile);
+		_shaders[vertexFile] = vertexShader;
+	}
 	
-	if (!fragmentShader || reload)
+	if (!fragmentShader || reload) {
 		_compileShader(GL_FRAGMENT_SHADER, &fragmentShader, fragmentFile);
+		_shaders[fragmentFile] = fragmentShader;
+	}
 	
 	std::string programFiles = vertexFile + '/' + fragmentFile;
 	uint32_t programIndex;
@@ -323,11 +341,11 @@ void Renderer::loadProgram(const std::string& vertexFile, const std::string& fra
 			return;
 		}
 	
-		program.modelUnifLoc = glGetUniformLocation(program.program, _shaderVariables.modelUnifName.c_str());
-		program.viewUnifLoc = glGetUniformLocation(program.program, _shaderVariables.viewUnifName.c_str());
-		program.projectionUnifLoc = glGetUniformLocation(program.program, _shaderVariables.projectionUnifName.c_str());
-		program.modelViewUnifLoc = glGetUniformLocation(program.program, _shaderVariables.modelViewUnifName.c_str());
-		program.textureUnifLoc = glGetUniformLocation(program.program, _shaderVariables.textureUnifName.c_str());
+		program.modelUnifLoc = glGetUniformLocation(program.program, _constructionInfo.modelUnifName.c_str());
+		program.viewUnifLoc = glGetUniformLocation(program.program, _constructionInfo.viewUnifName.c_str());
+		program.projectionUnifLoc = glGetUniformLocation(program.program, _constructionInfo.projectionUnifName.c_str());
+		program.modelViewUnifLoc = glGetUniformLocation(program.program, _constructionInfo.modelViewUnifName.c_str());
+		program.textureUnifLoc = glGetUniformLocation(program.program, _constructionInfo.textureUnifName.c_str());
 	}
 	
 	if (_engine.validEntity(id)) {
