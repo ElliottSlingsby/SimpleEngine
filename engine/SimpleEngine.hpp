@@ -139,6 +139,13 @@ private:
 	template <typename T>
 	inline void _iterate(uint32_t index, const T& lambda);
 
+	// template code to construct component with Engine object reference and its own id
+	template <typename T, typename ...Ts>
+	inline typename std::enable_if<!std::is_constructible<T, SimpleEngine<SystemInterface, maxComponents>&, uint64_t, Ts...>::value>::type _addComponent(uint64_t id, Ts&&... args);
+	
+	template <typename T, typename ...Ts>
+	inline typename std::enable_if<std::is_constructible<T, SimpleEngine<SystemInterface, maxComponents>&, uint64_t, Ts...>::value>::type _addComponent(uint64_t id, Ts&&... args);
+
 public:
 	SimpleEngine(size_t chunkSize) : _chunkSize(chunkSize) {}
 
@@ -236,7 +243,8 @@ bool SimpleEngine<SystemInterface, maxComponents>::_validId(uint32_t index, uint
 
 template <typename SystemInterface, uint32_t maxComponents>
 void SimpleEngine<SystemInterface, maxComponents>::_destroy(uint32_t index) {
-	assert(hasFlags(_indexIdentities[index].flags, Identity::Active)); // sanity
+	//assert(hasFlags(_indexIdentities[index].flags, Identity::Active)); // sanity
+	assert(_indexIdentities[index].flags & Identity::Active); // sanity
 
 	// if references still exist, mark as erased for later, and return
 	if (_indexIdentities[index].references) {
@@ -265,13 +273,32 @@ template <typename T>
 void SimpleEngine<SystemInterface, maxComponents>::_iterate(uint32_t index, const T& lambda) {
 	Identity& identity = _indexIdentities[index];
 
-	if (!hasFlags(identity.flags, Identity::Active) || hasFlags(identity.flags, Identity::Buffered) || hasFlags(identity.flags, Identity::Destroyed))
+	//if (!hasFlags(identity.flags, Identity::Active) || hasFlags(identity.flags, Identity::Buffered) || hasFlags(identity.flags, Identity::Destroyed))
+	//	return;
+
+	if (!(identity.flags & Identity::Active) ||
+		identity.flags & Identity::Buffered ||
+		identity.flags & Identity::Destroyed)
 		return;
 
 	Entity entity(*this);
 	entity.set(combine32(identity.index, identity.version));
 
 	lambda(entity);
+}
+
+template<typename SystemInterface, uint32_t maxComponents>
+template<typename T, typename ...Ts>
+typename std::enable_if<!std::is_constructible<T, SimpleEngine<SystemInterface, maxComponents>&, uint64_t, Ts...>::value>::type SimpleEngine<SystemInterface, maxComponents>::_addComponent(uint64_t id, Ts && ...args){
+	// construct component with provided args
+	_componentPools[TypeMask::index<T>()]->insert<T>(front64(id), std::forward<Ts>(args)...);
+}
+
+template<typename SystemInterface, uint32_t maxComponents>
+template<typename T, typename ...Ts>
+typename std::enable_if<std::is_constructible<T, SimpleEngine<SystemInterface, maxComponents>&, uint64_t, Ts...>::value>::type SimpleEngine<SystemInterface, maxComponents>::_addComponent(uint64_t id, Ts && ...args) {
+	// construct component with Engine object reference and its own ID, along with provided args
+	_componentPools[TypeMask::index<T>()]->insert<T>(front64(id), *this, id, std::forward<Ts>(args)...);
 }
 
 template <typename SystemInterface, uint32_t maxComponents>
@@ -349,7 +376,9 @@ uint64_t SimpleEngine<SystemInterface, maxComponents>::createEntity() {
 
 	// set identity flags to active
 	assert(!_indexIdentities[index].references); // sanity
-	assert(!hasFlags(_indexIdentities[index].flags, Identity::Active)); // sanity
+	//assert(!hasFlags(_indexIdentities[index].flags, Identity::Active)); // sanity
+	assert(!(_indexIdentities[index].flags & Identity::Active)); // sanity
+
 	_indexIdentities[index].flags = Identity::Active;
 
 	// if made during iteration, buffer for later
@@ -389,7 +418,7 @@ void SimpleEngine<SystemInterface, maxComponents>::destroyEntity(uint64_t id) {
 template <typename SystemInterface, uint32_t maxComponents>
 template <typename T, typename ...Ts>
 T* SimpleEngine<SystemInterface, maxComponents>::addComponent(uint64_t id, Ts&&... args) {
-	static_assert(std::is_constructible<T, Ts...>::value);
+	//static_assert(std::is_constructible<T, Ts...>::value);
 
 	uint32_t index = front64(id);
 	uint32_t version = back64(id);
@@ -399,7 +428,8 @@ T* SimpleEngine<SystemInterface, maxComponents>::addComponent(uint64_t id, Ts&&.
 	if (!_validId(index, version))
 		return nullptr;
 
-	assert(hasFlags(_indexIdentities[index].flags, Identity::Active)); // sanity
+	//assert(hasFlags(_indexIdentities[index].flags, Identity::Active)); // sanity
+	assert(_indexIdentities[index].flags & Identity::Active); // sanity
 
 	uint32_t type = TypeMask::index<T>();
 
@@ -413,7 +443,9 @@ T* SimpleEngine<SystemInterface, maxComponents>::addComponent(uint64_t id, Ts&&.
 	if (_componentPools[type] == nullptr)
 		_componentPools[type] = new ObjectPool<T>(_chunkSize);
 
-	_componentPools[TypeMask::index<T>()]->insert<T>(index, std::forward<Ts>(args)...);
+	//_componentPools[TypeMask::index<T>()]->insert<T>(index, std::forward<Ts>(args)...);
+
+	_addComponent<T>(id, std::forward<Ts>(args)...);
 
 	return _componentPools[TypeMask::index<T>()]->get<T>(index);
 }
@@ -432,7 +464,8 @@ T* SimpleEngine<SystemInterface, maxComponents>::getComponent(uint64_t id) {
 	if (_componentPools[type] == nullptr)
 		return nullptr;
 
-	assert(hasFlags(_indexIdentities[index].flags, Identity::Active)); // sanity
+	//assert(hasFlags(_indexIdentities[index].flags, Identity::Active)); // sanity
+	assert(_indexIdentities[index].flags & Identity::Active); // sanity
 
 	if (!_indexIdentities[index].mask.has<T>())
 		return nullptr;
@@ -452,7 +485,8 @@ void SimpleEngine<SystemInterface, maxComponents>::removeComponent(uint64_t id) 
 	uint32_t type = TypeMask::index<T>();
 
 	assert(_componentPools[type] != nullptr); // sanity
-	assert(hasFlags(_indexIdentities[index].flags, Identity::Active)); // sanity
+	//assert(hasFlags(_indexIdentities[index].flags, Identity::Active)); // sanity
+	assert(_indexIdentities[index].flags & Identity::Active); // sanity
 
 	if (!_indexIdentities[index].mask.has<T>())
 		return;
@@ -475,7 +509,10 @@ bool SimpleEngine<SystemInterface, maxComponents>::hasComponents(uint64_t id) co
 	if (!_validId(index, version))
 		return false;
 
-	if (!hasFlags(_indexIdentities[index].flags, Identity::Active))
+	//if (!hasFlags(_indexIdentities[index].flags, Identity::Active))
+	//	return false;
+
+	if (!(_indexIdentities[index].flags & Identity::Active))
 		return false;
 
 	return _indexIdentities[index].mask.has<Ts...>();
@@ -491,7 +528,8 @@ void SimpleEngine<SystemInterface, maxComponents>::referenceEntity(uint64_t id) 
 	if (!_validId(index, version))
 		return;
 
-	assert(hasFlags(_indexIdentities[index].flags, Identity::Active)); // sanity
+	//assert(hasFlags(_indexIdentities[index].flags, Identity::Active)); // sanity
+	assert(_indexIdentities[index].flags & Identity::Active); // sanity
 
 	_indexIdentities[index].references++;
 }
@@ -506,7 +544,8 @@ void SimpleEngine<SystemInterface, maxComponents>::dereferenceEntity(uint64_t id
 	if (!_validId(index, version))
 		return;
 
-	assert(hasFlags(_indexIdentities[index].flags, Identity::Active)); // sanity;
+	//assert(hasFlags(_indexIdentities[index].flags, Identity::Active)); // sanity;
+	assert(_indexIdentities[index].flags & Identity::Active); // sanity;
 
 	assert(_indexIdentities[index].references && "calling dereference with no more references");
 
@@ -515,7 +554,10 @@ void SimpleEngine<SystemInterface, maxComponents>::dereferenceEntity(uint64_t id
 
 	_indexIdentities[index].references--;
 
-	if (_indexIdentities[index].references == 0 && hasFlags(_indexIdentities[index].flags, Identity::Destroyed))
+	//if (_indexIdentities[index].references == 0 && hasFlags(_indexIdentities[index].flags, Identity::Destroyed))
+	//	_destroy(index);
+
+	if (_indexIdentities[index].references == 0 && _indexIdentities[index].flags & Identity::Destroyed)
 		_destroy(index);
 }
 

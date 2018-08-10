@@ -54,6 +54,7 @@ void Controller::update(double dt) {
 }
 
 void Controller::cursorPosition(glm::dvec2 position){
+	/*
 	glm::vec2 newMousePos = position;
 
 	if (_mousePos == glm::vec2(0.0, 0.0))
@@ -61,12 +62,15 @@ void Controller::cursorPosition(glm::dvec2 position){
 
 	_dMousePos = newMousePos - _mousePos;
 	_mousePos = newMousePos;
+	*/
+
+	_dMousePos = position;
 }
 
-void Controller::keyInput(uint32_t key, Action action, Modifier mods){
-	if (action == Action::Release && key == Escape) {
+void Controller::keyInput(uint32_t key, Action action, uint8_t mods){
+	if (action == Action::Release && key == Key::Key_Escape) {
 		if (_locked) {
-			_engine.system<Window>().setModes(Window::LockedCursor, false);
+			_engine.system<Window>().setLockedCursor(false);
 			_locked = false;
 		}
 		else if (!_locked) {
@@ -89,27 +93,27 @@ void Controller::keyInput(uint32_t key, Action action, Modifier mods){
 		return;
 
 	switch (key) {
-	case 'W':
+	case Key::Key_W:
 		_forward = value;
-		break;
-	case 'S':
+		return;
+	case Key::Key_S:
 		_back = value;
-		break;
-	case 'A':
+		return;
+	case Key::Key_A:
 		_left = value;
-		break;
-	case 'D':
+		return;
+	case Key::Key_D:
 		_right = value;
-		break;
-	case ' ':
+		return;
+	case Key::Key_Space:
 		_up = value;
-		break;
-	case Key::LeftControl:
+		return;
+	case Key::Key_LCtrl:
 		_down = value;
-		break;
-	case Key::LeftShift:
+		return;
+	case Key::Key_LShift:
 		_boost = value;
-		break;
+		return;
 	}
 }
 
@@ -117,9 +121,9 @@ void Controller::cursorEnter(bool enterered) {
 	_cursorInside = enterered;
 }
 
-void Controller::mousePress(uint32_t button, Action action, Modifier mods) {
+void Controller::mousePress(uint32_t button, Action action, uint8_t mods) {
 	if (action == Action::Release && !_locked && _cursorInside) {
-		_engine.system<Window>().setModes(Window::LockedCursor, true);
+		_engine.system<Window>().setLockedCursor(true);
 		_locked = true;
 	}
 }

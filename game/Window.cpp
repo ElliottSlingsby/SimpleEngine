@@ -1,267 +1,286 @@
 #include "Window.hpp"
 
-#define ENGINE_REF(window) (*(SystemInterface::Engine*)(glfwGetWindowUserPointer(window)))
+#include <SDL_keyboard.h>
+#include <unordered_map>
 
-void mousePressCallback(GLFWwindow* window, int button, int action, int mods) {
-	SYSFUNC_CALL(SystemInterface, mousePress, ENGINE_REF(window))(button, (SystemInterface::Action)action, (SystemInterface::Modifier)mods);
+const std::unordered_map<uint32_t, uint32_t> Window::_keymap{
+	{ SDLK_UNKNOWN, Key_Unknown },
+	{ SDLK_SPACE, Key_Space },
+	{ SDLK_QUOTE, Key_Quote },
+	{ SDLK_COMMA, Key_Comma },
+	{ SDLK_MINUS, Key_Minus },
+	{ SDLK_PERIOD, Key_Period },
+	{ SDLK_SLASH, Key_Slash },
+	{ SDLK_0, Key_0 },
+	{ SDLK_1, Key_1 },
+	{ SDLK_2, Key_2 },
+	{ SDLK_3, Key_3 },
+	{ SDLK_4, Key_4 },
+	{ SDLK_5, Key_5 },
+	{ SDLK_6, Key_6 },
+	{ SDLK_7, Key_7 },
+	{ SDLK_8, Key_8 },
+	{ SDLK_9, Key_9 },
+	{ SDLK_SEMICOLON, Key_Semicolon },
+	{ SDLK_EQUALS, Key_Equal },
+	{ SDLK_a, Key_A },
+	{ SDLK_b, Key_B },
+	{ SDLK_c, Key_C },
+	{ SDLK_d, Key_D },
+	{ SDLK_e, Key_E },
+	{ SDLK_f, Key_F },
+	{ SDLK_g, Key_G },
+	{ SDLK_h, Key_H },
+	{ SDLK_i, Key_I },
+	{ SDLK_j, Key_J },
+	{ SDLK_k, Key_K },
+	{ SDLK_l, Key_L },
+	{ SDLK_m, Key_M },
+	{ SDLK_n, Key_N },
+	{ SDLK_o, Key_O },
+	{ SDLK_p, Key_P },
+	{ SDLK_q, Key_Q },
+	{ SDLK_r, Key_R },
+	{ SDLK_s, Key_S },
+	{ SDLK_t, Key_T },
+	{ SDLK_u, Key_U },
+	{ SDLK_v, Key_V },
+	{ SDLK_w, Key_W },
+	{ SDLK_x, Key_X },
+	{ SDLK_y, Key_Y },
+	{ SDLK_z, Key_Z },
+	{ SDLK_LEFTBRACKET, Key_LBracket },
+	{ SDLK_BACKSLASH, Key_Backslash },
+	{ SDLK_RIGHTBRACKET, Key_RBracket },
+	{ SDLK_BACKQUOTE, Key_GraveAccent },
+	{ SDLK_ESCAPE, Key_Escape },
+	{ SDLK_RETURN, Key_Enter },
+	{ SDLK_TAB, Key_Tab },
+	{ SDLK_BACKSPACE, Key_Backspace },
+	{ SDLK_INSERT, Key_Insert },
+	{ SDLK_DELETE, Key_Delete },
+	{ SDLK_RIGHT, Key_Right },
+	{ SDLK_LEFT, Key_Left },
+	{ SDLK_DOWN, Key_Down },
+	{ SDLK_UP, Key_Up },
+	{ SDLK_PAGEUP, Key_PageUp },
+	{ SDLK_PAGEDOWN, Key_PageDown },
+	{ SDLK_HOME, Key_Home },
+	{ SDLK_END, Key_End },
+	{ SDLK_CAPSLOCK, Key_CapsLock },
+	{ SDLK_SCROLLLOCK, Key_ScrollLock },
+	{ SDLK_NUMLOCKCLEAR, Key_NumLock },
+	{ SDLK_PRINTSCREEN, Key_PrintScreen },
+	{ SDLK_PAUSE, Key_Pause },
+	{ SDLK_F1, Key_F1 },
+	{ SDLK_F2, Key_F2 },
+	{ SDLK_F3, Key_F3 },
+	{ SDLK_F4, Key_F4 },
+	{ SDLK_F5, Key_F5 },
+	{ SDLK_F6, Key_F6 },
+	{ SDLK_F7, Key_F7 },
+	{ SDLK_F8, Key_F8 },
+	{ SDLK_F9, Key_F9 },
+	{ SDLK_F10, Key_F10 },
+	{ SDLK_F11, Key_F11 },
+	{ SDLK_F12, Key_F12 },
+	{ SDLK_F13, Key_F13 },
+	{ SDLK_F14, Key_F14 },
+	{ SDLK_F15, Key_F15 },
+	{ SDLK_F16, Key_F16 },
+	{ SDLK_F17, Key_F17 },
+	{ SDLK_F18, Key_F18 },
+	{ SDLK_F19, Key_F19 },
+	{ SDLK_F20, Key_F20 },
+	{ SDLK_F21, Key_F21 },
+	{ SDLK_F22, Key_F22 },
+	{ SDLK_F23, Key_F23 },
+	{ SDLK_F24, Key_F24 },
+	{ SDLK_KP_0, Key_Num0 },
+	{ SDLK_KP_1, Key_Num1 },
+	{ SDLK_KP_2, Key_Num2 },
+	{ SDLK_KP_3, Key_Num3 },
+	{ SDLK_KP_4, Key_Num4 },
+	{ SDLK_KP_5, Key_Num5 },
+	{ SDLK_KP_6, Key_Num6 },
+	{ SDLK_KP_7, Key_Num7 },
+	{ SDLK_KP_8, Key_Num8 },
+	{ SDLK_KP_9, Key_Num9 },
+	{ SDLK_KP_DECIMAL, Key_NumDecimal },
+	{ SDLK_KP_DIVIDE, Key_NumDivide },
+	{ SDLK_KP_MULTIPLY, Key_NumMultiply },
+	{ SDLK_KP_MINUS, Key_NumSubtract },
+	{ SDLK_KP_PLUS, Key_NumAdd },
+	{ SDLK_KP_ENTER, Key_NumEnter },
+	{ SDLK_KP_EQUALS, Key_NumEqual },
+	{ SDLK_LSHIFT, Key_LShift },
+	{ SDLK_LCTRL, Key_LCtrl },
+	{ SDLK_LALT, Key_LAlt },
+	{ SDLK_RSHIFT, Key_RShift },
+	{ SDLK_RCTRL, Key_RCtrl },
+	{ SDLK_RALT, Key_RAlt },
+	{ SDLK_MENU, Key_Menu }
+};
+
+void fromSdl(const uint16_t& from, uint8_t* to) {
+	if (from & KMOD_CTRL)
+		*to |= SystemInterface::Mod_Ctrl;
+	if (from & KMOD_SHIFT)
+		*to |= SystemInterface::Mod_Shift;
+	if (from & KMOD_ALT)
+		*to |= SystemInterface::Mod_Alt;
+	if (from & KMOD_CAPS)
+		*to |= SystemInterface::Mod_Caps;
 }
 
-void scrollWheelCallback(GLFWwindow* window, double xoffset, double yoffset) {
-	SYSFUNC_CALL(SystemInterface, scrollWheel, ENGINE_REF(window))(glm::dvec2(xoffset, yoffset));
-}
+void Window::_recreateWindow(){
+	if (_window)
+		SDL_DestroyWindow(_window);
 
-void fileDropCallback(GLFWwindow* window, int count, const char** paths) {
-	SYSFUNC_CALL(SystemInterface, fileDrop, ENGINE_REF(window))(std::vector<std::string>(paths, paths + count));
-}
+	uint32_t windowFlags = SDL_WINDOW_OPENGL;
 
-void cursorEnterCallback(GLFWwindow* window, int entered) {
-	SYSFUNC_CALL(SystemInterface, cursorEnter, ENGINE_REF(window))(entered);
-}
+	switch (_windowInfo.mode) {
+		case Undecorated:
+			windowFlags |= SDL_WINDOW_BORDERLESS;
+			break;
+		case Resizable:
+			windowFlags |= SDL_WINDOW_RESIZABLE;
+			break;
+		case Fullscreen:
+			windowFlags |= SDL_WINDOW_FULLSCREEN;
+			break;
+		case WindowFullscreen:
+			windowFlags |= SDL_WINDOW_BORDERLESS;
+			break;
+		case Hidden:
+			windowFlags |= SDL_WINDOW_HIDDEN;
+			break;
+	}
 
-void cursorPositionCallback(GLFWwindow* window, double xpos, double ypos) {
-	SYSFUNC_CALL(SystemInterface, cursorPosition, ENGINE_REF(window))(glm::dvec2(xpos, ypos));
-}
+	if (!_context)
+		windowFlags |= SDL_WINDOW_HIDDEN;
 
-void textInputCallback(GLFWwindow* window, unsigned int codepoint, int mods) {
-	SYSFUNC_CALL(SystemInterface, textInput, ENGINE_REF(window))(codepoint, (SystemInterface::Modifier)mods);
-}
+	uint32_t monitor = 0;
+	glm::uvec2 size;
 
-void keyInputCallback(GLFWwindow* window, int key, int scancode, int action, int mods) {
-	SYSFUNC_CALL(SystemInterface, keyInput, ENGINE_REF(window))((key < 0) ? 0 : (uint32_t)key, (SystemInterface::Action)action, (SystemInterface::Modifier)mods);
-}
+	if (_windowInfo.monitor < SDL_GetNumVideoDisplays())
+		monitor = _windowInfo.monitor;
 
-void windowPositionCallback(GLFWwindow* window, int xpos, int ypos) {
-	SYSFUNC_CALL(SystemInterface, windowPosition, ENGINE_REF(window))(glm::uvec2(xpos, ypos));
-}
+	if (_windowInfo.mode == Fullscreen || _windowInfo.mode == WindowFullscreen)
+		size = _windowInfo.resolution;
+	else
+		size = _windowInfo.size;
 
-void framebufferSizeCallback(GLFWwindow* window, int width, int height) {
-	SYSFUNC_CALL(SystemInterface, framebufferSize, ENGINE_REF(window))(glm::uvec2(width, height));
-}
+	_window = SDL_CreateWindow(_windowInfo.title.c_str(), SDL_WINDOWPOS_CENTERED_DISPLAY(monitor), SDL_WINDOWPOS_CENTERED_DISPLAY(monitor), size.x, size.y, windowFlags);
 
-void windowSizeCallback(GLFWwindow* window, int width, int height) {
-	SYSFUNC_CALL(SystemInterface, windowSize, ENGINE_REF(window))(glm::uvec2(width, height));
-}
+	if (!_context) {
+		_context = SDL_GL_CreateContext(_window);
+		gladLoadGLLoader(SDL_GL_GetProcAddress);
+	}
 
-/*
-void windowCloseCallback(GLFWwindow* window) {
-	//SYSFUNC_CALL(SystemInterface, windowOpen, ENGINE_REF(window))(false);
-}
-*/
+	SDL_GL_MakeCurrent(_window, _context);
 
-void errorCallback(int error, const char* description) {
-	std::cerr << error << std::endl << description << std::endl << std::endl;
-}
+	SDL_SetRelativeMouseMode((SDL_bool)_windowInfo.lockedCursor);
 
-void Window::_createWindow(){
-
-	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, (int)_constructorInfo.contextVersionMajor);
-	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, (int)_constructorInfo.contextVersionMinor);
-
-	if (_constructorInfo.coreContex)
-		glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
-
-	glfwWindowHint(GLFW_OPENGL_DEBUG_CONTEXT, (int)_constructorInfo.debugContext);
-
-	//glfwWindowHint(GLFW_CONTEXT_RELEASE_BEHAVIOR, GLFW_RELEASE_BEHAVIOR_NONE);
-
-	glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE);
-
-	//_context = glfwCreateWindow((int)_constructorInfo.defualtSize.x, (int)_constructorInfo.defualtSize.y, _constructorInfo.defualtTitle.c_str(), nullptr, nullptr);
-
-
-	//glfwWindowHint(GLFW_CONTEXT_ROBUSTNESS, GLFW_NO_ROBUSTNESS);
-
-
-
-
-	glfwWindowHint(GLFW_RESIZABLE, (int)hasFlags(_constructorInfo.defualtModes, Mode::Resizable));
-	//glfwWindowHint(GLFW_MAXIMIZED, (int)hasFlags(_constructorInfo.defualtModes, Mode::Maximised));
-	glfwWindowHint(GLFW_DECORATED, (int)hasFlags(_constructorInfo.defualtModes, Mode::Decorated));
-
-	glfwWindowHint(GLFW_SAMPLES, (int)_constructorInfo.defaultSuperSampling);
-
-	//glfwWindowHint(GLFW_CONTEXT_RELEASE_BEHAVIOR, GLFW_RELEASE_BEHAVIOR_FLUSH);
-	//glfwWindowHint(GLFW_VISIBLE, GLFW_TRUE);
-
-
-	_window = glfwCreateWindow((int)_constructorInfo.defualtSize.x, (int)_constructorInfo.defualtSize.y, _constructorInfo.defualtTitle.c_str(), nullptr, nullptr);
-
-	//if (hasFlags(_constructorInfo.defualtModes, Mode::VerticalSync))
-	//	glfwSwapInterval(1);
-	//
-	//if (hasFlags(_constructorInfo.defualtModes, Mode::LockedCursor))
-	//	glfwSetInputMode(_window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
-
-
-	glfwMakeContextCurrent(_window);
-	gladLoadGLLoader((GLADloadproc)glfwGetProcAddress);
-
-	glfwSetWindowUserPointer(_window, &_engine);
-
-	glfwSetMouseButtonCallback(_window, mousePressCallback);
-	glfwSetScrollCallback(_window, scrollWheelCallback);
-	glfwSetDropCallback(_window, fileDropCallback);
-	glfwSetCursorEnterCallback(_window, cursorEnterCallback);
-	glfwSetCursorPosCallback(_window, cursorPositionCallback);
-	glfwSetCharModsCallback(_window, textInputCallback);
-	glfwSetKeyCallback(_window, keyInputCallback);
-	glfwSetWindowPosCallback(_window, windowPositionCallback);
-	glfwSetFramebufferSizeCallback(_window, framebufferSizeCallback);
-	glfwSetWindowSizeCallback(_window, windowSizeCallback);
-	//glfwSetWindowCloseCallback(_window, windowCloseCallback);
-
-
-
-
-	/*
-	int monitorCount = 0;
-	GLFWmonitor** monitors = glfwGetMonitors(&monitorCount);
-
-	_monitor = glm::clamp((int)_constructorInfo.defaultMonitor, 0, monitorCount);
-
-	uint32_t monitor = _constructorInfo.defaultMonitor;
-
-	if (monitor >= monitorCount)
-		monitor = monitorCount - 1;
-
-	const GLFWvidmode* mode = glfwGetVideoMode(monitors[monitor]);
-
-	//glfwSetWindowMonitor(_window, monitors[monitor], 0, 0, _constructorInfo.defaultResolution.x, _constructorInfo.defaultResolution.y, GLFW_DONT_CARE);
-
-
-	bool fullscreen = hasFlags(_constructorInfo.defualtModes, Mode::Fullscreen);
-
-	glfwSetWindowMonitor(_window, (hasFlags(_constructorInfo.defualtModes, Mode::Fullscreen) ? monitors[monitor] : nullptr),
-		glm::mix(0.f, (float)mode->width - _constructorInfo.defualtSize.x, _constructorInfo.defualtPosition.x), 
-		glm::mix(0.f, (float)mode->height - _constructorInfo.defualtSize.y, _constructorInfo.defualtPosition.y),
-		_constructorInfo.defualtSize.x, _constructorInfo.defualtSize.y, GLFW_DONT_CARE
-	);
-	*/
-
-	setModes(VerticalSync, hasFlags(_constructorInfo.defualtModes, VerticalSync));
-	setModes(Fullscreen, hasFlags(_constructorInfo.defualtModes, Fullscreen));
-	setModes(LockedCursor, hasFlags(_constructorInfo.defualtModes, LockedCursor));
-
-	glfwShowWindow(_window);
-	glfwFocusWindow(_window);
-
-	SYSFUNC_CALL(SystemInterface, windowSize, _engine)(_constructorInfo.defualtSize);
-
-	int x, y;
-	glfwGetFramebufferSize(_window, &x, &y);
-
-	SYSFUNC_CALL(SystemInterface, framebufferSize, _engine)(glm::uvec2(x, y));
-	//SYSFUNC_CALL(SystemInterface, windowOpen, _engine)(true);
+	SYSFUNC_CALL(SystemInterface, windowSize, _engine)(size);
+	SYSFUNC_CALL(SystemInterface, framebufferSize, _engine)(size);
+	SYSFUNC_CALL(SystemInterface, windowOpen, _engine)(true);
 }
 
 Window::Window(Engine& engine, const ConstructorInfo& constructorInfo) : _engine(engine), _constructorInfo(constructorInfo){
 	SYSFUNC_ENABLE(SystemInterface, initiate, -1);
 	SYSFUNC_ENABLE(SystemInterface, preUpdate, -1);
 	SYSFUNC_ENABLE(SystemInterface, update, 1);
-
-	//SYSFUNC_ENABLE(SystemInterface, rendered, 0);
 }
 
 Window::~Window(){
-	glfwTerminate();
+	SDL_GL_DeleteContext(_context);
+	SDL_DestroyWindow(_window);
+	SDL_Quit();
 }
 
 void Window::initiate(const std::vector<std::string>& args){
-	glfwSetErrorCallback(errorCallback);
+	SDL_Init(SDL_INIT_VIDEO);
 
-	glfwInit();
-
-
-	/*
-	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, (int)_constructorInfo.contextVersionMajor);
-	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, (int)_constructorInfo.contextVersionMinor);
+	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, _constructorInfo.contextVersionMajor);
+	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, _constructorInfo.contextVersionMinor);
 
 	if (_constructorInfo.coreContex)
-		glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+		SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
 
-	glfwWindowHint(GLFW_OPENGL_DEBUG_CONTEXT, (int)_constructorInfo.debugContext);
+	if (_constructorInfo.debugContext)
+		SDL_GL_SetAttribute(SDL_GL_CONTEXT_FLAGS, SDL_GL_CONTEXT_DEBUG_FLAG);
 
-	//glfwWindowHint(GLFW_CONTEXT_RELEASE_BEHAVIOR, GLFW_RELEASE_BEHAVIOR_NONE);
-
-	glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE);
-
-	_context = glfwCreateWindow((int)_constructorInfo.defualtSize.x, (int)_constructorInfo.defualtSize.y, _constructorInfo.defualtTitle.c_str(), nullptr, nullptr);
-
-	glfwMakeContextCurrent(_context);
-	gladLoadGLLoader((GLADloadproc)glfwGetProcAddress);
-	*/
-
-	_createWindow();
-
-
-	//glfwGetMonitors()
-	//
-	//glfwSetWindowMonitor(_window, glfwGetPrimaryMonitor(), 0, 0, 1920, 1080, 144);
-	//
-	//glfwSetWindowMonitor(_window, 0, 100, 100, 5, 5, 144);
-
-
-	//glfwMakeContextCurrent(_window);
-
-
-	/*
-	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, (int)_constructorInfo.contextVersionMajor);
-	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, (int)_constructorInfo.contextVersionMinor);
-
-	if (_constructorInfo.coreContex)
-		glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
-
-	glfwWindowHint(GLFW_OPENGL_DEBUG_CONTEXT, (int)_constructorInfo.debugContext);
-
-	glfwWindowHint(GLFW_RESIZABLE, (int)hasFlags(_constructorInfo.defualtModes, Mode::Resizable));
-	glfwWindowHint(GLFW_MAXIMIZED, (int)hasFlags(_constructorInfo.defualtModes, Mode::Maximised));
-	glfwWindowHint(GLFW_DECORATED, (int)hasFlags(_constructorInfo.defualtModes, Mode::Decorated));
-
-	glfwWindowHint(GLFW_SAMPLES, (int)_constructorInfo.defaultSuperSampling);
-
-	//glfwWindowHint(GLFW_CONTEXT_RELEASE_BEHAVIOR, GLFW_RELEASE_BEHAVIOR_NONE);
-
-	_window = glfwCreateWindow((int)_constructorInfo.defualtSize.x, (int)_constructorInfo.defualtSize.y, _constructorInfo.defualtTitle.c_str(), nullptr, nullptr);
-
-	glfwMakeContextCurrent(_window);
-	gladLoadGLLoader((GLADloadproc)glfwGetProcAddress);
-
-	if (hasFlags(_constructorInfo.defualtModes, Mode::VerticalSync))
-		glfwSwapInterval(1);
-
-	glfwSetWindowUserPointer(_window, &_engine);
-
-	glfwSetMouseButtonCallback(_window, mousePressCallback);
-	glfwSetScrollCallback(_window, scrollWheelCallback);
-	glfwSetDropCallback(_window, fileDropCallback);
-	glfwSetCursorEnterCallback(_window, cursorEnterCallback);
-	glfwSetCursorPosCallback(_window, cursorPositionCallback);
-	glfwSetCharModsCallback(_window, textInputCallback);
-	glfwSetKeyCallback(_window, keyInputCallback);
-	glfwSetWindowPosCallback(_window, windowPositionCallback);
-	glfwSetFramebufferSizeCallback(_window, framebufferSizeCallback);
-	glfwSetWindowSizeCallback(_window, windowSizeCallback);
-	//glfwSetWindowCloseCallback(_window, windowCloseCallback);
-
-	SYSFUNC_CALL(SystemInterface, windowSize, _engine)(_constructorInfo.defualtSize);
-	
-	int x, y;
-	glfwGetFramebufferSize(_window, &x, &y);
-
-	SYSFUNC_CALL(SystemInterface, framebufferSize, _engine)(glm::uvec2(x, y));
-	//SYSFUNC_CALL(SystemInterface, windowOpen, _engine)(true);
-	*/
+	_recreateWindow();
 }
 
 void Window::preUpdate(double dt){
-	glfwPollEvents();
+	SDL_Event e;
+	decltype(_keymap)::const_iterator i;
+	uint8_t mod;
 
-	if (_window && glfwWindowShouldClose(_window)) {
-		_engine.quit();
+	while (SDL_PollEvent(&e)) {
+		switch (e.type) {
 
-		//glfwDestroyWindow(_window);
+		case SDL_QUIT:
+			closeWindow();
+			continue;
 
-		//_createWindow();
+		case SDL_WINDOWEVENT:
+			switch (e.window.event) {
+
+			case SDL_WINDOWEVENT_RESIZED:
+				SYSFUNC_CALL(SystemInterface, windowSize, _engine)(glm::uvec2(e.window.data1, e.window.data2));
+				SYSFUNC_CALL(SystemInterface, framebufferSize, _engine)(glm::uvec2(e.window.data1, e.window.data2));
+				continue;
+
+			case SDL_WINDOWEVENT_ENTER:
+				SYSFUNC_CALL(SystemInterface, cursorEnter, _engine)(true);
+				continue;
+
+			case SDL_WINDOWEVENT_LEAVE:
+				SYSFUNC_CALL(SystemInterface, cursorEnter, _engine)(false);
+				continue;
+			}
+			continue;
+
+		case SDL_KEYDOWN:
+			 i = _keymap.find(e.key.keysym.sym);
+			fromSdl(e.key.keysym.mod, &mod);
+
+			if (i != _keymap.end())
+				SYSFUNC_CALL(SystemInterface, keyInput, _engine)(i->second, Action::Press, mod);
+			else
+				SYSFUNC_CALL(SystemInterface, keyInput, _engine)(Key_Unknown, Action::Press, mod);
+			continue;
+
+		case SDL_KEYUP:
+			i = _keymap.find(e.key.keysym.sym);
+			fromSdl(e.key.keysym.mod, &mod);
+
+			if (i != _keymap.end())
+				SYSFUNC_CALL(SystemInterface, keyInput, _engine)(i->second, Action::Release, mod);
+			else
+				SYSFUNC_CALL(SystemInterface, keyInput, _engine)(Key_Unknown, Action::Release, mod);
+			continue;
+
+		case SDL_MOUSEBUTTONDOWN:
+			fromSdl(SDL_GetModState(), &mod);
+
+			SYSFUNC_CALL(SystemInterface, mousePress, _engine)(e.button.button, Action::Press, mod);
+			continue;
+
+		case SDL_MOUSEBUTTONUP:
+			fromSdl(SDL_GetModState(), &mod);
+
+			SYSFUNC_CALL(SystemInterface, mousePress, _engine)(e.button.button, Action::Release, mod);
+			continue;
+
+		case SDL_MOUSEMOTION:
+			SYSFUNC_CALL(SystemInterface, cursorPosition, _engine)(glm::dvec2(e.motion.xrel, e.motion.yrel));
+			//SYSFUNC_CALL(SystemInterface, cursorPosition, _engine)(glm::dvec2(e.motion.x, e.motion.y));
+			continue;
+		}
 	}
 }
 
@@ -269,120 +288,81 @@ void Window::update(double dt){
 	if (!_window)
 		return;
 
-	//glfwMakeContextCurrent(_window);
-
 	SYSFUNC_CALL(SystemInterface, render, _engine)();
-
-	glfwSwapBuffers(_window);
-
-	//glfwMakeContextCurrent(_context);
+	SDL_GL_SwapWindow(_window);
 }
 
-/*
-void Window::rendered(){
-	if (!_window)
-		return;
+void Window::openWindow(const WindowInfo& windowInfo){
+	_windowInfo = windowInfo;
 
-	glfwSwapBuffers(_window);
-}
-*/
-
-
-void Window::setModes(uint8_t modes, bool value){
-	if (hasFlags(modes, Mode::VerticalSync))
-		glfwSwapInterval(value);
-
-	if (hasFlags(modes, Mode::LockedCursor))
-		glfwSetInputMode(_window, GLFW_CURSOR, (value ? GLFW_CURSOR_DISABLED : GLFW_CURSOR_NORMAL));
-
-	if (hasFlags(modes, Mode::Fullscreen)) {
-		int monitorCount = 0;
-		GLFWmonitor** monitors = glfwGetMonitors(&monitorCount);
-		GLFWmonitor* monitor = monitors[glm::clamp((int)_monitor, 0, monitorCount)];
-
-		if (value) {
-			int width, height;
-			glfwGetWindowSize(_window, &width, &height);
-			_lastSize = { width, height };
-
-			int x, y;
-			glfwGetWindowPos(_window, &x, &y);
-			_lastPosition = { x, y };
-
-			glfwSetWindowMonitor(_window, monitor, 0, 0, _resolution.x, _resolution.y, GLFW_DONT_CARE);
-		}
-		else {
-			const GLFWvidmode* mode = glfwGetVideoMode(monitor);
-
-			int x = glm::mix(0.f, (float)mode->width - _lastSize.x, _lastPosition.x);
-			int y = glm::mix(0.f, (float)mode->height - _lastSize.y, _lastPosition.y);
-
-			glfwSetWindowMonitor(_window, nullptr, x, y, _lastSize.x, _lastSize.y, GLFW_DONT_CARE);
-		}
-	}
+	openWindow();
 }
 
-/*
-void Window::openWindow(const WindowConfig& config){
-	closeWindow();
-
-	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, (int)config.contextVersionMajor);
-	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, (int)config.contextVersionMinor);
-
-	if (hasFlags(config.flags, WindowConfig::CoreContext))
-		glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
-
-	glfwWindowHint(GLFW_OPENGL_DEBUG_CONTEXT, (int)hasFlags(config.flags, WindowConfig::DebugContext));
-	
-	glfwWindowHint(GLFW_RESIZABLE, (int)hasFlags(config.flags, WindowConfig::WindowResizable));
-	glfwWindowHint(GLFW_MAXIMIZED, (int)hasFlags(config.flags, WindowConfig::WindowMaximised));
-	glfwWindowHint(GLFW_DECORATED, (int)hasFlags(config.flags, WindowConfig::WindowDecorated));
-
-	glfwWindowHint(GLFW_SAMPLES, (int)config.superSampling);
-
-	glfwWindowHint(GLFW_CONTEXT_RELEASE_BEHAVIOR, GLFW_RELEASE_BEHAVIOR_NONE);
-
-	_window = glfwCreateWindow((int)config.windowSize.x, (int)config.windowSize.y, config.windowTitle.c_str(), nullptr, _window);
-
-	glfwMakeContextCurrent(_window);
-	gladLoadGLLoader((GLADloadproc)glfwGetProcAddress);
-
-	if (hasFlags(config.flags, WindowConfig::VerticalSync))
-		glfwSwapInterval(1);
-
-	glfwSetWindowUserPointer(_window, &_engine);
-
-	glfwSetMouseButtonCallback(_window, mousePressCallback);
-	glfwSetScrollCallback(_window, scrollWheelCallback);
-	glfwSetDropCallback(_window, fileDropCallback);
-	glfwSetCursorEnterCallback(_window, cursorEnterCallback);
-	glfwSetCursorPosCallback(_window, cursorPositionCallback);
-	glfwSetCharModsCallback(_window, textInputCallback);
-	glfwSetKeyCallback(_window, keyInputCallback);
-	glfwSetWindowPosCallback(_window, windowPositionCallback);
-	glfwSetFramebufferSizeCallback(_window, framebufferSizeCallback);
-	glfwSetWindowSizeCallback(_window, windowSizeCallback);
-	glfwSetWindowCloseCallback(_window, windowCloseCallback);
-
-	SYSFUNC_CALL(SystemInterface, windowSize, _engine)(config.windowSize);
-	SYSFUNC_CALL(SystemInterface, framebufferSize, _engine)(config.windowSize);
-	SYSFUNC_CALL(SystemInterface, windowOpen, _engine)(true);
+void Window::openWindow(){
+	_recreateWindow();
 }
 
 void Window::closeWindow(){
 	if (!_window)
 		return;
 
-	glfwDestroyWindow(_window);
+	SYSFUNC_CALL(SystemInterface, windowOpen, _engine)(false);
+
+	SDL_DestroyWindow(_window);
+	_window = nullptr;
 }
 
-void Window::lockCursor(bool locked){
-	if (!_window)
+void Window::setMode(Mode mode) {
+	if (_windowInfo.mode == mode)
 		return;
 
-	if (locked)
-		glfwSetInputMode(_window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
-	else
-		glfwSetInputMode(_window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+	_windowInfo.mode = mode;
+	_recreateWindow();
 }
-*/
+
+void Window::setSize(glm::uvec2 size) {
+	_windowInfo.size = size;
+
+	if (_window)
+		SDL_SetWindowSize(_window, size.x, size.y);
+}
+
+void Window::setResolution(glm::uvec2 resolution) {
+	if (_windowInfo.resolution == resolution)
+		return;
+
+	_windowInfo.resolution = resolution;
+	_recreateWindow();
+}
+
+void Window::setLockedCursor(bool locked) {
+	if (_windowInfo.lockedCursor == locked)
+		return;
+
+	_windowInfo.lockedCursor = locked;
+
+	if (_window) {
+		SDL_SetRelativeMouseMode((SDL_bool)locked);
+
+		int x, y;
+		SDL_GetWindowSize(_window, &x, &y);
+
+		SDL_WarpMouseInWindow(_window, x / 2, y / 2);
+	}
+}
+
+void Window::setMonitor(uint32_t monitor) {
+	_windowInfo.monitor = monitor;
+	_recreateWindow();
+}
+
+uint32_t Window::getMonitorCount() const {
+	return SDL_GetNumVideoDisplays();
+}
+
+glm::uvec2 Window::getMonitorResolution(uint32_t monitor) const {
+	SDL_Rect display;
+	SDL_GetDisplayBounds(monitor, &display);
+
+	return { display.w, display.h };
+}

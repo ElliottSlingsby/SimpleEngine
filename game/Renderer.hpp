@@ -43,7 +43,7 @@ public:
 		//std::string bonesUnifName = "bones";
 	};
 
-	struct ShapeConfig {
+	struct ShapeInfo {
 		float verticalFov;
 		float zDepth;
 	};
@@ -90,7 +90,7 @@ public:
 
 	void initiate(const std::vector<std::string>& args) override;
 	//void update(double dt) override;
-	//void windowOpen(bool opened) override;
+	void windowOpen(bool opened) override;
 	void framebufferSize(glm::uvec2 size) override;
 
 	void render() override;
@@ -98,7 +98,7 @@ public:
 	void textureLoaded(uint64_t id, const std::string& file, const TextureData* textureData) override;
 	void meshLoaded(uint64_t id, const std::string& file, const MeshData* meshData) override;
 
-	void setShape(const ShapeConfig& config);
+	void reshape(const ShapeInfo& config);
 
 	void loadProgram(const std::string& vertexFile, const std::string& fragmentFile, uint64_t id = 0, bool reload = false);
 

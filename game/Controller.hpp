@@ -31,9 +31,9 @@ public:
 	void update(double dt) override;
 
 	void cursorPosition(glm::dvec2 position) override;
-	void keyInput(uint32_t key, Action action, Modifier mods) override;
+	void keyInput(uint32_t key, Action action, uint8_t mods) override;
 	void cursorEnter(bool enterered) override;
-	void mousePress(uint32_t button, Action action, Modifier mods) override;
+	void mousePress(uint32_t button, Action action, uint8_t mods) override;
 	//void windowOpen(bool opened) override;
 	void scrollWheel(glm::dvec2 offset) override;
 

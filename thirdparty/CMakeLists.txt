@@ -3,14 +3,14 @@ add_custom_target("uninstall")
 set_target_properties("uninstall" PROPERTIES FOLDER "CMakePredefinedTargets")
 
 # GLFW native window handler
-option(GLFW_BUILD_DOCS "" OFF)
-option(GLFW_BUILD_EXAMPLES "" OFF)
-option(GLFW_BUILD_TESTS "" OFF)
-option(GLFW_INSTALL "" OFF)
-
-add_external_tar("glfw-3.2.1" "https://github.com/glfw/glfw/archive/3.2.1.tar.gz" "")
-
-set_target_properties("glfw" PROPERTIES FOLDER "Thirdparty")
+#option(GLFW_BUILD_DOCS "" OFF)
+#option(GLFW_BUILD_EXAMPLES "" OFF)
+#option(GLFW_BUILD_TESTS "" OFF)
+#option(GLFW_INSTALL "" OFF)
+#
+#add_external_tar("glfw-3.2.1" "https://github.com/glfw/glfw/archive/3.2.1.tar.gz" "")
+#
+#set_target_properties("glfw" PROPERTIES FOLDER "Thirdparty")
 
 # GLAD OpenGL wrapper
 add_subdirectory("glad-gl-4.6")
@@ -90,10 +90,14 @@ set_target_properties("zlibstatic" PROPERTIES FOLDER "Thirdparty")
 target_compile_options("assimp" PUBLIC "/wd4996")
 target_compile_options("assimp" PUBLIC "/wd4700")
 
-
-
 # SDL2
 add_external_tar("SDL2-2.0.8" "https://www.libsdl.org/release/SDL2-2.0.8.tar.gz" "")
 
+target_include_directories("SDL2main" PUBLIC
+	"$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/SDL2-2.0.8/include>"
+	"$<BUILD_INTERFACE:${CMAKE_BINARY_DIR}/SDL2-2.0.8/include>"
+)
+
+set_target_properties("SDL2" PROPERTIES FOLDER "Thirdparty")
+set_target_properties("SDL2-static" PROPERTIES FOLDER "Thirdparty")
 set_target_properties("SDL2main" PROPERTIES FOLDER "Thirdparty")
-set_target_properties("SDL2main-static" PROPERTIES FOLDER "Thirdparty")

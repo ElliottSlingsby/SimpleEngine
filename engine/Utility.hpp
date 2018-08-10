@@ -23,9 +23,9 @@ inline uint64_t combine32(uint32_t front, uint32_t back) {
 	return static_cast<uint64_t>(back) + (static_cast<uint64_t>(front) << 32);
 }
 
-inline bool hasFlags(uint8_t target, uint8_t check) {
-	return (target & check) == check;
-}
+//inline bool hasFlags(uint8_t target, uint8_t check) {
+//	return (target & check) == check;
+//}
 
 inline void startTime(TimePoint* point) {
 	*point = Clock::now();
@@ -67,19 +67,4 @@ inline std::string upperPath(std::string filePath) {
 
 	filePath.pop_back();
 	return filePath.substr(0, filePath.find_last_of('/') + 1);
-}
-
-inline bool compareEnd(const char* check, const char* suffix) {
-	size_t checkLen = strlen(check);
-	size_t suffixLen = strlen(suffix);
-
-	if (checkLen < suffixLen)
-		return false;
-
-	for (uint32_t i = 0; i < suffixLen; i++) {
-		if (check[checkLen - i - 1] != suffix[suffixLen - i - 1])
-			return false;
-	}
-
-	return true;
 }

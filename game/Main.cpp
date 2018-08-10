@@ -24,32 +24,23 @@ public:
 
 		{
 			// Window setup
-			//Window::WindowConfig windowConfig;
-			//
-			//windowConfig.windowTitle = "My Window";
-			//windowConfig.windowSize = { 800, 600 };
-			//windowConfig.flags |= Window::WindowConfig::WindowDecorated | Window::WindowConfig::WindowResizable;
-			//
-			//windowConfig.contextVersionMajor = 4;
-			//windowConfig.contextVersionMinor = 6;
-			//windowConfig.flags |= Window::WindowConfig::CoreContext | Window::WindowConfig::DebugContext;
-			//
-			//_engine.system<Window>().openWindow(windowConfig);
+			Window::WindowInfo windowConfig;
+
+			_engine.system<Window>().openWindow(windowConfig);
 
 			// Renderer setup
-			Renderer::ShapeConfig shapeConfig;
+			Renderer::ShapeInfo shapeInfo;
+			shapeInfo.verticalFov = 90;
+			shapeInfo.zDepth = 100000;
 
-			shapeConfig.verticalFov = 90;
-			shapeConfig.zDepth = 100000;
-
-			_engine.system<Renderer>().setShape(shapeConfig);
+			_engine.system<Renderer>().reshape(shapeInfo);
 		}
 
 		// Camera
 		{
 			_camera.create();
 
-			Transform& transform = *_camera.add<Transform>(_engine, _camera);
+			Transform& transform = *_camera.add<Transform>();
 			transform.setPosition({ 0.f, -100.f, 100.f });
 			transform.setRotation({ { glm::radians(90.f), 0.f, 0.f } });
 
@@ -61,9 +52,9 @@ public:
 		{
 			_floor.create();
 			
-			Transform& transform = *_floor.add<Transform>(_engine, _floor);
+			Transform& transform = *_floor.add<Transform>();
 			transform.setScale({ 10000.f, 10000.f, 10000.f });
-			
+
 			_engine.system<AssetLoader>().loadMesh(path + "plane.obj", _floor);
 			_engine.system<AssetLoader>().loadTexture(path + "checker.png", _floor);
 			_engine.system<Renderer>().loadProgram(path + "vertexShader.glsl", path + "fragmentShader.glsl", _floor);
@@ -73,7 +64,7 @@ public:
 		{
 			_skybox.create();
 
-			Transform& transform = *_skybox.add<Transform>(_engine, _skybox);
+			Transform& transform = *_skybox.add<Transform>();
 			transform.setScale({ 1000.f, 1000.f, 1000.f });
 
 			_engine.system<AssetLoader>().loadMesh(path + "skybox.obj", _skybox);
