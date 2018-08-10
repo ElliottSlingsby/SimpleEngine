@@ -89,9 +89,11 @@ public:
 	Renderer(Engine& engine, const ConstructorInfo& constructionInfo = ConstructorInfo());
 
 	void initiate(const std::vector<std::string>& args) override;
-	void update(double dt) override;
+	//void update(double dt) override;
 	//void windowOpen(bool opened) override;
 	void framebufferSize(glm::uvec2 size) override;
+
+	void render() override;
 
 	void textureLoaded(uint64_t id, const std::string& file, const TextureData* textureData) override;
 	void meshLoaded(uint64_t id, const std::string& file, const MeshData* meshData) override;

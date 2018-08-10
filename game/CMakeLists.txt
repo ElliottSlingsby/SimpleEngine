@@ -4,7 +4,7 @@ add_executable("Game" "${src}")
 
 target_link_libraries("Game" "Engine")
 
-target_link_libraries("Game" "glfw")
+target_link_libraries("Game" "GLFW")
 target_link_libraries("Game" "glad")
 target_link_libraries("Game" "glm")
 target_link_libraries("Game" "assimp")

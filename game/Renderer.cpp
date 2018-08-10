@@ -57,6 +57,7 @@ bool Renderer::_compileShader(GLuint type, GLuint* shader, const std::string & f
 Renderer::Renderer(Engine& engine, const ConstructorInfo& constructionInfo) : _engine(engine), _constructionInfo(constructionInfo), _camera(engine){
 	SYSFUNC_ENABLE(SystemInterface, initiate, 0);
 	SYSFUNC_ENABLE(SystemInterface, update, 1);
+	SYSFUNC_ENABLE(SystemInterface, render, 0);
 
 	SYSFUNC_ENABLE(SystemInterface, framebufferSize, 0);
 	SYSFUNC_ENABLE(SystemInterface, textureLoaded, 0);
@@ -76,6 +77,7 @@ void Renderer::initiate(const std::vector<std::string>& args){
 	_reshape();
 }
 
+/*
 void Renderer::update(double dt){
 	if (!_rendering)
 		return;
@@ -149,6 +151,8 @@ void Renderer::update(double dt){
 
 	SYSFUNC_CALL(SystemInterface, rendered, _engine)();
 }
+*/
+
 /*
 void Renderer::windowOpen(bool opened){
 	_rendering = opened;
@@ -173,6 +177,75 @@ void Renderer::framebufferSize(glm::uvec2 size){
 
 	if (_rendering)
 		_reshape();
+}
+
+void Renderer::render(){
+	glClearColor(0.f, 0.f, 0.f, 1.f);
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+	_engine.iterateEntities([&](Engine::Entity& entity) {
+		if (!entity.has<Transform, Model>())
+			return;
+
+		const Transform& transform = *entity.get<Transform>();
+		const Model& model = *entity.get<Model>();
+
+		if (!model.arrayObject || !model.indexBuffer || !model.vertexBuffer || !model.program || !model.textureBuffer || !model.indexCount)
+			return;
+
+		const ShaderProgram& program = _programs[model.program - 1];
+
+		glUseProgram(program.program);
+
+		// projection matrix
+		if (program.projectionUnifLoc != -1)
+			glUniformMatrix4fv(program.projectionUnifLoc, 1, GL_FALSE, &_projectionMatrix[0][0]);
+
+		// view matrix
+		glm::dmat4 viewMatrix = Renderer::viewMatrix();
+
+		if (program.viewUnifLoc != -1)
+			glUniformMatrix4fv(program.viewUnifLoc, 1, GL_FALSE, &((glm::mat4)viewMatrix)[0][0]);
+
+		// model matrix
+		glm::dmat4 modelMatrix;
+
+		if (program.modelViewUnifLoc != -1 || program.viewUnifLoc != -1) {
+			modelMatrix = transform.matrix();
+
+			if (program.viewUnifLoc != -1)
+				glUniformMatrix4fv(program.modelUnifLoc, 1, GL_FALSE, &((glm::mat4)modelMatrix)[0][0]);
+		}
+
+		// model view matrix
+		if (program.modelViewUnifLoc != -1)
+			glUniformMatrix4fv(program.modelViewUnifLoc, 1, GL_FALSE, &((glm::mat4)(viewMatrix * modelMatrix))[0][0]);
+
+		// texture
+		if (program.textureUnifLoc != -1) {
+			glActiveTexture(GL_TEXTURE0);
+			glBindTexture(GL_TEXTURE_2D, model.textureBuffer);
+
+			glUniform1i(program.textureUnifLoc, 0);
+		}
+
+		// mesh
+		glBindVertexArray(model.arrayObject);
+
+		glBindBuffer(GL_ARRAY_BUFFER, model.vertexBuffer);
+		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, model.indexBuffer);
+
+		glDrawElements(GL_TRIANGLES, model.indexCount, GL_UNSIGNED_INT, 0);
+
+		// clean up
+		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+		glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+		glBindVertexArray(0);
+
+		glActiveTexture(GL_TEXTURE0);
+		glBindTexture(GL_TEXTURE_2D, 0);
+	});
 }
 
 void Renderer::textureLoaded(uint64_t id, const std::string& file, const TextureData* textureData){

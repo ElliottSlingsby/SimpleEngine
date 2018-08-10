@@ -113,6 +113,8 @@ public:
 		inline bool has() const;
 
 		inline void set(uint64_t id);
+
+		inline operator uint64_t() const;
 	};
 
 private:
@@ -581,7 +583,7 @@ void SimpleEngine<SystemInterface, maxComponents>::Entity::invalidate() {
 }
 
 template<typename SystemInterface, uint32_t maxComponents>
-inline void SimpleEngine<SystemInterface, maxComponents>::Entity::set(uint64_t id){
+void SimpleEngine<SystemInterface, maxComponents>::Entity::set(uint64_t id){
 	if (_id)
 		invalidate();
 
@@ -590,6 +592,11 @@ inline void SimpleEngine<SystemInterface, maxComponents>::Entity::set(uint64_t i
 	
 	_id = id;
 	_engine.referenceEntity(_id);
+}
+
+template<typename SystemInterface, uint32_t maxComponents>
+SimpleEngine<SystemInterface, maxComponents>::Entity::operator uint64_t() const {
+	return _id;
 }
 
 template <typename SystemInterface, uint32_t maxComponents>

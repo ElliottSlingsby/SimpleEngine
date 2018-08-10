@@ -66,7 +66,7 @@ void Controller::cursorPosition(glm::dvec2 position){
 void Controller::keyInput(uint32_t key, Action action, Modifier mods){
 	if (action == Action::Release && key == Escape) {
 		if (_locked) {
-			_engine.system<Window>().disableModes(Window::LockedCursor);
+			_engine.system<Window>().setModes(Window::LockedCursor, false);
 			_locked = false;
 		}
 		else if (!_locked) {
@@ -119,7 +119,7 @@ void Controller::cursorEnter(bool enterered) {
 
 void Controller::mousePress(uint32_t button, Action action, Modifier mods) {
 	if (action == Action::Release && !_locked && _cursorInside) {
-		_engine.system<Window>().enableModes(Window::LockedCursor);
+		_engine.system<Window>().setModes(Window::LockedCursor, true);
 		_locked = true;
 	}
 }

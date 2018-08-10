@@ -89,3 +89,11 @@ set_target_properties("zlibstatic" PROPERTIES FOLDER "Thirdparty")
 
 target_compile_options("assimp" PUBLIC "/wd4996")
 target_compile_options("assimp" PUBLIC "/wd4700")
+
+
+
+# SDL2
+add_external_tar("SDL2-2.0.8" "https://www.libsdl.org/release/SDL2-2.0.8.tar.gz" "")
+
+set_target_properties("SDL2main" PROPERTIES FOLDER "Thirdparty")
+set_target_properties("SDL2main-static" PROPERTIES FOLDER "Thirdparty")

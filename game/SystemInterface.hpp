@@ -118,12 +118,15 @@ public:
 	};
 
 	virtual void initiate(const std::vector<std::string>& args) {}
+	virtual void preUpdate(double dt) {}
 	virtual void update(double dt) {}
 
 	//virtual void physicsUpdate(double timescale) {}
 	//virtual void collision(uint64_t first, uint64_t second) {}
 
-	virtual void rendered() {}
+	//virtual void rendered() {}
+
+	virtual void render() {}
 
 	virtual void scrollWheel(glm::dvec2 offset) {}
 	virtual void mousePress(uint32_t button, Action action, Modifier mods) {}
