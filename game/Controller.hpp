@@ -34,10 +34,8 @@ public:
 	void keyInput(uint32_t key, Action action, uint8_t mods) override;
 	void cursorEnter(bool enterered) override;
 	void mousePress(uint32_t button, Action action, uint8_t mods) override;
-	//void windowOpen(bool opened) override;
+	void windowOpen(bool opened) override;
 	void scrollWheel(glm::dvec2 offset) override;
 
 	void setPossessed(uint64_t id);
-
-	friend class EventManager;
 };

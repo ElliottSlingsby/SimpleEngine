@@ -40,7 +40,7 @@ option(BUILD_UNIT_TESTS "" OFF)
 
 option(USE_GLUT "" OFF)
 option(USE_GRAPHICAL_BENCHMARK "" OFF)
-option(USE_DOUBLE_PRECISION "" ON)
+#option(USE_DOUBLE_PRECISION "" ON)
 
 add_external_tar("bullet3-2.87" "https://github.com/bulletphysics/bullet3/archive/2.87.tar.gz" "")
 
@@ -71,7 +71,7 @@ set_target_properties("LinearMath" PROPERTIES FOLDER "Thirdparty")
 option(ASSIMP_BUILD_TESTS "" OFF)
 option(ASSIMP_BUILD_SAMPLES "" OFF)
 option(ASSIMP_BUILD_SAMPLES "" OFF)
-option(ASSIMP_DOUBLE_PRECISION "" ON)
+#option(ASSIMP_DOUBLE_PRECISION "" ON)
 
 add_external_tar("assimp-4.1.0" "https://github.com/assimp/assimp/archive/v4.1.0.tar.gz" "")
 

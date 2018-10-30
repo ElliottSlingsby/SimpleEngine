@@ -10,43 +10,41 @@ Controller::Controller(Engine& engine) : _engine(engine), _possessed(engine) {
 	SYSFUNC_ENABLE(SystemInterface, keyInput, 0);
 	SYSFUNC_ENABLE(SystemInterface, cursorEnter, 0);
 	SYSFUNC_ENABLE(SystemInterface, mousePress, 0);
-	//SYSFUNC_ENABLE(SystemInterface, windowOpen, 0);
+	SYSFUNC_ENABLE(SystemInterface, windowOpen, 0);
 	SYSFUNC_ENABLE(SystemInterface, scrollWheel, 0);
 
 	assert(_engine.hasSystem<Window>());
 }
 
 void Controller::update(double dt) {
-	Transform* possessedTransform = nullptr;
+	Transform* transform = nullptr;
 	
 	if (_possessed.valid())
-		possessedTransform = _possessed.get<Transform>();
+		transform = _possessed.get<Transform>();
 
-	if (possessedTransform && _locked) {
-		possessedTransform->worldRotate(glm::quat({ 0.0, 0.0, -_dMousePos.x * dt }));
-		possessedTransform->rotate(glm::quat({ -_dMousePos.y * dt, 0.0, 0.0 }));
+	if (transform && _locked) {
+		transform->globalRotate(glm::quat({ 0.0, 0.0, -_dMousePos.x * dt }));
+		transform->localRotate(glm::quat({ -_dMousePos.y * dt, 0.0, 0.0 }));
 
-		double moveSpeed;
+		float moveSpeed = 100.f * dt;
 
 		if (_boost)
-			moveSpeed = 500.0 * dt;
-		else
-			moveSpeed = 100.0 * dt;
+			moveSpeed = 500.f * dt;
 
-		possessedTransform->translate(glm::vec3(0.f, 0.f, -_flash * 100.f));
+		transform->localTranslate(glm::vec3(0.f, 0.f, -_flash * 100.f));
 
 		if (_forward)
-			possessedTransform->translate(LocalVec3::forward * (float)moveSpeed);
+			transform->localTranslate(Transform::localForward * (float)moveSpeed);
 		if (_back)
-			possessedTransform->translate(LocalVec3::back * (float)moveSpeed);
+			transform->localTranslate(Transform::localBack * (float)moveSpeed);
 		if (_left)
-			possessedTransform->translate(LocalVec3::left * (float)moveSpeed);
+			transform->localTranslate(Transform::localLeft * (float)moveSpeed);
 		if (_right)
-			possessedTransform->translate(LocalVec3::right * (float)moveSpeed);
+			transform->localTranslate(Transform::localRight * (float)moveSpeed);
 		if (_up)
-			possessedTransform->worldTranslate(WorldVec3::up * (float)moveSpeed);
+			transform->globalTranslate(Transform::globalUp * (float)moveSpeed);
 		if (_down)
-			possessedTransform->worldTranslate(WorldVec3::down * (float)moveSpeed);
+			transform->globalTranslate(Transform::globalDown * (float)moveSpeed);
 	}
 
 	_flash = 0;
@@ -128,12 +126,10 @@ void Controller::mousePress(uint32_t button, Action action, uint8_t mods) {
 	}
 }
 
-/*
 void Controller::windowOpen(bool opened){
 	if (!opened)
 		_engine.quit();
 }
-*/
 
 void Controller::scrollWheel(glm::dvec2 offset){
 	_flash += (float)offset.y;

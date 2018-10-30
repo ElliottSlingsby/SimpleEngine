@@ -189,8 +189,8 @@ void Window::_recreateWindow(){
 
 Window::Window(Engine& engine, const ConstructorInfo& constructorInfo) : _engine(engine), _constructorInfo(constructorInfo){
 	SYSFUNC_ENABLE(SystemInterface, initiate, -1);
-	SYSFUNC_ENABLE(SystemInterface, preUpdate, -1);
-	SYSFUNC_ENABLE(SystemInterface, update, 1);
+	SYSFUNC_ENABLE(SystemInterface, update, -1);
+	SYSFUNC_ENABLE(SystemInterface, lateUpdate, 1);
 }
 
 Window::~Window(){
@@ -214,7 +214,7 @@ void Window::initiate(const std::vector<std::string>& args){
 	_recreateWindow();
 }
 
-void Window::preUpdate(double dt){
+void Window::update(double dt){
 	SDL_Event e;
 	decltype(_keymap)::const_iterator i;
 	uint8_t mod;
@@ -284,7 +284,7 @@ void Window::preUpdate(double dt){
 	}
 }
 
-void Window::update(double dt){
+void Window::lateUpdate(double dt){
 	if (!_window)
 		return;
 

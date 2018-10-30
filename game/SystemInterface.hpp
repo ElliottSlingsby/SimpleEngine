@@ -139,39 +139,9 @@ public:
 		Key_Menu
 	};
 
-	struct TextureData {
-		uint32_t channels;
-		glm::uvec2 size;
-		std::vector<glm::tvec4<uint8_t>> colours;
-	};
-
-	struct MeshData {
-		struct Vertex {
-			glm::vec3 position;
-			glm::vec3 normal;
-			glm::vec2 texcoord;
-			glm::vec4 colour;
-			glm::vec3 tangent;
-			glm::vec3 bitangent;
-		};
-
-		std::vector<uint32_t> indexes;
-		std::vector<Vertex> vertices;
-	};
-
-	struct AnimationData {
-
-	};
-
 	virtual void initiate(const std::vector<std::string>& args) {}
-	virtual void preUpdate(double dt) {}
 	virtual void update(double dt) {}
-
-	//virtual void physicsUpdate(double timescale) {}
-	//virtual void collision(uint64_t first, uint64_t second) {}
-
-	//virtual void rendered() {}
-
+	virtual void lateUpdate(double dt) {}
 	virtual void render() {}
 
 	virtual void scrollWheel(glm::dvec2 offset) {}
@@ -185,8 +155,4 @@ public:
 	virtual void framebufferSize(glm::uvec2 size) {}
 	virtual void windowSize(glm::uvec2 size) {}
 	virtual void windowOpen(bool opened) {}
-
-	virtual void textureLoaded(uint64_t id, const std::string& file, const TextureData* textureData) {}
-	virtual void meshLoaded(uint64_t id, const std::string& file, const MeshData* meshData) {}
-	//virtual void animationLoaded(uint64_t id, const std::string& file, const AnimationData* animationData) {}
 };

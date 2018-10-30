@@ -107,6 +107,9 @@ public:
 		inline T* get();
 
 		template <typename T>
+		inline const T* get() const;
+
+		template <typename T>
 		inline void remove();
 
 		template <typename ...Ts>
@@ -178,6 +181,9 @@ public:
 	inline T* getComponent(uint64_t id);
 
 	template <typename T>
+	inline const T* getComponent(uint64_t id) const;
+
+	template <typename T>
 	inline void removeComponent(uint64_t id);
 
 	template <typename ...Ts>
@@ -221,14 +227,14 @@ void SimpleEngine<SystemInterface, maxComponents>::BaseSystem::FunctionSpecializ
 
 template <typename SystemInterface, uint32_t maxComponents>
 template <typename T, typename ...Ts, void(T::*func)(Ts...)>
-uint32_t SimpleEngine<SystemInterface, maxComponents>::BaseSystem::FunctionSpecialization<void(T::*)(Ts...), func>::systemCount(){
+uint32_t SimpleEngine<SystemInterface, maxComponents>::BaseSystem::FunctionSpecialization<void(T::*)(Ts...), func>::systemCount() {
 	assert(_systemIndexes.size() <= UINT32_MAX);
 	return static_cast<uint32_t>(_systemIndexes.size());
 }
 
 template <typename SystemInterface, uint32_t maxComponents>
 template <typename T, typename ...Ts, void(T::*func)(Ts...)>
-uint32_t SimpleEngine<SystemInterface, maxComponents>::BaseSystem::FunctionSpecialization<void(T::*)(Ts...), func>::systemIndex(uint32_t i){
+uint32_t SimpleEngine<SystemInterface, maxComponents>::BaseSystem::FunctionSpecialization<void(T::*)(Ts...), func>::systemIndex(uint32_t i) {
 	assert(i < _systemIndexes.size());
 	return _systemIndexes[i].index;
 }
@@ -457,7 +463,30 @@ T* SimpleEngine<SystemInterface, maxComponents>::getComponent(uint64_t id) {
 	uint32_t version = back64(id);
 
 	if (!_validId(index, version))
-		return false;
+		return nullptr;
+
+	uint32_t type = TypeMask::index<T>();
+
+	if (_componentPools[type] == nullptr)
+		return nullptr;
+
+	//assert(hasFlags(_indexIdentities[index].flags, Identity::Active)); // sanity
+	assert(_indexIdentities[index].flags & Identity::Active); // sanity
+
+	if (!_indexIdentities[index].mask.has<T>())
+		return nullptr;
+
+	return _componentPools[TypeMask::index<T>()]->get<T>(index);
+}
+
+template <typename SystemInterface, uint32_t maxComponents>
+template <typename T>
+const T* SimpleEngine<SystemInterface, maxComponents>::getComponent(uint64_t id) const {
+	uint32_t index = front64(id);
+	uint32_t version = back64(id);
+
+	if (!_validId(index, version))
+		return nullptr;
 
 	uint32_t type = TypeMask::index<T>();
 
@@ -655,6 +684,17 @@ T* SimpleEngine<SystemInterface, maxComponents>::Entity::add(Ts&&... args) {
 template <typename SystemInterface, uint32_t maxComponents>
 template <typename T>
 T* SimpleEngine<SystemInterface, maxComponents>::Entity::get() {
+	assert(_id);
+
+	if (!_id)
+		return nullptr;
+
+	return _engine.getComponent<T>(_id);
+}
+
+template <typename SystemInterface, uint32_t maxComponents>
+template <typename T>
+const T* SimpleEngine<SystemInterface, maxComponents>::Entity::get() const {
 	assert(_id);
 
 	if (!_id)

@@ -2,8 +2,6 @@
 
 #include "SystemInterface.hpp"
 
-#include <vector>
-
 #include <glm\vec3.hpp>
 #include <glm\gtc\quaternion.hpp>
 #include <glm\mat4x4.hpp>
@@ -26,68 +24,34 @@ namespace LocalVec3 {
 	const glm::vec3 back(0, 0, 1);
 }
 
-class Transform{
-	SystemInterface::Engine& _engine;
-	const uint64_t _id;
+struct Transform{
+	static const glm::vec3 localUp;
+	static const glm::vec3 localDown;
+	static const glm::vec3 localLeft;
+	static const glm::vec3 localRight;
+	static const glm::vec3 localForward;
+	static const glm::vec3 localBack;
 
-	glm::vec3 _position;
-	glm::quat _rotation;
-	glm::vec3 _scale = { 1, 1, 1 };
+	static const glm::vec3 globalUp;
+	static const glm::vec3 globalDown;
+	static const glm::vec3 globalLeft;
+	static const glm::vec3 globalRight;
+	static const glm::vec3 globalForward;
+	static const glm::vec3 globalBack;
 
-	uint64_t _parent = 0;
-	std::vector<uint64_t> _children; // maybe uint64_t _children[maxChildren]; ???
+	uint64_t parentId = 0;
 
-	void _setPosition(const glm::vec3& position);
-	void _setRotation(const glm::quat& rotation);
-	void _setScale(const glm::vec3& scale);
+	glm::vec3 position;
+	glm::quat rotation;
+	glm::vec3 scale = { 1, 1, 1 };
 
-	void _makeGlobal();
-	void _makeLocal(Transform* transform);
+	glm::mat4 globalMatrix(const SystemInterface::Engine& engine) const;
 
-public:
-	Transform(SystemInterface::Engine& engine, uint64_t id);
-	~Transform();
+	void localRotate(const glm::quat& rotation);
+	void localTranslate(const glm::vec3& translation);
+	void localScale(const glm::vec3 & scaling);
 
-	uint64_t id() const;
-
-	void setParent(uint64_t other, bool localize = true);
-	void setChild(uint64_t other, bool localize = true);
-
-	void removeParent(bool globalize = true);
-	void removeChild(uint32_t i, bool globalize = true);
-	void removeChildren(bool globalize = true);
-
-	uint64_t root() const;
-
-	uint64_t parent() const;
-	uint64_t child(uint32_t i) const;
-	uint32_t children() const;
-
-	void setPosition(const glm::vec3& position);
-	void setRotation(const glm::quat& rotation);
-	void setScale(const glm::vec3& scale);
-
-	void setWorldPosition(const glm::vec3& position);
-	void setWorldRotation(const glm::quat& rotation);
-	void setWorldScale(const glm::vec3& scale);
-
-	glm::vec3 position() const;
-	glm::quat rotation() const;
-	glm::vec3 scale() const;
-
-	glm::vec3 worldPosition() const;
-	glm::quat worldRotation() const;
-	glm::vec3 worldScale() const;
-
-	glm::mat4 matrix() const;
-
-	void rotate(const glm::quat& rotation);
-	void translate(const glm::vec3& translation);
-	void scale(const glm::vec3& scaling);
-
-	void worldRotate(const glm::quat& rotation);
-	void worldTranslate(const glm::vec3& translation);
-	void worldScale(const glm::vec3& scaling);
-
-	void lookAt(glm::vec3& position, glm::vec3 up = WorldVec3::up);
+	void globalRotate(const glm::quat& rotation);
+	void globalTranslate(const glm::vec3& translation);
+	void globalScale(const glm::vec3 & scaling);
 };

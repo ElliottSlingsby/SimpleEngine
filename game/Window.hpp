@@ -49,9 +49,9 @@ public:
 	Window(Engine& engine, const ConstructorInfo& constructorInfo = ConstructorInfo());
 	~Window();
 
-	void initiate(const std::vector<std::string>& args) override;
-	void preUpdate(double dt) override;
-	void update(double dt) override;
+	void initiate(const std::vector<std::string>& args) final;
+	void update(double dt) final;
+	void lateUpdate(double dt) final;
 
 	void openWindow(const WindowInfo& windowInfo);
 	void openWindow();
