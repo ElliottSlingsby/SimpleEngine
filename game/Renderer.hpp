@@ -90,9 +90,9 @@ private:
 	
 	void _reshape();
 
-	bool _compileShader(GLuint type, GLuint* shader, const std::string & file);
-
 	void _addModel(uint64_t id, uint32_t mesh = 0, uint32_t texture = 0, GLuint program = 0);
+
+	bool _compileShader(GLuint type, GLuint* shader, const std::string & file);
 
 	void _bufferMesh(MeshContext* meshContext, const aiMesh& mesh);
 
