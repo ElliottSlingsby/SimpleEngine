@@ -14,11 +14,32 @@
 #include <string>
 #include <unordered_map>
 
+inline void fromAssimp(const aiVector3D& const from, glm::vec2* to) {
+	to->x = from.x;
+	to->y = from.y;
+}
+
+inline void fromAssimp(const aiVector3D& from, glm::vec3* to) {
+	to->x = from.x;
+	to->y = from.y;
+	to->z = from.z;
+}
+
+inline void fromAssimp(const aiQuaternion& const from, glm::quat* to) {
+	to->w = from.w;
+	to->x = from.x;
+	to->y = from.y;
+	to->z = from.z;
+}
+
+
 struct Model {
 	uint32_t programContextId = 0; // index-1 into array in renderer
 	uint32_t meshContextId = 0; // index-1 into array in renderer
 
 	GLuint textureBufferId = 0; // opengl id
+
+	std::string meshName = "";
 };
 
 class Renderer : public SystemInterface {
@@ -31,7 +52,7 @@ private:
 		GLint projectionUnifLoc = -1;
 		GLint modelViewUnifLoc = -1;
 		GLint textureUnifLoc = -1;
-		GLint bonesUnifLoc = -1;
+		//GLint bonesUnifLoc = -1;
 	};
 
 	struct MeshContext {
@@ -46,18 +67,18 @@ public:
 		uint32_t positionAttrLoc = 0;
 		uint32_t normalAttrLoc = 1;
 		uint32_t texcoordAttrLoc = 2;
-		uint32_t tangentAttrLoc = 3;
-		uint32_t bitangentAttrLoc = 4;
-		uint32_t colourAttrLoc = 5;
-		uint32_t boneWeightsAttrLoc = 6; // un-used
-		uint32_t boneIndexesAttrLoc = 7; // un-used
+		//uint32_t tangentAttrLoc = 3;
+		//uint32_t bitangentAttrLoc = 4;
+		//uint32_t colourAttrLoc = 5;
+		//uint32_t boneWeightsAttrLoc = 6; // un-used
+		//uint32_t boneIndexesAttrLoc = 7; // un-used
 
 		std::string modelUnifName = "model";
 		std::string viewUnifName = "view";
 		std::string projectionUnifName = "projection";
 		std::string modelViewUnifName = "modelView";
 		std::string textureUnifName = "texture";
-		std::string bonesUnifName = "bones"; // un-used
+		//std::string bonesUnifName = "bones"; // un-used
 	};
 
 	struct ShapeInfo {
@@ -81,7 +102,7 @@ private:
 	std::vector<MeshContext> _meshContexts;
 
 	std::unordered_map<std::string, GLuint> _textureFiles;
-	std::unordered_map<std::string, uint32_t> _meshFiles;
+	//std::unordered_map<std::string, uint32_t> _meshFiles;
 	std::unordered_map<std::string, GLuint> _shaderFiles;
 	std::unordered_map<std::string, uint32_t> _programFiles;
 
@@ -90,11 +111,13 @@ private:
 	
 	void _reshape();
 
-	void _addModel(uint64_t id, uint32_t mesh = 0, uint32_t texture = 0, GLuint program = 0);
+	Model* _addModel(uint64_t id, uint32_t mesh = 0, uint32_t texture = 0, GLuint program = 0);
 
 	bool _compileShader(GLuint type, GLuint* shader, const std::string & file);
 
 	void _bufferMesh(MeshContext* meshContext, const aiMesh& mesh);
+
+	void _recusriveBufferMesh(const aiScene& scene, const aiNode& node, uint64_t parent, std::vector<uint32_t>* meshContextIds);
 
 public:
 	Renderer(Engine& engine, const ConstructorInfo& constructionInfo = ConstructorInfo());

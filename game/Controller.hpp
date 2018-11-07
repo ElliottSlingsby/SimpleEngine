@@ -28,14 +28,14 @@ class Controller : public SystemInterface{
 public:
 	Controller(Engine& engine);
 
-	void update(double dt) override;
+	void update(double dt) final;
 
-	void cursorPosition(glm::dvec2 position) override;
-	void keyInput(uint32_t key, Action action, uint8_t mods) override;
-	void cursorEnter(bool enterered) override;
-	void mousePress(uint32_t button, Action action, uint8_t mods) override;
-	void windowOpen(bool opened) override;
-	void scrollWheel(glm::dvec2 offset) override;
+	void cursorPosition(glm::dvec2 position) final;
+	void keyInput(uint32_t key, Action action, uint8_t mods) final;
+	void cursorEnter(bool enterered) final;
+	void mousePress(uint32_t button, Action action, uint8_t mods) final;
+	void windowOpen(bool opened) final;
+	void scrollWheel(glm::dvec2 offset) final;
 
 	void setPossessed(uint64_t id);
 };

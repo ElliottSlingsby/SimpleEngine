@@ -6,25 +6,18 @@
 #include <glm\gtc\quaternion.hpp>
 #include <glm\mat4x4.hpp>
 
-namespace WorldVec3 {
-	const glm::vec3 up(0, 0, 1);
-	const glm::vec3 down(0, 0, -1);
-	const glm::vec3 left(-1, 0, 0);
-	const glm::vec3 right(1, 0, 0);
-	const glm::vec3 forward(0, 1, 0);
-	const glm::vec3 back(0, -1, 0);
-}
+class Transform{
+	SystemInterface::Engine& _engine;
+	const uint64_t _id;
 
-namespace LocalVec3 {
-	const glm::vec3 up(0, 1, 0);
-	const glm::vec3 down(0, -1, 0);
-	const glm::vec3 left(-1, 0, 0);
-	const glm::vec3 right(1, 0, 0);
-	const glm::vec3 forward(0, 0, -1);
-	const glm::vec3 back(0, 0, 1);
-}
+	uint64_t _parent = 0;
 
-struct Transform{
+	uint64_t _firstChild = 0;
+
+	uint64_t _leftSibling = _id;
+	uint64_t _rightSibling = _id;
+
+public:
 	static const glm::vec3 localUp;
 	static const glm::vec3 localDown;
 	static const glm::vec3 localLeft;
@@ -39,13 +32,25 @@ struct Transform{
 	static const glm::vec3 globalForward;
 	static const glm::vec3 globalBack;
 
-	uint64_t parentId = 0;
-
 	glm::vec3 position;
 	glm::quat rotation;
 	glm::vec3 scale = { 1, 1, 1 };
 
-	glm::mat4 globalMatrix(const SystemInterface::Engine& engine) const;
+private:
+	void _getChildren(uint64_t id, uint32_t count, std::vector<uint64_t>* ids) const;
+
+public:
+	Transform(SystemInterface::Engine& engine, uint64_t id);
+	~Transform();
+
+	void addChild(uint64_t id);
+	void removeParent();
+	void removeChildren();
+
+	bool hasChildren() const;
+	void getChildren(std::vector<uint64_t>* ids) const;
+
+	glm::mat4 globalMatrix() const;
 
 	void localRotate(const glm::quat& rotation);
 	void localTranslate(const glm::vec3& translation);

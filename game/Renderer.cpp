@@ -1,8 +1,9 @@
 #include "Renderer.hpp"
 
 #include <glad\glad.h>
+
 #include <glm\gtc\matrix_transform.hpp>
-#include <fstream>
+#include <glm\gtx\matrix_decompose.hpp>
 
 #include <assimp\Importer.hpp>
 #include <assimp\scene.h>
@@ -13,6 +14,7 @@
 #include <stb_truetype.h>
 
 #include "Transform.hpp"
+
 
 inline void errorCallback(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, const GLchar* message, const void* userParam) {
 	std::string errorMessage(message, message + length);
@@ -26,7 +28,7 @@ void Renderer::_reshape(){
 	glViewport(0, 0, _size.x, _size.y);
 }
 
-void Renderer::_addModel(uint64_t id, uint32_t mesh, uint32_t texture, GLuint program) {
+Model* Renderer::_addModel(uint64_t id, uint32_t mesh, uint32_t texture, GLuint program) {
 	Model& model = *_engine.addComponent<Model>(id);
 
 	if (mesh)
@@ -41,6 +43,8 @@ void Renderer::_addModel(uint64_t id, uint32_t mesh, uint32_t texture, GLuint pr
 		model.textureBufferId = texture;
 	else if (!model.textureBufferId && _defaultTexture)
 		model.textureBufferId = _defaultTexture;
+
+	return &model;
 }
 
 bool Renderer::_compileShader(GLuint type, GLuint* shader, const std::string & file){
@@ -83,6 +87,8 @@ bool Renderer::_compileShader(GLuint type, GLuint* shader, const std::string & f
 }
 
 void Renderer::_bufferMesh(MeshContext* meshContext, const aiMesh& mesh){
+	assert(meshContext); // sanity
+
 	// gen buffers if new meshContext
 	if (!meshContext->indexCount) {
 		assert(!meshContext->arrayObject && !meshContext->indexBuffer && !meshContext->vertexBuffer); // sanity
@@ -136,6 +142,59 @@ void Renderer::_bufferMesh(MeshContext* meshContext, const aiMesh& mesh){
 	}
 }
 
+void Renderer::_recusriveBufferMesh(const aiScene& scene, const aiNode& node, uint64_t parent, std::vector<uint32_t>* meshContextIds){
+	assert(meshContextIds); // sanity
+
+	// if root then set id to parent, else create new one
+	uint64_t id;
+
+	if (scene.mRootNode == &node) {
+		meshContextIds->resize(scene.mNumMeshes);
+		std::fill(meshContextIds->begin(), meshContextIds->end(), 0);
+
+		id = parent;
+	}
+	else if (parent) {
+		id = _engine.createEntity();
+
+		Transform& transform = *_engine.addComponent<Transform>(id);
+
+		_engine.addComponent<Transform>(parent)->addChild(id);
+
+		aiVector3D position, scale;
+		aiQuaternion rotation;
+
+		node.mTransformation.Decompose(scale, rotation, position);
+
+		fromAssimp(position, &transform.position);
+		fromAssimp(scale, &transform.scale);
+		fromAssimp(rotation, &transform.rotation);
+	}
+
+	// buffer mesh if existing
+	if (node.mNumMeshes) {
+		uint32_t meshContextId = (*meshContextIds)[node.mMeshes[0]];
+
+		if (!meshContextId) {
+			meshContextId = _meshContexts.size() + 1;
+			_meshContexts.resize(_meshContexts.size() + 1);
+
+			(*meshContextIds)[node.mMeshes[0]] = meshContextId;
+
+			_bufferMesh(&_meshContexts[meshContextId - 1], *scene.mMeshes[node.mMeshes[0]]);
+		}
+
+		if (parent) {
+			Model* model = _addModel(id, meshContextId);
+			model->meshName = node.mName.C_Str();
+		}
+	}
+
+	// recurse
+	for (uint32_t i = 0; i < node.mNumChildren; i++)
+		_recusriveBufferMesh(scene, *node.mChildren[i], id, meshContextIds);
+}
+
 Renderer::Renderer(Engine& engine, const ConstructorInfo& constructionInfo) : _engine(engine), _constructionInfo(constructionInfo), _camera(engine){
 	SYSFUNC_ENABLE(SystemInterface, initiate, 0);
 	SYSFUNC_ENABLE(SystemInterface, update, 1);
@@ -156,13 +215,10 @@ void Renderer::windowOpen(bool opened){
 	if (!opened)
 		return;
 
-	//glEnable(GL_CULL_FACE);
+	glEnable(GL_CULL_FACE);
 	glEnable(GL_DEPTH_TEST);
 	glEnable(GL_MULTISAMPLE);
 	glEnable(GL_DITHER);
-
-	
-	//glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
 
 	_reshape();
 }
@@ -193,6 +249,27 @@ void Renderer::update(double dt){
 
 		// search upwards and copy over texturebufferid and programcontextid
 
+		//uint64_t parent = transform.parentId;
+		//
+		//while (parent || (model.programContextId && model.textureBufferId)) {
+		//	const Model* parentModel = _engine.getComponent<Model>(parent);
+		//
+		//	if (parentModel) {
+		//		if (!model.programContextId && parentModel->programContextId)
+		//			model.programContextId = parentModel->programContextId;
+		//
+		//		if (!model.textureBufferId && parentModel->textureBufferId)
+		//			model.textureBufferId = parentModel->textureBufferId;
+		//	}
+		//
+		//	const Transform* parentTransform = _engine.getComponent<Transform>(parent);
+		//
+		//	if (!parentTransform)
+		//		break;
+		//
+		//	parent = parentTransform->parentId;
+		//}
+
 		if (!model.programContextId || !model.textureBufferId)
 			return;
 
@@ -214,7 +291,7 @@ void Renderer::update(double dt){
 		glm::dmat4 modelMatrix;
 
 		if (program.modelViewUnifLoc != -1 || program.viewUnifLoc != -1) {
-			modelMatrix = transform.globalMatrix(_engine);
+			modelMatrix = transform.globalMatrix();
 
 			if (program.viewUnifLoc != -1)
 				glUniformMatrix4fv(program.modelUnifLoc, 1, GL_FALSE, &((glm::mat4)modelMatrix)[0][0]);
@@ -226,7 +303,6 @@ void Renderer::update(double dt){
 
 		// texture
 		if (program.textureUnifLoc != -1) {
-			glActiveTexture(GL_TEXTURE0);
 			glBindTexture(GL_TEXTURE_2D, model.textureBufferId);
 
 			glUniform1i(program.textureUnifLoc, 0);
@@ -384,54 +460,51 @@ GLuint Renderer::loadTexture(const std::string & textureFile, uint64_t id, bool 
 
 uint32_t Renderer::loadMesh(const std::string& meshFile, uint64_t id, bool reload){
 	// if not reloading, and mesh already loaded, set model to existing or ignore if no id
-	auto iter = _meshFiles.find(meshFile);
-
-	if (!reload && iter != _meshFiles.end()) {
-		uint32_t index = iter->second + 1;
-	
-		if (id)
-			_addModel(id, index);
-	
-		return index;
-	}
+	//auto iter = _meshFiles.find(meshFile);
+	//
+	//if (!reload && iter != _meshFiles.end()) {
+	//	uint32_t index = iter->second + 1;
+	//
+	//	if (id)
+	//		_addModel(id, index);
+	//
+	//	return index;
+	//}
 
 	// mesh not found or reloading, therefore load mesh from file
 	Assimp::Importer importer;
 
-	const aiScene* scene = importer.ReadFile(meshFile,
-		aiProcess_CalcTangentSpace |
-		aiProcess_Triangulate |
-		aiProcess_JoinIdenticalVertices |
-		aiProcess_SortByPType //|
-		//aiProcess_GenUVCoords |
-		//aiProcess_FindInstances
-	);
+	const aiScene* scene = importer.ReadFile(meshFile, aiProcessPreset_TargetRealtime_MaxQuality);
 
 	if (!scene || !scene->mNumMeshes)
 		return 0;
 
-	// upload mesh data to opengl
-	const aiMesh& mesh = *scene->mMeshes[0];
+	std::vector<uint32_t> meshContextIds;
 
-	MeshContext* meshContext;
-	uint32_t meshIndex;
+	_recusriveBufferMesh(*scene, *scene->mRootNode, id, &meshContextIds);
 
-	if (iter == _meshFiles.end()) {
-		meshIndex = _meshContexts.size();
-		_meshContexts.resize(_meshContexts.size() + 1);
-		meshContext = &*_meshContexts.rbegin();
-	}
-	else {
-		meshIndex = iter->second;
-		meshContext = &_meshContexts[iter->second];
-	}
+	return meshContextIds[0];
 
-	_bufferMesh(meshContext, mesh);
-
-	if (id)
-		_addModel(id, meshIndex + 1);
-
-	return meshIndex + 1;
+	// buffer mesh
+	//MeshContext* meshContext;
+	//uint32_t meshIndex;
+	//
+	//if (iter == _meshFiles.end()) {
+	//	meshIndex = _meshContexts.size();
+	//	_meshContexts.resize(_meshContexts.size() + 1);
+	//	meshContext = &*_meshContexts.rbegin();
+	//}
+	//else {
+	//	meshIndex = iter->second;
+	//	meshContext = &_meshContexts[iter->second];
+	//}
+	//
+	//_bufferMesh(meshContext, *scene->mMeshes[0]);
+	//
+	//if (id)
+	//	_addModel(id, meshIndex + 1);
+	//
+	//return meshIndex + 1;
 }
 
 void Renderer::defaultProgram(const std::string& vertexFile, const std::string& fragmentFile){
@@ -446,7 +519,7 @@ glm::mat4 Renderer::viewMatrix() const{
 	glm::mat4 matrix;
 
 	if (_camera.valid() && _camera.has<Transform>())
-		matrix = glm::inverse(_camera.get<Transform>()->globalMatrix(_engine));
+		matrix = glm::inverse(_camera.get<Transform>()->globalMatrix());
 
 	return matrix;
 }

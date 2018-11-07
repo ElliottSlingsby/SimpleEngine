@@ -26,10 +26,10 @@ void Controller::update(double dt) {
 		transform->globalRotate(glm::quat({ 0.0, 0.0, -_dMousePos.x * dt }));
 		transform->localRotate(glm::quat({ -_dMousePos.y * dt, 0.0, 0.0 }));
 
-		float moveSpeed = 100.f * dt;
+		float moveSpeed = 300.f * dt;
 
 		if (_boost)
-			moveSpeed = 500.f * dt;
+			moveSpeed = 1000.f * dt;
 
 		transform->localTranslate(glm::vec3(0.f, 0.f, -_flash * 100.f));
 
